@@ -22,7 +22,24 @@ def run(owner_url: str, graph_url: str | None = None) -> list[str]:
                 c.execute(f.read_text(encoding="utf-8"))
                 c.execute("INSERT INTO schema_migrations (name) VALUES (%s)", (f.name,))
             applied.append(f.name)
+    if graph_url:
+        setup_checkpointer(graph_url)
     return applied
+
+
+def setup_checkpointer(graph_url: str) -> None:
+    """LangGraph checkpoint tables, created by hc_graph inside the graph schema. Idempotent."""
+    from langgraph.checkpoint.postgres import PostgresSaver
+    from psycopg.rows import dict_row
+
+    with psycopg.connect(
+        graph_url,
+        autocommit=True,
+        prepare_threshold=0,
+        row_factory=dict_row,
+        options="-c search_path=graph",
+    ) as conn:
+        PostgresSaver(conn).setup()
 
 
 if __name__ == "__main__":
