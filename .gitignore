@@ -1,0 +1,17 @@
+# archify working files and receipts (the diagram HTML is kept)
+.archify/
+*.finalize.json
+*.finalize-summary.json
+*.browser-check.json
+*.delivery.json
+
+# secrets and local env
+.env
+.env.*
+!.env.example
+
+# python / node
+__pycache__/
+.venv/
+node_modules/
+dist/
