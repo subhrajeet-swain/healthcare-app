@@ -17,12 +17,12 @@ button, input { font: inherit; color: inherit; }
 .band__row, main { width: 100%; max-width: 40rem; margin-inline: auto; }
 
 /* product band */
-.band { background: var(--band); color: var(--band-ink); padding: var(--space-5) var(--space-5) var(--space-4); }
+.band { background: var(--band); color: var(--band-ink); padding: var(--space-5) 0 var(--space-4); }
 .band__name { font: 700 var(--step-2)/1 var(--font-display); letter-spacing: 0.02em; text-transform: uppercase; margin: 0; }
 .band__line { margin: var(--space-2) 0 0; }
 .band .btn--quiet { color: var(--band-ink); border-color: var(--band-ink); }
 .band .btn--quiet:hover { background: rgba(255, 255, 255, 0.12); }
-.band__row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
+.band__row { padding-inline: var(--space-4); display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
 .hi { font-family: "Noto Sans Devanagari", var(--font-text); }
 
 main { flex: 1; padding: var(--space-6) var(--space-4) var(--space-7); }

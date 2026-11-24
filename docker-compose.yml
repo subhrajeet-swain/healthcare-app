@@ -14,5 +14,35 @@ services:
       timeout: 3s
       retries: 20
 
+  api:
+    build: ./backend
+    env_file: .env
+    environment:
+      # inside compose the database host is "db", not localhost:5433
+      DATABASE_URL: postgresql://hc_app:app_dev@db:5432/healthcare
+      OWNER_DATABASE_URL: postgresql://hc_owner:owner_dev@db:5432/healthcare
+      GRAPH_DATABASE_URL: postgresql://hc_graph:graph_dev@db:5432/healthcare
+      ADMIN_DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: node:22-alpine
+    working_dir: /web
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0 --port 5173"
+    environment:
+      API_URL: http://api:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./web:/web
+      - web_node_modules:/web/node_modules
+    depends_on:
+      - api
+
 volumes:
   pgdata:
+  web_node_modules:
