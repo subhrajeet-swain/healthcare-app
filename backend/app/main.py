@@ -1,6 +1,21 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
-app = FastAPI(title="healthcare-app")
+from app import auth, db, errors
+from app.config import settings
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    db.init_pool(settings.database_url)
+    yield
+    db.close_pool()
+
+
+app = FastAPI(title="healthcare-app", lifespan=lifespan)
+errors.install(app)
+app.include_router(auth.router)
 
 
 @app.get("/health")
