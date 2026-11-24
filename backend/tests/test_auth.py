@@ -112,3 +112,12 @@ def test_login_writes_audit_row(client, lab, login, db_urls):
     with db.owner_tx(db_urls["owner"], tid) as c:
         rows = c.execute("SELECT action, entity FROM audit_log").fetchall()
     assert {"action": "login", "entity": "user"} in rows
+
+
+def test_dev_otp_log_reaches_console():
+    """Outside pytest's caplog, the 'app' logger must emit INFO itself (dev OTP)."""
+    import app.main  # noqa: F401  (configures logging on import)
+
+    lg = logging.getLogger("app")
+    assert lg.isEnabledFor(logging.INFO)
+    assert any(isinstance(h, logging.StreamHandler) for h in lg.handlers)
