@@ -1,5 +1,6 @@
 """LangSmith with masking on by default. Nothing is sent unless LANGSMITH_TRACING=true."""
 
+import os
 import re
 from typing import Any
 
@@ -8,6 +9,16 @@ import langsmith
 PII_KEYS = {"phone", "name", "patient_name", "dob", "email", "address"}
 _PHONE = re.compile(r"(\+91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}")
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+
+
+def install_defaults() -> None:
+    """Fail safe: any LangSmith client other than client() hides inputs and outputs entirely.
+
+    LangChain/LangGraph trace through langsmith's default client, which has no mask; without
+    this, LANGSMITH_TRACING=true would send raw inputs abroad.
+    """
+    os.environ.setdefault("LANGSMITH_HIDE_INPUTS", "true")
+    os.environ.setdefault("LANGSMITH_HIDE_OUTPUTS", "true")
 
 
 def mask(data: Any) -> Any:

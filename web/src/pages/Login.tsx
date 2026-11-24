@@ -2,7 +2,7 @@ import { type FormEvent, useState } from "react";
 import { api, messageFor } from "../api";
 import { Band } from "../Band";
 
-type Props = { slug: string; onSignedIn: () => void };
+type Props = { slug: string; onSignedIn: () => Promise<void> };
 
 export function Login({ slug, onSignedIn }: Props) {
   const [phone, setPhone] = useState("");
@@ -33,9 +33,13 @@ export function Login({ slug, onSignedIn }: Props) {
 
   function verify(e: FormEvent) {
     e.preventDefault();
+    if (code.length !== 6) {
+      setError("Enter all 6 digits of the code.");
+      return;
+    }
     run(async () => {
       await api.verify(slug, phone, code);
-      onSignedIn();
+      await onSignedIn();
     });
   }
 
@@ -47,9 +51,11 @@ export function Login({ slug, onSignedIn }: Props) {
       <main>
         <h1>Sign in</h1>
         <p className="lede">
-          Use the mobile number you gave your lab.
+          {step === "phone" ? "Use the mobile number you gave your lab." : "Enter the 6-digit code we sent to your phone."}
           <br />
-          <span className="hi" lang="hi">लैब को दिया मोबाइल नंबर डालें।</span>
+          <span className="hi" lang="hi">
+            {step === "phone" ? "लैब को दिया मोबाइल नंबर डालें।" : "आपके फ़ोन पर भेजा गया 6 अंकों का कोड डालें।"}
+          </span>
         </p>
 
         {error && (
@@ -81,7 +87,7 @@ export function Login({ slug, onSignedIn }: Props) {
                 10 digits. We send a 6-digit code to this number.
               </span>
             </div>
-            <button className="btn btn--block" disabled={busy}>
+            <button className="btn btn--block" disabled={busy} aria-busy={busy}>
               {busy ? "Sending…" : "Send code"}
             </button>
           </form>
@@ -107,7 +113,7 @@ export function Login({ slug, onSignedIn }: Props) {
                 Sent to the number ending {last4}. It works for 5 minutes.
               </span>
             </div>
-            <button className="btn btn--block" disabled={busy || code.length !== 6}>
+            <button className="btn btn--block" disabled={busy} aria-busy={busy}>
               {busy ? "Checking…" : "Verify and continue"}
             </button>
             <button type="button" className="linkbtn" onClick={() => { setStep("phone"); setCode(""); }}>

@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import os
 import re
+import unicodedata
 from uuid import UUID
 
 import psycopg
@@ -12,16 +13,23 @@ from cryptography.fernet import Fernet
 from app import db
 from app.config import settings
 
-_INDIAN_MOBILE = re.compile(r"[6-9]\d{9}")
+_INDIAN_MOBILE = re.compile(r"[6-9][0-9]{9}")
 
 
 def normalise_phone(raw: str) -> str:
     """Indian mobile numbers only, returned as E.164 (+91XXXXXXXXXX)."""
-    digits = re.sub(r"[\s\-()]", "", raw)
-    if digits.startswith("+91"):
-        digits = digits[3:]
-    elif len(digits) == 11 and digits.startswith("0"):
-        digits = digits[1:]
+    # Hindi keyboards type Devanagari digits; fold every Unicode digit to ASCII first.
+    ascii_ = "".join(str(unicodedata.digit(ch)) if ch.isdigit() else ch for ch in raw)
+    digits = re.sub(r"[\s\-()]", "", ascii_)
+    for prefix in ("+91", "0091"):
+        if digits.startswith(prefix):
+            digits = digits[len(prefix) :]
+            break
+    else:
+        if len(digits) == 12 and digits.startswith("91"):
+            digits = digits[2:]
+        elif len(digits) == 11 and digits.startswith("0"):
+            digits = digits[1:]
     if not _INDIAN_MOBILE.fullmatch(digits):
         raise ValueError("invalid_phone")
     return "+91" + digits

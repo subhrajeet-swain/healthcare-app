@@ -45,4 +45,6 @@ def setup_checkpointer(graph_url: str) -> None:
 if __name__ == "__main__":
     from app.config import settings
 
+    if not (settings.owner_database_url and settings.graph_database_url):
+        raise SystemExit("OWNER_DATABASE_URL and GRAPH_DATABASE_URL are required for migrations")
     print(run(settings.owner_database_url, settings.graph_database_url))

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, type Me, api } from "./api";
+import { ApiError, type Me, api, messageFor } from "./api";
 import { Band } from "./Band";
 import { Consent } from "./pages/Consent";
 import { Dashboard } from "./pages/Dashboard";
@@ -27,6 +27,7 @@ function lastSlug(): string | null {
 export default function App() {
   const [path, setPath] = useState(location.pathname);
   const [me, setMe] = useState<Me | null | undefined>(undefined); // undefined = loading
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const onPop = () => setPath(location.pathname);
@@ -35,13 +36,14 @@ export default function App() {
   }, []);
 
   const loadMe = useCallback(async () => {
+    setLoadError(null);
     try {
       const m = await api.me();
       setMe(m);
       go(m.consent.core ? "/" : "/consent");
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) setMe(null);
-      else throw e;
+      else setLoadError(messageFor(e)); // server or network down: say so, never spin forever
     }
   }, []);
 
@@ -65,6 +67,22 @@ export default function App() {
   if (route.name === "login") {
     rememberSlug(route.slug);
     return <Login slug={route.slug} onSignedIn={loadMe} />;
+  }
+  if (loadError) {
+    return (
+      <div className="shell">
+        <Band />
+        <main>
+          <div className="msg msg--error" role="alert">
+            <strong>Problem</strong>
+            {loadError}
+          </div>
+          <button className="btn" onClick={loadMe}>
+            Try again
+          </button>
+        </main>
+      </div>
+    );
   }
   if (me === undefined) {
     return (

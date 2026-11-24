@@ -14,20 +14,33 @@ services:
       timeout: 3s
       retries: 20
 
+  # One-shot: migrations (and dev seed) run with owner credentials, then exit.
+  migrate:
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://hc_app:app_dev@db:5432/healthcare
+      OWNER_DATABASE_URL: postgresql://hc_owner:owner_dev@db:5432/healthcare
+      GRAPH_DATABASE_URL: postgresql://hc_graph:graph_dev@db:5432/healthcare
+    command: sh -c "python -m app.migrate && python -m app.seed"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # The API only ever holds the restricted hc_app role (NOBYPASSRLS, not table owner).
   api:
     build: ./backend
     env_file: .env
     environment:
-      # inside compose the database host is "db", not localhost:5433
       DATABASE_URL: postgresql://hc_app:app_dev@db:5432/healthcare
-      OWNER_DATABASE_URL: postgresql://hc_owner:owner_dev@db:5432/healthcare
-      GRAPH_DATABASE_URL: postgresql://hc_graph:graph_dev@db:5432/healthcare
-      ADMIN_DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres
+      OWNER_DATABASE_URL: ""
+      GRAPH_DATABASE_URL: ""
+      ADMIN_DATABASE_URL: ""
     ports:
       - "8000:8000"
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   web:
     image: node:22-alpine

@@ -24,6 +24,7 @@ COOKIE = "hc_session"
 OTP_TTL = "5 minutes"
 OTP_MAX_ATTEMPTS = 5
 OTP_MAX_REQUESTS = 3  # per phone per 10 minutes
+OTP_MAX_FAILURES_PER_HOUR = 10  # wrong guesses per phone, across all codes
 SESSION_TTL = "7 days"
 
 
@@ -59,6 +60,14 @@ def _sha256(token: str) -> bytes:
     return hashlib.sha256(token.encode()).digest()
 
 
+def _failures_last_hour(c, fp: bytes) -> int:
+    return c.execute(
+        "SELECT coalesce(sum(attempts), 0) AS n FROM otp_codes "
+        "WHERE phone_fp = %s AND created_at > now() - interval '1 hour'",
+        (fp,),
+    ).fetchone()["n"]
+
+
 def _mask(phone: str) -> str:
     return phone[:3] + "******" + phone[-4:]
 
@@ -74,8 +83,12 @@ def request_otp(slug: str, body: OtpRequest) -> dict[str, str]:
             "WHERE phone_fp = %s AND created_at > now() - interval '10 minutes'",
             (fp,),
         ).fetchone()["n"]
-        if recent >= OTP_MAX_REQUESTS:
+        if recent >= OTP_MAX_REQUESTS or _failures_last_hour(c, fp) >= OTP_MAX_FAILURES_PER_HOUR:
             raise ApiError(429, "too_many_requests")
+        # A new code supersedes every earlier one, so a locked code never falls back to an older.
+        c.execute(
+            "UPDATE otp_codes SET used_at = now() WHERE phone_fp = %s AND used_at IS NULL", (fp,)
+        )
         c.execute(
             "INSERT INTO otp_codes (tenant_id, phone_fp, code_hash, expires_at) "
             f"VALUES (%s, %s, %s, now() + interval '{OTP_TTL}')",
@@ -93,6 +106,8 @@ def verify_otp(slug: str, body: VerifyRequest, response: Response) -> dict[str, 
     with db.tenant_tx(TenantCtx(tid)) as c:
         cipher = cipher_for(c, tid)
         fp = cipher.fingerprint(phone)
+        if _failures_last_hour(c, fp) >= OTP_MAX_FAILURES_PER_HOUR:
+            raise ApiError(429, "too_many_requests")
         otp = c.execute(
             "SELECT id, code_hash FROM otp_codes WHERE phone_fp = %s AND used_at IS NULL "
             "AND expires_at > now() AND attempts < %s ORDER BY created_at DESC LIMIT 1 FOR UPDATE",

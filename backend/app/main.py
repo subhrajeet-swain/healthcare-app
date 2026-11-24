@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app import auth, db, errors, privacy
+from app import auth, db, errors, privacy, tracing
 from app.config import settings
 
 # App logs (incl. the dev OTP) go to the console; uvicorn only configures its own loggers.
@@ -13,6 +13,7 @@ if not _log.handlers:
     _h.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
     _log.addHandler(_h)
 _log.setLevel(logging.INFO)
+tracing.install_defaults()
 
 
 @asynccontextmanager
