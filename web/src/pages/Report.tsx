@@ -5,6 +5,7 @@ import { Chat } from "../Chat";
 import { rangePosition } from "../range";
 import { go } from "../routes";
 import { StatusSteps } from "../StatusSteps";
+import { isStalled } from "../steps";
 import { type T, useLang } from "../i18n";
 import { FLAG, NEXT, TRIAGE, fmt, shortDate } from "../words";
 
@@ -44,7 +45,10 @@ function useReport(id: string) {
       source = new EventSource(api.eventsUrl(id), { withCredentials: true });
       source.addEventListener("status", (ev) => {
         const status = (JSON.parse((ev as MessageEvent).data) as { status: Status }).status;
-        setReport((r) => (r ? { ...r, status } : r));
+        // a new step, stamped now, so the stall check sees the pipeline moving
+        setReport((r) =>
+          r && r.status !== status ? { ...r, status, steps: [...r.steps, { status, at: new Date().toISOString() }] } : r,
+        );
         if (TERMINAL.includes(status)) {
           source?.close();
           load(); // results and explanation arrive with the final status
@@ -64,6 +68,17 @@ function useReport(id: string) {
   }, [id, load]);
 
   return { report, error, reload: load };
+}
+
+/** Re-render every 15 s while `on`, so time-based copy (the stall note) appears by itself. */
+function useNow(on: boolean): number {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!on) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, [on]);
+  return now;
 }
 
 function rangeText(r: Result, t: T): string {
@@ -100,6 +115,7 @@ function ResultRow({ r }: { r: Result }) {
 
 export function Report({ id }: Props) {
   const { report, error, reload } = useReport(id);
+  const now = useNow(!!report && !TERMINAL.includes(report.status));
   const { lang, t } = useLang();
 
   const back = (
@@ -172,7 +188,7 @@ export function Report({ id }: Props) {
             </div>
             {report.status !== "failed" && (
               <div className="strip__body strip__body--first">
-                <p className="field__hint">{t("progressLede")}</p>
+                <p className="field__hint">{t(isStalled(report.steps, now) ? "progressSlow" : "progressLede")}</p>
               </div>
             )}
             <StatusSteps report={report} />

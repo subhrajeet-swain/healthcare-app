@@ -105,6 +105,7 @@ export const STRINGS = {
   stepLater: { en: "Later", hi: "बाद में" },
   stepStopped: { en: "Stopped", hi: "रुका" },
   progressLede: { en: "This usually takes under a minute. The page updates by itself.", hi: "इसमें आमतौर पर एक मिनट से कम लगता है। यह पेज अपने-आप अपडेट होता है।" },
+  progressSlow: { en: "Taking longer than usual. Your report is safe and will be read automatically.", hi: "सामान्य से ज़्यादा समय लग रहा है। आपकी रिपोर्ट सुरक्षित है और अपने-आप पढ़ी जाएगी।" },
 
   // chat
   askTitle: { en: "Ask about this report", hi: "इस रिपोर्ट के बारे में पूछें" },

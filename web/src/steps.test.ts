@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stepStates } from "./steps";
+import { isStalled, stepStates } from "./steps";
 import { fmt } from "./words";
 
 describe("fmt", () => {
@@ -33,5 +33,22 @@ describe("stepStates", () => {
       ["in_lab", "now"],
       ["received", "later"],
     ]);
+  });
+});
+
+describe("isStalled", () => {
+  const at = (iso: string) => ({ at: iso });
+  const t0 = Date.parse("2026-11-26T10:00:00Z");
+  it("waits 3 minutes after the last step before saying so", () => {
+    const steps = [at("2026-11-26T09:58:00Z"), at("2026-11-26T09:59:00Z")];
+    expect(isStalled(steps, t0)).toBe(false);
+    expect(isStalled(steps, t0 + 2 * 60_000 + 1)).toBe(true);
+  });
+  it("uses the latest step, whatever the order", () => {
+    expect(isStalled([at("2026-11-26T09:59:30Z"), at("2026-11-26T09:00:00Z")], t0)).toBe(false);
+  });
+  it("says nothing without steps or with a bad date", () => {
+    expect(isStalled([], t0)).toBe(false);
+    expect(isStalled([at("garbage")], t0)).toBe(false);
   });
 });
