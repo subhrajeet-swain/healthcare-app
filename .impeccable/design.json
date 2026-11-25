@@ -376,8 +376,8 @@
         "section": "colors"
       },
       {
-        "name": "The Second-Line Rule",
-        "body": "Hindi sits as its own line or inline span (lang=\"hi\", Noto Sans Devanagari) under or beside the English, at the same size; it is never shrunk into a caption.",
+        "name": "The One-Language Rule",
+        "body": "A screen speaks one language at a time, chosen with the English | हिंदी switch in the band and remembered on the device. Hindi is set at the same size as English, never shrunk into a caption.",
         "section": "typography"
       },
       {

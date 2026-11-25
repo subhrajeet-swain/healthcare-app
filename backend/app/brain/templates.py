@@ -55,6 +55,8 @@ def apply_red_rule(e: Explanation, report: LabReport) -> Explanation:
     """
     critical = [r for r in report.results if r.flag is Flag.CRITICAL]
     ids = {r.test_id for r in critical}
-    kept = [s for s in e.statements if s.source == "system" or not ids & set(s.test_ids)]
+    # Any sentence touching a critical test goes, system-written ones too: on template input
+    # they are the same value sentence and would print twice. The banner is added later.
+    kept = [s for s in e.statements if not ids & set(s.test_ids)]
     templated = [value_sentence(r, e.language.value) for r in critical]
     return Explanation(language=e.language, statements=templated + kept)

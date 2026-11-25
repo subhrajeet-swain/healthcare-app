@@ -1,10 +1,12 @@
 import { type FormEvent, useState } from "react";
 import { api, messageFor } from "../api";
 import { Band } from "../Band";
+import { useLang } from "../i18n";
 
 type Props = { slug: string; onSignedIn: () => Promise<void> };
 
 export function Login({ slug, onSignedIn }: Props) {
+  const { lang, t } = useLang();
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"phone" | "code">("phone");
@@ -17,7 +19,7 @@ export function Login({ slug, onSignedIn }: Props) {
     try {
       await action();
     } catch (e) {
-      setError(messageFor(e));
+      setError(messageFor(e, lang));
     } finally {
       setBusy(false);
     }
@@ -34,7 +36,7 @@ export function Login({ slug, onSignedIn }: Props) {
   function verify(e: FormEvent) {
     e.preventDefault();
     if (code.length !== 6) {
-      setError("Enter all 6 digits of the code.");
+      setError(t("needSixDigits"));
       return;
     }
     run(async () => {
@@ -49,18 +51,12 @@ export function Login({ slug, onSignedIn }: Props) {
     <div className="shell">
       <Band />
       <main>
-        <h1>Sign in</h1>
-        <p className="lede">
-          {step === "phone" ? "Use the mobile number you gave your lab." : "Enter the 6-digit code we sent to your phone."}
-          <br />
-          <span className="hi" lang="hi">
-            {step === "phone" ? "लैब को दिया मोबाइल नंबर डालें।" : "आपके फ़ोन पर भेजा गया 6 अंकों का कोड डालें।"}
-          </span>
-        </p>
+        <h1>{t("signIn")}</h1>
+        <p className="lede">{t(step === "phone" ? "ledePhone" : "ledeCode")}</p>
 
         {error && (
           <div className="msg msg--error" role="alert">
-            <strong>Problem</strong>
+            <strong>{t("problem")}</strong>
             {error}
           </div>
         )}
@@ -68,7 +64,7 @@ export function Login({ slug, onSignedIn }: Props) {
         {step === "phone" ? (
           <form onSubmit={sendCode} noValidate>
             <div className="field">
-              <label htmlFor="phone">Mobile number</label>
+              <label htmlFor="phone">{t("mobileNumber")}</label>
               <div className="phone">
                 <span aria-hidden="true">+91</span>
                 <input
@@ -84,17 +80,17 @@ export function Login({ slug, onSignedIn }: Props) {
                 />
               </div>
               <span id="phone-hint" className="field__hint">
-                10 digits. We send a 6-digit code to this number.
+                {t("phoneHint")}
               </span>
             </div>
             <button className="btn btn--block" disabled={busy} aria-busy={busy}>
-              {busy ? "Sending…" : "Send code"}
+              {busy ? t("sending") : t("sendCode")}
             </button>
           </form>
         ) : (
           <form onSubmit={verify} noValidate>
             <div className="field">
-              <label htmlFor="code">6-digit code</label>
+              <label htmlFor="code">{t("codeLabel")}</label>
               <div className="code">
                 <input
                   id="code"
@@ -110,14 +106,14 @@ export function Login({ slug, onSignedIn }: Props) {
                 />
               </div>
               <span id="code-hint" className="field__hint">
-                Sent to the number ending {last4}. It works for 5 minutes.
+                {t("codeHint", { last4 })}
               </span>
             </div>
             <button className="btn btn--block" disabled={busy} aria-busy={busy}>
-              {busy ? "Checking…" : "Verify and continue"}
+              {busy ? t("checking") : t("verify")}
             </button>
             <button type="button" className="linkbtn" onClick={() => { setStep("phone"); setCode(""); }}>
-              Change number
+              {t("changeNumber")}
             </button>
           </form>
         )}

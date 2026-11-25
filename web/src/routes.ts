@@ -1,6 +1,10 @@
 export type Role = "patient" | "lab_staff" | "doctor" | "lab_admin" | "platform_admin";
 
-export type Route = { name: "login"; slug: string } | { name: "consent" } | { name: "home" };
+export type Route =
+  | { name: "login"; slug: string }
+  | { name: "consent" }
+  | { name: "report"; id: string }
+  | { name: "home" };
 
 const DASHBOARDS: Record<Role, string> = {
   patient: "Your reports",
@@ -18,6 +22,8 @@ export function parseRoute(path: string): Route {
   const login = path.match(/^\/([a-z0-9-]+)\/login\/?$/);
   if (login) return { name: "login", slug: login[1] };
   if (path === "/consent") return { name: "consent" };
+  const report = path.match(/^\/reports\/([A-Za-z0-9-]+)\/?$/);
+  if (report) return { name: "report", id: report[1] };
   return { name: "home" };
 }
 

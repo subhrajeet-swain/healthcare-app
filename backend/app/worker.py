@@ -16,7 +16,6 @@ from uuid import UUID
 
 import psycopg
 from psycopg.rows import dict_row
-from psycopg.types.json import Jsonb
 
 from app import db, files, reports, tracing
 from app.brain.extract import ExtractionFailed
@@ -88,32 +87,7 @@ def _save(tid: UUID, rid: UUID, res: PipelineResult) -> None:
     with _tx(tid) as c:
         if c.execute("SELECT 1 FROM reports WHERE id = %s FOR UPDATE", (rid,)).fetchone() is None:
             raise ReportGone
-        c.execute("DELETE FROM results WHERE report_id = %s", (rid,))
-        c.execute("DELETE FROM explanations WHERE report_id = %s", (rid,))
-        from app.brain.triage import result_triage
-
-        for r in res.report.results:
-            c.execute(
-                "INSERT INTO results (tenant_id, report_id, test_id, test_name, value, unit, "
-                "ref_low, ref_high, printed_flag, flag, triage) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                (tid, rid, r.test_id, r.test_name, r.value, r.unit, r.ref_low, r.ref_high,
-                 r.printed_flag, r.flag.value, result_triage(r.flag)),
-            )
-        for lang, e in res.explanations.items():
-            c.execute(
-                "INSERT INTO explanations (tenant_id, report_id, language, source, statements) "
-                "VALUES (%s, %s, %s, %s, %s)",
-                (tid, rid, lang, res.explanation_source,
-                 Jsonb([s.model_dump(mode="json") for s in e.statements])),
-            )
-        c.execute(
-            "UPDATE reports SET triage = %s, next_step = %s, urgent = %s, collected_on = %s, "
-            "warnings = %s WHERE id = %s",
-            (res.triage, res.next_step.value, res.urgent, res.report.collected_on,
-             Jsonb(res.warnings), rid),
-        )
-        reports.set_status(c, tid, rid, res.final_status)
+        reports.store_result(c, tid, rid, res)
 
 
 def _saver_conn() -> psycopg.Connection:

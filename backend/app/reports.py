@@ -75,6 +75,36 @@ def set_status(
     )
 
 
+def store_result(c, tenant_id: UUID, report_id: UUID, res) -> None:
+    """Write a finished pipeline run (results, explanations, decisions, final status)."""
+    from app.brain.triage import result_triage
+
+    c.execute("DELETE FROM results WHERE report_id = %s", (report_id,))
+    c.execute("DELETE FROM explanations WHERE report_id = %s", (report_id,))
+    for r in res.report.results:
+        c.execute(
+            "INSERT INTO results (tenant_id, report_id, test_id, test_name, value, unit, "
+            "ref_low, ref_high, printed_flag, flag, triage) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            (tenant_id, report_id, r.test_id, r.test_name, r.value, r.unit, r.ref_low,
+             r.ref_high, r.printed_flag, r.flag.value, result_triage(r.flag)),
+        )
+    for lang, e in res.explanations.items():
+        c.execute(
+            "INSERT INTO explanations (tenant_id, report_id, language, source, statements) "
+            "VALUES (%s, %s, %s, %s, %s)",
+            (tenant_id, report_id, lang, res.explanation_source,
+             Jsonb([s.model_dump(mode="json") for s in e.statements])),
+        )
+    c.execute(
+        "UPDATE reports SET triage = %s, next_step = %s, urgent = %s, collected_on = %s, "
+        "warnings = %s WHERE id = %s",
+        (res.triage, res.next_step.value, res.urgent, res.report.collected_on,
+         Jsonb(res.warnings), report_id),
+    )
+    set_status(c, tenant_id, report_id, res.final_status)
+
+
 def enqueue_pipeline(c, tenant_id: UUID, report_id: UUID) -> None:
     c.execute(
         "INSERT INTO jobs (tenant_id, kind, payload) VALUES (%s, 'report.pipeline', %s)",
@@ -127,6 +157,7 @@ def report_detail(c, report: dict) -> dict:
         "urgent": report["urgent"],
         "collected_on": report["collected_on"],
         "failure_message": report["failure_message"],
+        "has_file": report["file_mime"] is not None,
         "created_at": report["created_at"],
         "steps": steps,
         "results": results,
@@ -150,8 +181,11 @@ def upload(file: UploadFile, ctx: Ctx) -> dict:
 def list_reports(ctx: Ctx) -> list[dict]:
     with db.tenant_tx(ctx) as c:
         rows = c.execute(
-            "SELECT id, status, triage, source, created_at, collected_on FROM reports "
-            "WHERE user_id = %s ORDER BY created_at DESC",
+            "SELECT r.id, r.status, r.triage, r.source, r.created_at, r.collected_on, "
+            "(SELECT string_agg(test_name, ', ' ORDER BY test_name) FROM results "
+            " WHERE report_id = r.id) AS tests "
+            "FROM reports r WHERE r.user_id = %s "
+            "ORDER BY coalesce(r.collected_on, r.created_at::date) DESC, r.created_at DESC",
             (ctx.user_id,),
         ).fetchall()
         audit(c, ctx, "list", "report", ctx.user_id)

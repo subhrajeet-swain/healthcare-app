@@ -1,19 +1,83 @@
 import { useEffect, useRef, useState } from "react";
-import { type Me, api, messageFor } from "../api";
+import { type Me, type ReportSummary, api, messageFor } from "../api";
 import { Band } from "../Band";
-import { type Role, dashboardFor } from "../routes";
+import { type Key, useLang } from "../i18n";
+import { type Role, go } from "../routes";
+import { Upload } from "../Upload";
+import { STATUS, TRIAGE, shortDate } from "../words";
 
 type Props = { me: Me; onSignOut: () => void; onDeleted: () => void };
 
-const EMPTY: Record<Role, string> = {
-  patient: "No reports yet. When your lab adds a report, it appears here with a plain-language explanation and your next step.",
-  lab_staff: "Report uploads arrive in a later release. Nothing to do here yet.",
-  doctor: "Nothing to review. Red results and trend alerts will wait here for your sign-off.",
-  lab_admin: "Lab settings arrive in a later release.",
-  platform_admin: "Platform tools arrive in a later release.",
+const HEAD: Record<Role, [Key, Key]> = {
+  patient: ["dashPatient", "emptyPatient"],
+  lab_staff: ["dashStaff", "emptyStaff"],
+  doctor: ["dashDoctor", "emptyDoctor"],
+  lab_admin: ["dashAdmin", "emptyAdmin"],
+  platform_admin: ["dashPlatform", "emptyPlatform"],
 };
 
+function ReportList() {
+  const { lang, t } = useLang();
+  const [reports, setReports] = useState<ReportSummary[] | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    api.reports().then(setReports, () => setFailed(true));
+  }, []);
+
+  if (failed) {
+    return (
+      <div className="msg msg--error" role="alert">
+        <strong>{t("problem")}</strong>
+        {t("reportsFailed")}
+      </div>
+    );
+  }
+  if (reports === null) return <p className="lede">{t("loadingReports")}</p>;
+  return (
+    <section className="strip" aria-labelledby="reports-title">
+      <div className="strip__head">
+        <h2 className="strip__title" id="reports-title">{t("reports")}</h2>
+      </div>
+      {reports.length === 0 ? (
+        <div className="strip__body">
+          <p>{t("emptyPatient")}</p>
+        </div>
+      ) : (
+        <ul className="perf-list">
+          {reports.map((r) => {
+            const finished = r.status === "ready" || r.status === "needs_review";
+            const href = `/reports/${r.id}`;
+            return (
+              <li key={r.id} className="report-row">
+                <a
+                  className="report-row__link"
+                  href={href}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    go(href);
+                  }}
+                >
+                  <span className="report-row__date">
+                    {r.tests && <span className="report-row__what">{r.tests}</span>}
+                    {shortDate(r.collected_on ?? r.created_at, lang)}
+                    {r.source === "lab" && ` · ${t("fromLab")}`}
+                  </span>
+                  <span className={`report-row__state${finished && r.triage ? ` state--${r.triage}` : ""}`}>
+                    {finished && r.triage ? TRIAGE[r.triage][lang] : STATUS[r.status][lang]}
+                  </span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export function Dashboard({ me, onSignOut, onDeleted }: Props) {
+  const { lang, t } = useLang();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,84 +99,78 @@ export function Dashboard({ me, onSignOut, onDeleted }: Props) {
       await api.deleteMe();
       onDeleted();
     } catch (e) {
-      setError(messageFor(e));
+      setError(messageFor(e, lang));
       setBusy(false);
     }
   }
 
-  const greeting = (
-    <>
-      {me.name ? `Namaste, ${me.name}` : "Namaste"}{" "}
-      <span className="nowrap">
-        · <span className="hi" lang="hi">नमस्ते</span>
-      </span>
-    </>
-  );
+  const greeting = me.name ? `${t("greeting")}, ${me.name}` : t("greeting");
 
   return (
     <div className="shell">
       <Band line={greeting}>
         <button className="btn btn--quiet" onClick={onSignOut}>
-          Sign out
+          {t("signOut")}
         </button>
       </Band>
       <main>
-        <h1>{dashboardFor(me.role)}</h1>
+        <h1>{t(HEAD[me.role][0])}</h1>
 
-        <section className="strip" aria-label="Status">
-          <div className="strip__body strip__body--first">
-            <p>{EMPTY[me.role]}</p>
-          </div>
-          {me.role === "patient" && (
-            <p className="next">
-              <span className="next__tag">Next</span>
-              Your lab adds your first report
-            </p>
-          )}
-        </section>
+        {me.role === "patient" ? (
+          <>
+            <Upload />
+            <ReportList />
+          </>
+        ) : (
+          <section className="strip" aria-label="Status">
+            <div className="strip__body strip__body--first">
+              <p>{t(HEAD[me.role][1])}</p>
+            </div>
+          </section>
+        )}
 
         <section className="strip" aria-labelledby="account-title">
           <div className="strip__head">
-            <h2 className="strip__title" id="account-title">Your account</h2>
+            <h2 className="strip__title" id="account-title">{t("yourAccount")}</h2>
           </div>
           <dl className="batch">
             <div>
-              <dt>Phone</dt>
+              <dt>{t("phone")}</dt>
               <dd>{me.phone_masked}</dd>
             </div>
             <div>
-              <dt>Consent</dt>
-              <dd>{me.consent.core ? "Given" : "Not given"}</dd>
+              <dt>{t("consent")}</dt>
+              <dd>{t(me.consent.core ? "given" : "notGiven")}</dd>
             </div>
           </dl>
           <div className="strip__body">
             {error && (
               <div className="msg msg--error" role="alert">
-                <strong>Problem</strong>
+                <strong>{t("problem")}</strong>
                 {error}
               </div>
             )}
             {confirming ? (
               <div role="group" aria-labelledby="delete-q">
                 <p id="delete-q">
-                  <strong>Delete everything?</strong> Your account, consents and sign-in are removed. This cannot be undone.
+                  <strong>{t("deleteQ")}</strong> {t("deleteBody")}
                 </p>
                 <div className="actions">
                   <button className="btn btn--danger" onClick={deleteAll} disabled={busy} aria-busy={busy}>
-                    {busy ? "Deleting…" : "Yes, delete my data"}
+                    {busy ? t("deleting") : t("yesDelete")}
                   </button>
                   <button ref={keepRef} className="btn btn--quiet" onClick={() => setConfirming(false)} disabled={busy}>
-                    Keep my data
+                    {t("keepData")}
                   </button>
                 </div>
               </div>
             ) : (
               <div className="actions">
                 <a className="btn btn--quiet" href={api.exportUrl} download>
-                  Download my data
+                  {t("download")}
                 </a>
                 <button ref={deleteRef} className="btn btn--quiet" onClick={() => setConfirming(true)}>
-                  Delete my data
+                  {t("deleteData")}
                 </button>
               </div>
             )}

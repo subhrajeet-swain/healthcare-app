@@ -174,3 +174,23 @@ def _frame(
         )
 
     return Explanation(language=explanation.language, statements=statements)
+
+
+def template_result(report: LabReport) -> PipelineResult:
+    """A finished run with no model at all: templates, decided in code. Used by seed data."""
+    step, urgent, _ = decide(report)
+    triage = report_triage(report)
+    explanations = {
+        lang: _frame(apply_red_rule(template_explanation(report, lang), report), report, step, urgent)
+        for lang in LANGUAGES
+    }
+    return PipelineResult(
+        report=report,
+        explanations=explanations,
+        explanation_source="template",
+        next_step=step,
+        urgent=urgent,
+        triage=triage,
+        warnings=[],
+        final_status="needs_review" if triage == "red" else "ready",
+    )

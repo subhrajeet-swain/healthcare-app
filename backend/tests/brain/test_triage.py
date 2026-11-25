@@ -109,11 +109,13 @@ def test_red_rule_adds_template_even_when_model_skipped_critical():
     assert [s.test_ids for s in out.statements] == [["cbc.hemoglobin"]]
 
 
-def test_red_rule_keeps_system_lines():
+def test_red_rule_replaces_any_line_about_a_critical_test():
+    # runs before pipeline._frame, so no banner exists yet; a system line about the critical
+    # test is a value sentence and is replaced, never duplicated
     report = _report_of(_result("cbc.hemoglobin", 5.0, ref=(13.0, 17.0), flag=Flag.CRITICAL))
-    banner = Statement(text="urgent", test_ids=["cbc.hemoglobin"], source="system")
-    out = apply_red_rule(Explanation(language="en", statements=[banner]), report)
-    assert banner in out.statements and len(out.statements) == 2
+    line = Statement(text="old", test_ids=["cbc.hemoglobin"], source="system")
+    out = apply_red_rule(Explanation(language="en", statements=[line]), report)
+    assert [s.text for s in out.statements] == [value_sentence(report.results[0], "en").text]
 
 
 @pytest.mark.parametrize("lang", ["en", "hi"])
@@ -127,3 +129,14 @@ def test_template_explanation_covers_every_result(lang):
     assert [s.test_ids for s in e.statements] == [["cbc.hemoglobin"], ["lipid.ldl"]]
     kept, dropped = verify(e, report)
     assert dropped == [] and len(kept.statements) == 2
+
+
+@pytest.mark.parametrize("lang", ["en", "hi"])
+def test_red_rule_on_template_input_has_no_duplicates(lang):
+    report = _report_of(
+        _result("lft.alt", 1050, "U/L", (7, 56), flag=Flag.CRITICAL, name="ALT"),
+        _result("hba1c.hba1c", 5.4, "%", (4.0, 5.6)),
+    )
+    out = apply_red_rule(template_explanation(report, lang), report)
+    texts = [s.text for s in out.statements]
+    assert len(texts) == len(set(texts)) == 2

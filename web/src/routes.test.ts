@@ -23,3 +23,13 @@ describe("parseRoute", () => {
     expect(parseRoute("/nope/x/y")).toEqual({ name: "home" });
   });
 });
+
+describe("report route", () => {
+  it("reads the report id", () => {
+    expect(parseRoute("/reports/0b9f-12")).toEqual({ name: "report", id: "0b9f-12" });
+    expect(parseRoute("/reports/abc/")).toEqual({ name: "report", id: "abc" });
+  });
+  it("rejects ids with odd characters", () => {
+    expect(parseRoute("/reports/../x")).toEqual({ name: "home" });
+  });
+});
