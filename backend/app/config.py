@@ -19,7 +19,6 @@ class Settings(BaseSettings):
     google_api_key_1: str = ""
     google_api_key_2: str = ""
     google_api_key_3: str = ""
-    google_api_key: str = ""  # old single-key name, tried last
     groq_api_key: str = ""
     extract_model: str = "gemini-3.5-flash-lite"
     explain_model: str = "gemini-3.5-flash-lite"

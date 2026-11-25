@@ -47,6 +47,12 @@ describe("isStalled", () => {
   it("uses the latest step, whatever the order", () => {
     expect(isStalled([at("2026-11-26T09:59:30Z"), at("2026-11-26T09:00:00Z")], t0)).toBe(false);
   });
+  it("never calls a lab's own waiting slow (sample collected, in lab: staff move those)", () => {
+    const old = "2026-11-25T10:00:00Z";
+    expect(isStalled([{ status: "sample_collected", at: old }], t0)).toBe(false);
+    expect(isStalled([{ status: "sample_collected", at: old }, { status: "in_lab", at: old }], t0)).toBe(false);
+    expect(isStalled([{ status: "in_lab", at: old }, { status: "received", at: old }], t0)).toBe(true);
+  });
   it("says nothing without steps or with a bad date", () => {
     expect(isStalled([], t0)).toBe(false);
     expect(isStalled([at("garbage")], t0)).toBe(false);

@@ -168,7 +168,12 @@ def run_once(models: dict | None = None) -> bool:
     tid = job["tenant_id"]
     rid = UUID(job["payload"]["report_id"])
     thread = thread_id(tid, rid)
-    with _saver_conn() as sc:
+    try:
+        sc = _saver_conn()
+    except Exception:
+        _release(job["id"])  # infra down before the pipeline began: not this report's fault
+        raise
+    with sc:
         saver = PostgresSaver(sc)
         ended = True
         try:
@@ -195,6 +200,19 @@ def run_once(models: dict | None = None) -> bool:
             if ended:
                 saver.delete_thread(thread)
     return True
+
+
+def _release(job_id: UUID) -> None:
+    """Put a claimed job back untouched: queued, its attempt returned, due after RETRY_STEP."""
+    try:
+        with _tx() as c:
+            c.execute(
+                "UPDATE jobs SET status = 'queued', attempts = attempts - 1, locked_at = NULL, "
+                "run_after = now() + %s WHERE id = %s",
+                (RETRY_STEP, job_id),
+            )
+    except Exception:  # noqa: BLE001 - the DB is down too: the stale sweep reclaims it later
+        log.exception("could not release job %s", job_id)
 
 
 def _try_status(tid: UUID, rid: UUID, status: str, message: str | None) -> None:

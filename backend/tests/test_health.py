@@ -41,15 +41,21 @@ def test_health_counts_every_tenants_queue(client, lab, empty_queue):
     assert 55 <= body["oldest_wait_s"] <= 120
 
 
-def test_health_unhealthy_when_a_job_waits_too_long(client, lab, empty_queue):
+def test_a_backlog_is_not_a_stall(client, lab, empty_queue):
+    # one worker, a lab uploads 10 reports at once: the last waits minutes, nothing is wrong
     _add(lab[1], waited="6 minutes")
+    assert client.get("/health").json()["status"] == "ok"
+
+
+def test_health_unhealthy_when_a_job_waits_too_long(client, lab, empty_queue):
+    _add(lab[1], waited="16 minutes")
     r = client.get("/health")
     assert r.status_code == 503 and r.json()["status"] == "stalled"
 
 
 def test_health_unhealthy_when_a_job_runs_too_long(client, lab, empty_queue):
     # the worker hung mid-job: nothing is queued, yet the report never finishes
-    _add(lab[1], status="running", locked="6 minutes")
+    _add(lab[1], status="running", locked="16 minutes")
     r = client.get("/health")
     assert r.status_code == 503 and r.json()["queued"] == 1
 

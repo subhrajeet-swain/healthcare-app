@@ -32,12 +32,15 @@ app.include_router(staff.router)
 app.include_router(chat_api.router)
 
 
-STALLED_AFTER_S = 5 * 60
+# One serial worker: a bulk upload (10 reports at ~30-90 s) can queue for minutes with
+# nothing wrong. 15 min is past any honest backlog and 3 stale windows of a hung job.
+# ponytail: a worker heartbeat would tell "busy" from "stuck" exactly, add with >1 worker.
+STALLED_AFTER_S = 15 * 60
 
 
 @app.get("/health")
 def health(response: Response) -> dict:
-    """Up, and the queue is moving. A job waiting over 5 min means the worker is stuck."""
+    """Up, and the queue is moving. A job waiting over 15 min means the worker is stuck."""
     with db.pool().connection() as c:
         q = c.execute("SELECT * FROM queue_stats()").fetchone()
     stalled = q["oldest_wait_s"] > STALLED_AFTER_S

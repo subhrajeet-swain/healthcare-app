@@ -204,3 +204,18 @@ def test_extraction_failure_log_carries_no_model_input(client, patient, caplog):
                                     "unit": "fL", "patient_name": "Asha Rao"}]})
     worker.run_once(_models(extract_reply=leak))
     assert "Asha" not in caplog.text
+
+
+def test_checkpoint_db_down_gives_the_attempt_back(client, patient, monkeypatch):
+    # An outage before the pipeline starts is not the report's fault: it must not burn
+    # one of its MAX_ATTEMPTS, or a 15-min graph-DB blip fails every in-flight report.
+    rid = _upload(client)
+
+    def down():
+        raise psycopg.OperationalError("graph db down")
+
+    monkeypatch.setattr(worker, "_saver_conn", down)
+    with pytest.raises(psycopg.OperationalError):
+        worker.run_once(_models())
+    job = _job(rid)
+    assert job["status"] == "queued" and job["attempts"] == 0 and job["locked_at"] is None

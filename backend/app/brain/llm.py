@@ -23,8 +23,7 @@ TIMEOUT_S: dict[Stage, int] = {"extract": 45, "explain": 20, "chat": 20}
 
 
 def _google_keys() -> list[str]:
-    keys = [settings.google_api_key_1, settings.google_api_key_2, settings.google_api_key_3,
-            settings.google_api_key]
+    keys = [settings.google_api_key_1, settings.google_api_key_2, settings.google_api_key_3]
     return [k for k in keys if k]
 
 

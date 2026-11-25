@@ -11,7 +11,7 @@ from tests.brain.fakes import RaisingModel, ScriptedModel
 @pytest.fixture
 def keys(monkeypatch):
     for name, value in [("google_api_key_1", "k1"), ("google_api_key_2", "k2"),
-                        ("google_api_key_3", "k3"), ("google_api_key", ""),
+                        ("google_api_key_3", "k3"),
                         ("groq_api_key", "g")]:
         monkeypatch.setattr(settings, name, value)
 
@@ -31,11 +31,9 @@ def test_extract_never_falls_back_to_groq(keys):
     assert [_key(m) for m in llm.models("extract")] == ["k1", "k2", "k3"]
 
 
-def test_blank_keys_are_skipped_and_the_old_single_key_still_works(keys, monkeypatch):
+def test_blank_keys_are_skipped(keys, monkeypatch):
     monkeypatch.setattr(settings, "google_api_key_2", "")
-    monkeypatch.setattr(settings, "google_api_key_3", "")
-    monkeypatch.setattr(settings, "google_api_key", "legacy")
-    assert [_key(m) for m in llm.models("extract")] == ["k1", "legacy"]
+    assert [_key(m) for m in llm.models("extract")] == ["k1", "k3"]
 
 
 def test_no_retries_and_a_job_always_fits_inside_its_claim(keys):
@@ -60,7 +58,7 @@ def test_every_model_down_raises():
 
 
 def test_no_keys_is_a_clear_error(monkeypatch):
-    for name in ("google_api_key_1", "google_api_key_2", "google_api_key_3", "google_api_key"):
+    for name in ("google_api_key_1", "google_api_key_2", "google_api_key_3"):
         monkeypatch.setattr(settings, name, "")
     with pytest.raises(RuntimeError, match="GOOGLE_API_KEY"):
         llm.models("extract")

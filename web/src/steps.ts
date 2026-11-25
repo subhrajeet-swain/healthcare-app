@@ -18,10 +18,16 @@ export function stepStates(status: Status, source: ReportDetail["source"]): [Sta
 
 export const STALL_MS = 3 * 60_000;
 
-/** Nothing has moved for 3 minutes: time to tell the patient, gently.
+/** Nothing has moved for 3 minutes: time to tell the patient, gently. Only the automatic
+ * pipeline can stall; a lab's own steps (sample collected, in lab) wait on staff, for days.
  * ponytail: compares server step times with the phone clock; a skewed clock only shifts
  * when the note appears. Send a server-side flag if that ever matters. */
-export function isStalled(steps: { at: string }[], now: number): boolean {
-  const last = Math.max(...steps.map((s) => Date.parse(s.at)));
-  return Number.isFinite(last) && now - last > STALL_MS;
+export function isStalled(steps: { status?: string; at: string }[], now: number): boolean {
+  let last: { status?: string; t: number } | undefined;
+  for (const s of steps) {
+    const t = Date.parse(s.at);
+    if (Number.isFinite(t) && (!last || t >= last.t)) last = { status: s.status, t };
+  }
+  if (!last || last.status === "sample_collected" || last.status === "in_lab") return false;
+  return now - last.t > STALL_MS;
 }
