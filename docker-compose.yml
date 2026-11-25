@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: postgres
     ports:
@@ -30,20 +31,44 @@ services:
   # The API only ever holds the restricted hc_app role (NOBYPASSRLS, not table owner).
   api:
     build: ./backend
+    restart: unless-stopped
     env_file: .env
     environment:
       DATABASE_URL: postgresql://hc_app:app_dev@db:5432/healthcare
       OWNER_DATABASE_URL: ""
       GRAPH_DATABASE_URL: ""
       ADMIN_DATABASE_URL: ""
+      STORAGE_DIR: /files
+    volumes:
+      - files:/files
     ports:
       - "8000:8000"
     depends_on:
       migrate:
         condition: service_completed_successfully
 
+  # Runs the report pipeline. Restricted roles only: hc_worker for data, hc_graph for checkpoints.
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    command: python -m app.worker
+    environment:
+      DATABASE_URL: postgresql://hc_worker:worker_dev@db:5432/healthcare
+      WORKER_DATABASE_URL: postgresql://hc_worker:worker_dev@db:5432/healthcare
+      GRAPH_DATABASE_URL: postgresql://hc_graph:graph_dev@db:5432/healthcare
+      OWNER_DATABASE_URL: ""
+      ADMIN_DATABASE_URL: ""
+      STORAGE_DIR: /files
+    volumes:
+      - files:/files
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
   web:
     image: node:22-alpine
+    restart: unless-stopped
     working_dir: /web
     command: sh -c "npm ci && npm run dev -- --host 0.0.0.0 --port 5173"
     environment:
@@ -57,5 +82,6 @@ services:
       - api
 
 volumes:
+  files:
   pgdata:
   web_node_modules:

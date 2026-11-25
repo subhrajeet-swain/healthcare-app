@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -61,7 +63,7 @@ def test_every_api_route_rejects_cross_tenant_cookie(seeded, client, login):
     for path, ops in app.openapi()["paths"].items():
         if not path.startswith("/api/") or path.startswith("/api/auth/{slug}"):
             continue
-        url = path.replace("{purpose}", "core")
+        url = path.replace("{purpose}", "core").replace("{report_id}", str(uuid.uuid4()))
         for method in (m.upper() for m in ops):
             with TestClient(app) as c:
                 c.cookies.set("hc_session", forged)
@@ -80,3 +82,35 @@ def test_tenant_ctx_for_alpha_never_lists_beta_rows(seeded, db_urls):
         db.close_pool()
     assert seeded["lab-beta:shared"] not in ids
     assert seeded["lab-alpha:shared"] in ids
+
+
+def _beta_report_ids(seeded):
+    with db.owner_tx(settings.owner_database_url, seeded["lab-beta"]) as c:
+        return [r["id"] for r in c.execute("SELECT id FROM reports ORDER BY created_at")]
+
+
+@pytest.mark.parametrize("phone", [SHARED, "+919100000103"])  # alpha patient, alpha staff
+def test_alpha_session_gets_404_on_every_beta_report(seeded, phone, login):
+    from tests.conftest import pdf_bytes
+
+    beta_ids = _beta_report_ids(seeded)
+    assert beta_ids, "seed must give beta reports"
+    checked = 0
+    with TestClient(app) as c:
+        assert login("lab-alpha", phone, c=c).status_code == 200
+        c.post("/api/consents", json={"purpose": "core", "version": "v1"})
+        for path, ops in app.openapi()["paths"].items():
+            if "{report_id}" not in path:
+                continue
+            for rid in beta_ids:
+                url = path.replace("{report_id}", str(rid))
+                for method in (m.upper() for m in ops):
+                    kw = {"json": {"question": "what is my hemoglobin", "language": "en",
+                                   "status": "in_lab"}}
+                    if path.endswith("/file") and method == "POST":
+                        kw = {"files": {"file": ("r.pdf", pdf_bytes(), "application/pdf")}}
+                    r = c.request(method, url, **kw)
+                    assert r.status_code == 404, (phone, method, url, r.status_code)
+                    assert "CANARY-BETA" not in r.text and "12.7" not in r.text
+                    checked += 1
+    assert checked >= 2 * 7

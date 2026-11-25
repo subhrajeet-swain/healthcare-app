@@ -18,3 +18,4 @@ dist/
 
 # superpowers execution workspace
 .superpowers/
+/data/

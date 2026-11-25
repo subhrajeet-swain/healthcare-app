@@ -7,9 +7,10 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from app import db
+from app import db, files
 from app.audit import audit
 from app.auth import COOKIE, Ctx
+from app.brain import factsheet
 from app.crypto import cipher_for
 
 router = APIRouter(prefix="/api")
@@ -55,6 +56,13 @@ def grant_consent(body: ConsentIn, ctx: Ctx) -> dict[str, str]:
                 "VALUES (%s, %s, %s, %s)",
                 (ctx.tenant_id, ctx.user_id, body.purpose, body.version),
             )
+        # lab uploads that waited for this consent go to the pipeline now
+        c.execute(
+            "UPDATE jobs SET status = 'queued', run_after = now() "
+            "WHERE status = 'waiting_consent' AND payload->>'report_id' IN "
+            "(SELECT id::text FROM reports WHERE user_id = %s)",
+            (ctx.user_id,),
+        )
         audit(c, ctx, "consent_grant", "consent", body.purpose)
     return {"status": "granted"}
 
@@ -80,6 +88,17 @@ def export(ctx: Ctx) -> JSONResponse:
             "WHERE user_id = %s ORDER BY granted_at",
             (ctx.user_id,),
         ).fetchall()
+        reports = c.execute(
+            "SELECT id, status, source, triage, next_step, collected_on, created_at "
+            "FROM reports WHERE user_id = %s ORDER BY created_at",
+            (ctx.user_id,),
+        ).fetchall()
+        for r in reports:
+            r["results"] = c.execute(
+                "SELECT test_id, test_name, value, unit, ref_low, ref_high, flag, triage "
+                "FROM results WHERE report_id = %s ORDER BY test_id",
+                (r["id"],),
+            ).fetchall()
         audit(c, ctx, "export", "user", ctx.user_id)
     data = {
         "user": {
@@ -90,6 +109,7 @@ def export(ctx: Ctx) -> JSONResponse:
             "created_at": u["created_at"],
         },
         "consents": consents,
+        "reports": reports,
     }
     return JSONResponse(
         jsonable_encoder(data),
@@ -102,8 +122,15 @@ def delete_me(ctx: Ctx, response: Response) -> None:
     # ponytail: row delete only; per-user key shredding (backups) comes with real users
     with db.tenant_tx(ctx) as c:
         audit(c, ctx, "delete", "user", ctx.user_id)
+        report_ids = [
+            r["id"] for r in c.execute("SELECT id FROM reports WHERE user_id = %s", (ctx.user_id,))
+        ]
         u = c.execute(
             "DELETE FROM users WHERE id = %s RETURNING phone_fp", (ctx.user_id,)
         ).fetchone()
         c.execute("DELETE FROM otp_codes WHERE phone_fp = %s", (u["phone_fp"],))
+    # after commit: a failed delete must not leave rows pointing at missing files
+    for rid in report_ids:
+        files.remove(ctx.tenant_id, rid)
+        factsheet.evict(ctx.tenant_id, rid)
     response.delete_cookie(COOKIE)

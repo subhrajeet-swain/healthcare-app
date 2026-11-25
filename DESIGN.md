@@ -122,7 +122,7 @@ components:
 
 A lab report should read like the blister strip of medicine an Indian patient already keeps in a kitchen drawer: printed foil, square cuts, dashed perforations between pockets, and a printed batch panel with the facts. The system is quiet foil grey with ink type, one saturated magenta product band at the top of every screen, and condensed uppercase headings that read like pharmacy print. It refuses the rounded-card-with-status-chip health app.
 
-Density is calm and mobile-first (a single 40rem column, designed at 390px). Body text is set large (17px) for older readers and family caregivers, every target is at least 48px, and Hindi (Devanagari) runs alongside English as a first-class second line rather than a translation afterthought. Depth comes from the hairline-and-perforation system, never from shadow or rounding.
+Density is calm and mobile-first (a single 40rem column, designed at 390px). Body text is set large (17px) for older readers and family caregivers, every target is at least 48px, and the whole interface runs in one chosen language, English or Hindi (Devanagari), picked once from the band and remembered on the device; Hindi is a first-class language, not a translation afterthought. Depth comes from the hairline-and-perforation system, never from shadow or rounding.
 
 **Key Characteristics:**
 - Foil grey ground, raised foil strips, ink type; magenta only on the product band and selection.
@@ -149,7 +149,7 @@ A cool, near-neutral foil palette with one magenta brand voice and a reserved th
 - **Raised Foil** (foil-raised): strip and info-message surfaces.
 - **Ink** (ink): all text, the primary button, field borders, focus outlines, and the Next tag.
 - **Ink Hover** (ink-hover): primary button hover.
-- **Soft Ink** (ink-soft): ledes, hints, batch-panel labels, the Hindi second line in lists. 6.2:1 on foil.
+- **Soft Ink** (ink-soft): ledes, hints, batch-panel labels. 6.2:1 on foil.
 - **Hairline** (hairline): the one solid border: strip outlines, batch-panel cell dividers, phone-prefix divider.
 - **Perforation** (perforation): dashed 1px dividers between sections inside a strip.
 - **Paper White** (band-ink): text on the band, on ink and on red; the input field fill.
@@ -175,7 +175,7 @@ A cool, near-neutral foil palette with one magenta brand voice and a reserved th
 - **Meta** (600, 0.875rem, uppercase, 0.06em, text face): batch-panel labels such as Phone, Consent, Purpose, Version.
 
 ### Named Rules
-**The Second-Line Rule.** Hindi sits as its own line or inline span (lang="hi", Noto Sans Devanagari) under or beside the English, at the same size; it is never shrunk into a caption.
+**The One-Language Rule.** A screen speaks one language at a time: the one chosen with the English | हिंदी switch in the band (stored on the device, sets `<html lang>`). Hindi is set at the same size as English and never shrunk into a caption. Devanagari headings drop the uppercase display face and use Noto Sans Devanagari. Test names stay in English as the lab prints them ("आपका Hemoglobin 11.3 g/dL है"), in Hindi too: they match the paper report and the doctor's words, and a transliteration would be a second name for the same test. Numbers use Indian digit grouping (2,45,000) in both languages.
 
 **The 17px Floor Rule.** Reading text never drops below 1.0625rem; only batch labels and meta reach 0.875rem.
 
@@ -212,7 +212,7 @@ Heavy, printed, unmistakable.
 - **Border:** 1px hairline outline; sections inside divided by 1px dashed perforation.
 - **Internal Padding:** 16px; head row 12px by 16px with the title on the baseline.
 - **Batch panel:** a definition-list footer row of cells divided by hairlines, uppercase meta labels over plain values; the strip's "facts" panel.
-- **Perforated list:** list items separated by dashed perforations, Hindi as a soft-ink second line.
+- **Perforated list:** list items separated by dashed perforations.
 - **Next-step line:** a hairline-topped row at the strip foot: an ink "Next" tag followed by the one action the patient should expect.
 
 ### Inputs / Fields
@@ -225,14 +225,17 @@ Heavy, printed, unmistakable.
 - **Info:** raised foil with a hairline border.
 
 ### Navigation (the Band)
-The magenta band heads every screen: PRIME HEALTHCARE in the headline style, an optional greeting line (English with Hindi, e.g. "Namaste · नमस्ते"), and at most one quiet button (Sign out) at the right. The bottom tab nav and the per-result cell strip from the direction sketch are not built yet; document them when they ship.
+The magenta band heads every screen: PRIME HEALTHCARE in the headline style, a greeting line in the chosen language with the English | हिंदी switch to its right (a bordered two-cell toggle, white on magenta, the chosen cell filled white), and at most one quiet button at the right of the name: for staff, Sign out on the dashboard and All reports on a report; patients have none, since their tab bar is the way around and Sign out lives in Profile. The per-result cell strip from the direction sketch is not built yet; document it when it ships.
+
+### Navigation (the Tab Bar)
+Patients get an ink tab bar at the foot of every screen: Reports, Chat, Profile, three equal cells in the condensed label style (uppercase, 0.06em tracking), at least 56px tall, sticky to the viewport bottom inside the page flow and padded for the device safe area. Inactive labels are soft white on ink; the current page has a white label underlined 3px (the state cue that holds full contrast in both scripts), a slightly lifted ink cell, aria-current="page", and a short magenta tick (40px by 4px) centred on its top edge: the one place magenta appears outside the band, by the brief's choice, as brand rather than the only state signal. Hindi labels drop the condensed caps and tracking like every Devanagari display element. The page reserves scroll padding for the bar so keyboard focus is never hidden under it; moving between tabs starts the new page at the top and puts focus on its heading. Chat opens the chat for the first report in the list that chat accepts (ready or in review). Profile holds the account strip (phone, consent, download, delete). Family joins in phase 2; there is no placeholder tab. Staff, doctors and admins have no tab bar.
 
 ## Do's and Don'ts
 
 ### Do:
 - **Do** put every grouped piece of content in a strip and divide its sections with dashed perforations, not with gaps or new boxes.
 - **Do** pair each state colour with a printed word.
-- **Do** give Hindi its own line or span with lang="hi" at full body size.
+- **Do** show one language per screen, from the band switch, with Hindi at full body size.
 - **Do** keep every interactive target at least 48px tall.
 - **Do** use ink for actions and reserve magenta for the band.
 - **Do** keep numerals tabular.

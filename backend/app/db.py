@@ -17,7 +17,8 @@ def init_pool(url: str, max_size: int = 10) -> None:
     global _pool
     close_pool()
     _pool = ConnectionPool(
-        url, min_size=1, max_size=max_size, kwargs={"row_factory": dict_row}, open=True
+        url, min_size=1, max_size=max_size, kwargs={"row_factory": dict_row}, open=True,
+        check=ConnectionPool.check_connection,  # a DB restart leaves dead conns in the pool
     )
 
 
