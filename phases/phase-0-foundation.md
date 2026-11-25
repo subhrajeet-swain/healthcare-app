@@ -1,6 +1,6 @@
 # Phase 0: Foundation
 
-Status: not started. Depends on: nothing. See [PLAN.md](../PLAN.md) for the shared rules.
+Status: done (2026-11-25). Depends on: nothing. See [PLAN.md](../PLAN.md) for the shared rules.
 
 ## 1. Plan
 
@@ -31,13 +31,13 @@ Status: not started. Depends on: nothing. See [PLAN.md](../PLAN.md) for the shar
 - "Not found" and "not allowed" return the same response.
 
 **Done when**
-- [ ] `docker compose up` starts the API, the web app and Postgres, and you can log in with the dev OTP.
-- [ ] A canary test: tenant A, calling every endpoint with tenant B's ids, always gets "not found".
-- [ ] A query without `app.tenant_id` fails.
-- [ ] Every patient-data read appears in `audit_log`.
-- [ ] Export, then delete: the user's rows are gone and their encrypted fields can no longer be read.
-- [ ] CI is green.
-- [ ] `security-review` is clean.
+- [x] `docker compose up` starts the API, the web app and Postgres, and you can log in with the dev OTP.
+- [x] A canary test: tenant A, calling every endpoint with tenant B's ids, always gets "not found".
+- [x] A query without `app.tenant_id` fails.
+- [x] Every patient-data read appears in `audit_log`.
+- [x] Export, then delete: the user's rows are gone and their encrypted fields can no longer be read.
+- [x] CI is green.
+- [x] `security-review` is clean.
 
 **Risks**
 - Row-level security plus a connection pool: `SET` leaks between requests. Use `SET LOCAL` only, inside a transaction.

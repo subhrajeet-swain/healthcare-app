@@ -1,0 +1,2 @@
+{"input": "hello", "expected": "hello"}
+{"input": "HbA1c 6.5", "expected": "HbA1c 6.5"}

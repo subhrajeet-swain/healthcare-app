@@ -1,0 +1,410 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-24T21:13:28+00:00",
+  "title": "Design System: Prime Healthcare",
+  "extensions": {
+    "colorMeta": {
+      "band-magenta": {
+        "role": "primary",
+        "displayName": "Strip Magenta",
+        "tonalRamp": [
+          "oklch(15% 0.063 350)",
+          "oklch(25% 0.095 350)",
+          "oklch(35% 0.127 350)",
+          "oklch(45% 0.158 350)",
+          "oklch(58% 0.18 350)",
+          "oklch(70% 0.143 350)",
+          "oklch(82% 0.105 350)",
+          "oklch(95% 0.063 350)"
+        ]
+      },
+      "band-ink": {
+        "role": "neutral",
+        "displayName": "Paper White",
+        "tonalRamp": [
+          "oklch(15% 0.0 0)",
+          "oklch(25% 0.0 0)",
+          "oklch(35% 0.0 0)",
+          "oklch(45% 0.0 0)",
+          "oklch(58% 0.0 0)",
+          "oklch(70% 0.0 0)",
+          "oklch(82% 0.0 0)",
+          "oklch(95% 0.0 0)"
+        ]
+      },
+      "foil": {
+        "role": "neutral",
+        "displayName": "Foil",
+        "tonalRamp": [
+          "oklch(15% 0.003 255)",
+          "oklch(25% 0.004 255)",
+          "oklch(35% 0.005 255)",
+          "oklch(45% 0.007 255)",
+          "oklch(58% 0.008 255)",
+          "oklch(70% 0.006 255)",
+          "oklch(82% 0.004 255)",
+          "oklch(95% 0.003 255)"
+        ]
+      },
+      "foil-raised": {
+        "role": "neutral",
+        "displayName": "Raised Foil",
+        "tonalRamp": [
+          "oklch(15% 0.001 255)",
+          "oklch(25% 0.002 255)",
+          "oklch(35% 0.003 255)",
+          "oklch(45% 0.003 255)",
+          "oklch(58% 0.004 255)",
+          "oklch(70% 0.003 255)",
+          "oklch(82% 0.002 255)",
+          "oklch(95% 0.001 255)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "tonalRamp": [
+          "oklch(15% 0.007 260)",
+          "oklch(25% 0.01 260)",
+          "oklch(35% 0.013 260)",
+          "oklch(45% 0.017 260)",
+          "oklch(58% 0.019 260)",
+          "oklch(70% 0.015 260)",
+          "oklch(82% 0.011 260)",
+          "oklch(95% 0.007 260)"
+        ]
+      },
+      "ink-hover": {
+        "role": "neutral",
+        "displayName": "Ink Hover",
+        "tonalRamp": [
+          "oklch(15% 0.007 260)",
+          "oklch(25% 0.01 260)",
+          "oklch(35% 0.013 260)",
+          "oklch(45% 0.017 260)",
+          "oklch(58% 0.019 260)",
+          "oklch(70% 0.015 260)",
+          "oklch(82% 0.011 260)",
+          "oklch(95% 0.007 260)"
+        ]
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Soft Ink",
+        "tonalRamp": [
+          "oklch(15% 0.007 260)",
+          "oklch(25% 0.01 260)",
+          "oklch(35% 0.013 260)",
+          "oklch(45% 0.017 260)",
+          "oklch(58% 0.019 260)",
+          "oklch(70% 0.015 260)",
+          "oklch(82% 0.011 260)",
+          "oklch(95% 0.007 260)"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "tonalRamp": [
+          "oklch(15% 0.004 255)",
+          "oklch(25% 0.006 255)",
+          "oklch(35% 0.008 255)",
+          "oklch(45% 0.01 255)",
+          "oklch(58% 0.011 255)",
+          "oklch(70% 0.009 255)",
+          "oklch(82% 0.007 255)",
+          "oklch(95% 0.004 255)"
+        ]
+      },
+      "perforation": {
+        "role": "neutral",
+        "displayName": "Perforation",
+        "tonalRamp": [
+          "oklch(15% 0.006 255)",
+          "oklch(25% 0.009 255)",
+          "oklch(35% 0.012 255)",
+          "oklch(45% 0.015 255)",
+          "oklch(58% 0.017 255)",
+          "oklch(70% 0.013 255)",
+          "oklch(82% 0.01 255)",
+          "oklch(95% 0.006 255)"
+        ]
+      },
+      "state-normal": {
+        "role": "tertiary",
+        "displayName": "Pharmacy Green",
+        "tonalRamp": [
+          "oklch(15% 0.03 178)",
+          "oklch(25% 0.045 178)",
+          "oklch(35% 0.06 178)",
+          "oklch(45% 0.075 178)",
+          "oklch(58% 0.085 178)",
+          "oklch(70% 0.068 178)",
+          "oklch(82% 0.05 178)",
+          "oklch(95% 0.03 178)"
+        ]
+      },
+      "state-normal-tint": {
+        "role": "tertiary",
+        "displayName": "Pharmacy Green Tint",
+        "tonalRamp": [
+          "oklch(15% 0.03 178)",
+          "oklch(25% 0.045 178)",
+          "oklch(35% 0.06 178)",
+          "oklch(45% 0.075 178)",
+          "oklch(58% 0.085 178)",
+          "oklch(70% 0.068 178)",
+          "oklch(82% 0.05 178)",
+          "oklch(95% 0.03 178)"
+        ]
+      },
+      "state-attention": {
+        "role": "tertiary",
+        "displayName": "Burnt Orange",
+        "tonalRamp": [
+          "oklch(15% 0.05 42)",
+          "oklch(25% 0.075 42)",
+          "oklch(35% 0.1 42)",
+          "oklch(45% 0.125 42)",
+          "oklch(58% 0.142 42)",
+          "oklch(70% 0.112 42)",
+          "oklch(82% 0.083 42)",
+          "oklch(95% 0.05 42)"
+        ]
+      },
+      "state-attention-tint": {
+        "role": "tertiary",
+        "displayName": "Burnt Orange Tint",
+        "tonalRamp": [
+          "oklch(15% 0.05 42)",
+          "oklch(25% 0.075 42)",
+          "oklch(35% 0.1 42)",
+          "oklch(45% 0.125 42)",
+          "oklch(58% 0.142 42)",
+          "oklch(70% 0.112 42)",
+          "oklch(82% 0.083 42)",
+          "oklch(95% 0.05 42)"
+        ]
+      },
+      "state-critical": {
+        "role": "tertiary",
+        "displayName": "Critical Red",
+        "tonalRamp": [
+          "oklch(15% 0.067 18)",
+          "oklch(25% 0.1 18)",
+          "oklch(35% 0.133 18)",
+          "oklch(45% 0.167 18)",
+          "oklch(58% 0.19 18)",
+          "oklch(70% 0.15 18)",
+          "oklch(82% 0.11 18)",
+          "oklch(95% 0.067 18)"
+        ]
+      },
+      "state-critical-deep": {
+        "role": "tertiary",
+        "displayName": "Critical Red Deep",
+        "tonalRamp": [
+          "oklch(15% 0.067 18)",
+          "oklch(25% 0.1 18)",
+          "oklch(35% 0.133 18)",
+          "oklch(45% 0.167 18)",
+          "oklch(58% 0.19 18)",
+          "oklch(70% 0.15 18)",
+          "oklch(82% 0.11 18)",
+          "oklch(95% 0.067 18)"
+        ]
+      },
+      "state-critical-tint": {
+        "role": "tertiary",
+        "displayName": "Critical Red Tint",
+        "tonalRamp": [
+          "oklch(15% 0.067 18)",
+          "oklch(25% 0.1 18)",
+          "oklch(35% 0.133 18)",
+          "oklch(45% 0.167 18)",
+          "oklch(58% 0.19 18)",
+          "oklch(70% 0.15 18)",
+          "oklch(82% 0.11 18)",
+          "oklch(95% 0.067 18)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page heading (h1), one per screen, uppercase."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Product name in the band."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Strip titles and h2."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All reading text, 34rem measure, tabular numerals."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Button labels; message prefixes at 1rem."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Batch-panel labels."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Button background-colour change, 160ms."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "transition: none",
+        "purpose": "All transitions removed under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrow",
+        "value": "30rem",
+        "purpose": "Action-row buttons go full width below this."
+      },
+      {
+        "name": "column",
+        "value": "40rem",
+        "purpose": "Max content and band-row width."
+      }
+    ],
+    "focus": {
+      "value": "3px solid #14181f, offset 3px",
+      "onBand": "outline-color #ffffff"
+    },
+    "tapTarget": "48px",
+    "measure": "34rem"
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ink action button; one per decision.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">I agree</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 24px;border:2px solid var(--ink,#14181f);border-radius:0;cursor:pointer;font:700 1.125rem/1 'Barlow Condensed','Noto Sans',sans-serif;text-transform:uppercase;letter-spacing:.06em;transition:background-color 160ms cubic-bezier(0.16,1,0.3,1);}.ds-btn:focus-visible{outline:3px solid var(--ink,#14181f);outline-offset:3px;}.ds-btn-primary{background:var(--ink,#14181f);color:#fff;}.ds-btn-primary:hover{background:#2b313b;}.ds-btn-primary[disabled]{opacity:.55;cursor:not-allowed;}"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Outlined secondary action or escape.",
+      "html": "<button class=\"ds-btn ds-btn-quiet\">Not now, sign out</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 24px;border:2px solid var(--ink,#14181f);border-radius:0;cursor:pointer;font:700 1.125rem/1 'Barlow Condensed','Noto Sans',sans-serif;text-transform:uppercase;letter-spacing:.06em;transition:background-color 160ms cubic-bezier(0.16,1,0.3,1);}.ds-btn:focus-visible{outline:3px solid var(--ink,#14181f);outline-offset:3px;}.ds-btn-quiet{background:transparent;color:var(--ink,#14181f);}.ds-btn-quiet:hover{background:var(--foil,#e7e9ec);}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Irreversible deletion only.",
+      "html": "<button class=\"ds-btn ds-btn-danger\">Yes, delete my data</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 24px;border:2px solid var(--ink,#14181f);border-radius:0;cursor:pointer;font:700 1.125rem/1 'Barlow Condensed','Noto Sans',sans-serif;text-transform:uppercase;letter-spacing:.06em;transition:background-color 160ms cubic-bezier(0.16,1,0.3,1);}.ds-btn:focus-visible{outline:3px solid var(--ink,#14181f);outline-offset:3px;}.ds-btn-danger{background:var(--state-critical,#b3122e);border-color:var(--state-critical,#b3122e);color:#fff;}.ds-btn-danger:hover{background:#8f0e25;}"
+    },
+    {
+      "name": "Phone Field",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Ink-bordered white well with a fixed +91 prefix; the focus ring sits on the well.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Mobile number</span><span class=\"ds-phone\"><span class=\"ds-phone-pre\">+91</span><input class=\"ds-input\" inputmode=\"numeric\" placeholder=\"98765 43210\"></span><span class=\"ds-field-hint\">We send a 6-digit code by SMS</span></label>",
+      "css": ".ds-field{display:grid;gap:8px;font:400 1.0625rem/1.5 'Noto Sans','Noto Sans Devanagari',sans-serif;color:#14181f;}.ds-field-label{font-weight:600;}.ds-field-hint{color:var(--ink-soft,#4a515c);}.ds-phone{display:flex;border:2px solid var(--ink,#14181f);background:#fff;}.ds-phone:focus-within{outline:3px solid var(--ink,#14181f);outline-offset:3px;}.ds-phone-pre{display:flex;align-items:center;padding:0 12px;border-right:1px solid var(--hairline,#b9bec5);font-weight:600;}.ds-input{width:100%;min-height:48px;border:0;padding:0 12px;background:#fff;font:inherit;font-size:1.25rem;letter-spacing:.04em;}.ds-input:focus-visible{outline:none;}"
+    },
+    {
+      "name": "Product Band",
+      "kind": "nav",
+      "refersTo": "band",
+      "description": "Magenta header on every screen: product name, bilingual greeting, one quiet action.",
+      "html": "<header class=\"ds-band\"><div><p class=\"ds-band-name\">Prime Healthcare</p><p class=\"ds-band-line\">Namaste, Asha · <span lang=\"hi\">नमस्ते</span></p></div><button class=\"ds-band-btn\">Sign out</button></header>",
+      "css": ".ds-band{background:var(--band,#9c1458);color:#fff;padding:24px 16px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;font:400 1.0625rem/1.5 'Noto Sans','Noto Sans Devanagari',sans-serif;}.ds-band-name{font:700 1.75rem/1 'Barlow Condensed',sans-serif;letter-spacing:.02em;text-transform:uppercase;margin:0;}.ds-band-line{margin:8px 0 0;}.ds-band-btn{min-height:48px;padding:0 12px;background:transparent;color:#fff;border:2px solid #fff;border-radius:0;font:700 1.125rem/1 'Barlow Condensed','Noto Sans',sans-serif;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;white-space:nowrap;}.ds-band-btn:hover{background:rgba(255,255,255,.12);}.ds-band-btn:focus-visible{outline:3px solid #fff;outline-offset:3px;}"
+    },
+    {
+      "name": "Strip",
+      "kind": "card",
+      "refersTo": "strip",
+      "description": "The world's one container: raised foil, hairline outline, dashed perforations, batch panel of facts.",
+      "html": "<section class=\"ds-strip\"><div class=\"ds-strip-head\"><h2 class=\"ds-strip-title\">Your account</h2></div><dl class=\"ds-batch\"><div><dt>Phone</dt><dd>+91 ••••• •3210</dd></div><div><dt>Consent</dt><dd>Given</dd></div></dl><div class=\"ds-strip-body\"><p>You can download or delete your data at any time.</p></div></section>",
+      "css": ".ds-strip{background:var(--foil-raised,#f7f8f9);border:1px solid var(--hairline,#b9bec5);border-radius:0;font:400 1.0625rem/1.5 'Noto Sans','Noto Sans Devanagari',sans-serif;color:#14181f;font-variant-numeric:tabular-nums;}.ds-strip-head{padding:12px 16px;}.ds-strip-title{font:700 1.375rem/1.1 'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.03em;margin:0;}.ds-batch{display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));border-top:1px solid var(--hairline,#b9bec5);margin:0;}.ds-batch>div{padding:8px 16px;border-right:1px solid var(--hairline,#b9bec5);}.ds-batch>div:last-child{border-right:0;}.ds-batch dt{font-size:.875rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft,#4a515c);}.ds-batch dd{margin:0;}.ds-strip-body{padding:16px;border-top:1px dashed var(--perforation,#8c939d);}.ds-strip-body p{margin:0;}"
+    },
+    {
+      "name": "Next-Step Line",
+      "kind": "custom",
+      "refersTo": "next-tag",
+      "description": "Strip footer naming the one next step, led by an ink Next tag.",
+      "html": "<p class=\"ds-next\"><span class=\"ds-next-tag\">Next</span>Your lab adds your first report</p>",
+      "css": ".ds-next{display:flex;align-items:center;gap:12px;margin:0;padding:12px 16px;border-top:1px solid var(--hairline,#b9bec5);background:var(--foil-raised,#f7f8f9);font:400 1.0625rem/1.5 'Noto Sans','Noto Sans Devanagari',sans-serif;color:#14181f;font-weight:600;}.ds-next-tag{background:var(--ink,#14181f);color:#fff;font:700 .9375rem/1 'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.06em;padding:4px 8px;}"
+    },
+    {
+      "name": "Error Message",
+      "kind": "custom",
+      "refersTo": "state-critical",
+      "description": "Critical-tint box prefixed by the word Problem.",
+      "html": "<div class=\"ds-msg\" role=\"alert\"><strong>Problem</strong>That code has expired. Ask for a new one.</div>",
+      "css": ".ds-msg{border:1px solid var(--state-critical,#b3122e);background:var(--state-critical-tint,#fbe8eb);color:var(--state-critical,#b3122e);padding:12px 16px;font:400 1.0625rem/1.5 'Noto Sans',sans-serif;}.ds-msg strong{margin-right:8px;font:700 1rem 'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.05em;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Chemist Strip",
+    "overview": "A lab report should read like the blister strip of medicine an Indian patient already keeps in a kitchen drawer: printed foil, square cuts, dashed perforations between pockets, and a printed batch panel with the facts. The system is quiet foil grey with ink type, one saturated magenta product band at the top of every screen, and condensed uppercase headings that read like pharmacy print. It refuses the rounded-card-with-status-chip health app.\n\nDensity is calm and mobile-first (a single 40rem column, designed at 390px). Body text is set large (17px) for older readers and family caregivers, every target is at least 48px, and Hindi (Devanagari) runs alongside English as a first-class second line rather than a translation afterthought. Depth comes from the hairline-and-perforation system, never from shadow or rounding.",
+    "keyCharacteristics": [
+      "Foil grey ground, raised foil strips, ink type; magenta only on the product band and selection.",
+      "Square corners everywhere (radius 0).",
+      "One container, the strip: hairline outline, sections divided by dashed perforations.",
+      "Barlow Condensed uppercase for headings, buttons and labels; Noto Sans and Noto Sans Devanagari for reading text.",
+      "Tabular numerals throughout.",
+      "State is always a word plus a colour, never colour alone."
+    ],
+    "rules": [
+      {
+        "name": "The Word-State Rule",
+        "body": "A result state is always carried by a printed word (\"Normal\", \"Problem\"), with colour as reinforcement. Colour alone never signals state.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Band Rule",
+        "body": "Magenta appears as the product band and nowhere else that carries meaning. It is brand, not an action colour; actions are ink.",
+        "section": "colors"
+      },
+      {
+        "name": "The Second-Line Rule",
+        "body": "Hindi sits as its own line or inline span (lang=\"hi\", Noto Sans Devanagari) under or beside the English, at the same size; it is never shrunk into a caption.",
+        "section": "typography"
+      },
+      {
+        "name": "The 17px Floor Rule",
+        "body": "Reading text never drops below 1.0625rem; only batch labels and meta reach 0.875rem.",
+        "section": "typography"
+      },
+      {
+        "name": "The Printed-Not-Lifted Rule",
+        "body": "Nothing floats. A surface is distinguished by tone and line, never by box-shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do put every grouped piece of content in a strip and divide its sections with dashed perforations, not with gaps or new boxes.",
+      "Do pair each state colour with a printed word.",
+      "Do give Hindi its own line or span with lang=\"hi\" at full body size.",
+      "Do keep every interactive target at least 48px tall.",
+      "Do use ink for actions and reserve magenta for the band.",
+      "Do keep numerals tabular."
+    ],
+    "donts": [
+      "Don't round corners; radius is 0 everywhere.",
+      "Don't use box-shadow for depth.",
+      "Don't signal a result state by colour alone.",
+      "Don't use magenta as a button or link colour.",
+      "Don't set reading text below 17px."
+    ]
+  }
+}
