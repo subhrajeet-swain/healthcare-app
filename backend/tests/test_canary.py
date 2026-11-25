@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -61,7 +63,7 @@ def test_every_api_route_rejects_cross_tenant_cookie(seeded, client, login):
     for path, ops in app.openapi()["paths"].items():
         if not path.startswith("/api/") or path.startswith("/api/auth/{slug}"):
             continue
-        url = path.replace("{purpose}", "core")
+        url = path.replace("{purpose}", "core").replace("{report_id}", str(uuid.uuid4()))
         for method in (m.upper() for m in ops):
             with TestClient(app) as c:
                 c.cookies.set("hc_session", forged)

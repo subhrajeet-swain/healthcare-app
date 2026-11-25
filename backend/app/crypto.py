@@ -47,6 +47,12 @@ class TenantCipher:
     def decrypt(self, token: bytes) -> str:
         return self._fernet.decrypt(bytes(token)).decode()
 
+    def encrypt_bytes(self, data: bytes) -> bytes:
+        return self._fernet.encrypt(data)
+
+    def decrypt_bytes(self, token: bytes) -> bytes:
+        return self._fernet.decrypt(bytes(token))
+
     def fingerprint(self, phone_e164: str) -> bytes:
         return hmac.new(self.fp_key, phone_e164.encode(), hashlib.sha256).digest()
 

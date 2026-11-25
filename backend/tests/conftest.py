@@ -6,6 +6,9 @@ from cryptography.fernet import Fernet
 os.environ.setdefault("ENV", "test")
 os.environ.setdefault("MASTER_KEY", Fernet.generate_key().decode())
 os.environ.setdefault("OTP_PEPPER", "test-pepper")
+import tempfile  # noqa: E402
+
+os.environ.setdefault("STORAGE_DIR", tempfile.mkdtemp(prefix="hc-files-"))
 for var, role, pw in [
     ("DATABASE_URL", "hc_app", "app_dev"),
     ("OWNER_DATABASE_URL", "hc_owner", "owner_dev"),
@@ -76,3 +79,29 @@ def login(client, caplog):
         return c.post(f"/api/auth/{slug}/verify", json={"phone": phone, "code": code})
 
     return _login
+
+
+CONSENT = {"purpose": "core", "version": "2026-11-v1"}
+
+
+def pdf_bytes(pages: int = 1) -> bytes:
+    """A valid PDF with blank pages (no text layer)."""
+    import io
+
+    from pypdf import PdfWriter
+
+    w = PdfWriter()
+    for _ in range(pages):
+        w.add_blank_page(width=200, height=200)
+    buf = io.BytesIO()
+    w.write(buf)
+    return buf.getvalue()
+
+
+@pytest.fixture
+def patient(client, lab, login):
+    """A logged-in patient with core consent on `client`; returns (slug, tenant_id, user_id)."""
+    slug, tid = lab
+    assert login(slug, "9876543210").status_code == 200
+    assert client.post("/api/consents", json=CONSENT).status_code == 201
+    return slug, tid, uuid.UUID(client.get("/api/me").json()["id"])
