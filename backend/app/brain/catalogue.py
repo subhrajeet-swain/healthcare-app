@@ -27,8 +27,18 @@ _BY_NAME = {_norm(s): tid for tid, d in TESTS.items() for s in [d["name"], *d["s
 
 
 def lookup(name: str) -> str | None:
-    """The test id for a printed name or synonym, or None. Also tries the text in brackets."""
-    for text in [name, *re.findall(r"\(([^)]*)\)", name)]:
-        if tid := _BY_NAME.get(_norm(text)):
+    """The test id for a printed name or synonym, or None.
+
+    A bracketed abbreviation counts only if it names one test and whatever sits outside the
+    brackets is empty or names that same test. "Free Thyroxine (T4)" is two tests at once, so
+    it is None, and the row goes to review instead of being filed under the wrong one.
+    """
+    if tid := _BY_NAME.get(_norm(name)):
+        return tid
+    outside = _norm(re.sub(r"\([^)]*\)", " ", name))
+    inside = {_BY_NAME[n] for t in re.findall(r"\(([^)]*)\)", name) if (n := _norm(t)) in _BY_NAME}
+    if len(inside) == 1:
+        (tid,) = inside
+        if not outside or _BY_NAME.get(outside) == tid:
             return tid
     return None
