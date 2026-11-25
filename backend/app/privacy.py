@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from app import db, files
 from app.audit import audit
 from app.auth import COOKIE, Ctx
+from app.brain import factsheet
 from app.crypto import cipher_for
 
 router = APIRouter(prefix="/api")
@@ -124,4 +125,5 @@ def delete_me(ctx: Ctx, response: Response) -> None:
     # after commit: a failed delete must not leave rows pointing at missing files
     for rid in report_ids:
         files.remove(ctx.tenant_id, rid)
+        factsheet.evict(ctx.tenant_id, rid)
     response.delete_cookie(COOKIE)
