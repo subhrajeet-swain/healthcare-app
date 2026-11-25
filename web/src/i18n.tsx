@@ -102,7 +102,9 @@ export const STRINGS = {
   next: { en: "Next", hi: "अगला कदम" },
   stepDone: { en: "Done", hi: "पूरा" },
   stepNow: { en: "Now", hi: "अभी" },
-  stepNext: { en: "Next", hi: "आगे" },
+  stepLater: { en: "Later", hi: "बाद में" },
+  stepStopped: { en: "Stopped", hi: "रुका" },
+  progressLede: { en: "This usually takes under a minute. The page updates by itself.", hi: "इसमें आमतौर पर एक मिनट से कम लगता है। यह पेज अपने-आप अपडेट होता है।" },
 
   // chat
   askTitle: { en: "Ask about this report", hi: "इस रिपोर्ट के बारे में पूछें" },
@@ -113,7 +115,7 @@ export const STRINGS = {
   charsLeft: { en: "{n} characters left", hi: "{n} अक्षर बाकी" },
   asking: { en: "Asking…", hi: "पूछा जा रहा है…" },
   ask: { en: "Ask", hi: "पूछें" },
-  noQuestions: { en: "For example: “What is my hemoglobin?” or “Why is this high?”", hi: "उदाहरण: “मेरा हीमोग्लोबिन कितना है?” या “यह ज़्यादा क्यों है?”" },
+  noQuestions: { en: "For example: “What is my Hemoglobin?” or “Why is this high?”", hi: "उदाहरण: “मेरा Hemoglobin कितना है?” या “यह ज़्यादा क्यों है?”" },
 
   // lab console
   newOrder: { en: "New test order", hi: "नया टेस्ट ऑर्डर" },

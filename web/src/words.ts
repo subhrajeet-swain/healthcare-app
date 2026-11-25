@@ -37,6 +37,13 @@ export const NEXT: Record<NonNullable<ReportDetail["next_step"]>, Pair> = {
   no_action: { en: "Nothing to do now", hi: "अभी कुछ करने की ज़रूरत नहीं" },
 };
 
+const NUM = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 3 });
+
+/** Indian digit grouping (2,45,000), in both languages: what Indian lab reports print. */
+export function fmt(n: number): string {
+  return NUM.format(n);
+}
+
 export function shortDate(iso: string | null, lang: Lang = "en"): string {
   if (!iso) return "";
   return new Date(iso).toLocaleDateString(lang === "hi" ? "hi-IN" : "en-IN", { day: "numeric", month: "short", year: "numeric" });

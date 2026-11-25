@@ -175,7 +175,7 @@ A cool, near-neutral foil palette with one magenta brand voice and a reserved th
 - **Meta** (600, 0.875rem, uppercase, 0.06em, text face): batch-panel labels such as Phone, Consent, Purpose, Version.
 
 ### Named Rules
-**The One-Language Rule.** A screen speaks one language at a time: the one chosen with the English | हिंदी switch in the band (stored on the device, sets `<html lang>`). Hindi is set at the same size as English and never shrunk into a caption. Devanagari headings drop the uppercase display face and use Noto Sans Devanagari.
+**The One-Language Rule.** A screen speaks one language at a time: the one chosen with the English | हिंदी switch in the band (stored on the device, sets `<html lang>`). Hindi is set at the same size as English and never shrunk into a caption. Devanagari headings drop the uppercase display face and use Noto Sans Devanagari. Test names stay in English as the lab prints them ("आपका Hemoglobin 11.3 g/dL है"), in Hindi too: they match the paper report and the doctor's words, and a transliteration would be a second name for the same test. Numbers use Indian digit grouping (2,45,000) in both languages.
 
 **The 17px Floor Rule.** Reading text never drops below 1.0625rem; only batch labels and meta reach 0.875rem.
 

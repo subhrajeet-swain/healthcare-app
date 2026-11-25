@@ -105,7 +105,13 @@ export function Dashboard({ me, onSignOut, onDeleted }: Props) {
     }
   }
 
-  const greeting = me.name ? `${t("greeting")}, ${me.name}` : t("greeting");
+  const greeting = me.name ? (
+    <>
+      {t("greeting")}, <span className="nowrap">{me.name}</span>
+    </>
+  ) : (
+    t("greeting")
+  );
 
   return (
     <div className="shell">

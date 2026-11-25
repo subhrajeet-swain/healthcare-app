@@ -6,7 +6,7 @@ import { rangePosition } from "../range";
 import { go } from "../routes";
 import { StatusSteps } from "../StatusSteps";
 import { type T, useLang } from "../i18n";
-import { FLAG, NEXT, TRIAGE, shortDate } from "../words";
+import { FLAG, NEXT, TRIAGE, fmt, shortDate } from "../words";
 
 type Props = { id: string };
 
@@ -67,9 +67,9 @@ function useReport(id: string) {
 }
 
 function rangeText(r: Result, t: T): string {
-  if (r.ref_low !== null && r.ref_high !== null) return `${r.ref_low} – ${r.ref_high}`;
-  if (r.ref_high !== null) return t("below", { n: r.ref_high });
-  if (r.ref_low !== null) return t("above", { n: r.ref_low });
+  if (r.ref_low !== null && r.ref_high !== null) return `${fmt(r.ref_low)} – ${fmt(r.ref_high)}`;
+  if (r.ref_high !== null) return t("below", { n: fmt(r.ref_high) });
+  if (r.ref_low !== null) return t("above", { n: fmt(r.ref_low) });
   return t("notPrinted");
 }
 
@@ -85,7 +85,7 @@ function ResultRow({ r }: { r: Result }) {
         </span>
       </div>
       <p className="result__value">
-        {r.value} <span className="result__unit">{r.unit}</span>
+        {fmt(r.value)} <span className="result__unit">{r.unit}</span>
       </p>
       {pos.zone && (
         <div className="range" aria-hidden="true">
@@ -170,6 +170,11 @@ export function Report({ id }: Props) {
                 {t("progress")}
               </h2>
             </div>
+            {report.status !== "failed" && (
+              <div className="strip__body strip__body--first">
+                <p className="field__hint">{t("progressLede")}</p>
+              </div>
+            )}
             <StatusSteps report={report} />
             {report.status === "failed" && (
               <div className="strip__body">
