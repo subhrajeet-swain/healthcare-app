@@ -204,15 +204,39 @@ def _try_status(tid: UUID, rid: UUID, status: str, message: str | None) -> None:
         pass
 
 
+IDLE_S = 1  # ponytail: 1 s poll; LISTEN on a jobs channel if latency matters
+MAX_BACKOFF_S = 30
+
+
+def serve(iterations: int | None = None, sleep=time.sleep) -> None:
+    """Run jobs forever. Nothing short of a stop signal ends this loop.
+
+    A database restart, a network blip or a bug in one job must never take the worker
+    down: the queue would sit untouched with nobody reading it. Errors are logged and
+    retried with backoff (1, 2, 4 ... 30 s); the first success resets it.
+    """
+    backoff = 0
+    n = 0
+    while iterations is None or n < iterations:
+        n += 1
+        try:
+            worked = run_once()
+            backoff = 0
+            if not worked:
+                sleep(IDLE_S)
+        except Exception:  # noqa: BLE001 - see docstring; KeyboardInterrupt still stops it
+            log.exception("worker loop error; retrying")
+            backoff = min(MAX_BACKOFF_S, backoff * 2 or 1)
+            sleep(backoff)
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     tracing.install_defaults()
     if not settings.worker_database_url or not settings.graph_database_url:
         raise SystemExit("WORKER_DATABASE_URL and GRAPH_DATABASE_URL are required")
     log.info("worker started")
-    while True:
-        if not run_once():
-            time.sleep(1)  # ponytail: 1 s poll; LISTEN on a jobs channel if latency matters
+    serve()
 
 
 if __name__ == "__main__":
