@@ -171,7 +171,7 @@ input.text:focus-visible { outline: none; }
 .textarea, input.text.text--boxed { width: 100%; border: 2px solid var(--ink); background: #fff; padding: var(--space-2) var(--space-3); font-size: var(--step-0); }
 input.text.text--boxed { min-height: var(--tap); font-size: var(--step-0); letter-spacing: 0; }
 .textarea { resize: vertical; min-height: 5rem; }
-.textarea:focus-visible, .text--boxed:focus-visible { outline: var(--focus); outline-offset: 3px; }
+.textarea:focus-visible, input.text.text--boxed:focus-visible { outline: var(--focus); outline-offset: 3px; }
 
 /* lab console */
 .perf-list .staff-row { display: grid; gap: var(--space-3); }
