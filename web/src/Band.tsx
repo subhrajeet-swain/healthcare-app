@@ -1,19 +1,19 @@
 import type { ReactNode } from "react";
 import { LangToggle } from "./i18n";
 
-type Props = { line?: ReactNode; children?: ReactNode };
+type Props = { line?: ReactNode; initial?: string; children?: ReactNode };
 
-export function Band({ line, children }: Props) {
+/** One row: a ringed mark (the patient's initial, else the brand's P), who this is, the language pill.
+ * Extra actions (Sign out) get their own row below. */
+export function Band({ line, initial, children }: Props) {
   return (
     <header className="band">
       <div className="band__row">
-        <p className="band__name">Prime Healthcare</p>
-        {children}
-      </div>
-      <div className="band__row band__row--sub">
-        <p className="band__line">{line}</p>
+        <span className="band__mark" aria-hidden="true">{initial || "P"}</span>
+        <div className="band__line">{line ?? <p className="band__name">Prime Healthcare</p>}</div>
         <LangToggle />
       </div>
+      {children && <div className="band__row band__row--sub">{children}</div>}
     </header>
   );
 }

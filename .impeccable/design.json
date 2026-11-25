@@ -1,410 +1,161 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-24T21:13:28+00:00",
+  "generatedAt": "2026-11-26T12:00:00+00:00",
   "title": "Design System: Prime Healthcare",
   "extensions": {
     "colorMeta": {
-      "band-magenta": {
-        "role": "primary",
-        "displayName": "Strip Magenta",
-        "tonalRamp": [
-          "oklch(15% 0.063 350)",
-          "oklch(25% 0.095 350)",
-          "oklch(35% 0.127 350)",
-          "oklch(45% 0.158 350)",
-          "oklch(58% 0.18 350)",
-          "oklch(70% 0.143 350)",
-          "oklch(82% 0.105 350)",
-          "oklch(95% 0.063 350)"
-        ]
-      },
-      "band-ink": {
-        "role": "neutral",
-        "displayName": "Paper White",
-        "tonalRamp": [
-          "oklch(15% 0.0 0)",
-          "oklch(25% 0.0 0)",
-          "oklch(35% 0.0 0)",
-          "oklch(45% 0.0 0)",
-          "oklch(58% 0.0 0)",
-          "oklch(70% 0.0 0)",
-          "oklch(82% 0.0 0)",
-          "oklch(95% 0.0 0)"
-        ]
-      },
-      "foil": {
-        "role": "neutral",
-        "displayName": "Foil",
-        "tonalRamp": [
-          "oklch(15% 0.003 255)",
-          "oklch(25% 0.004 255)",
-          "oklch(35% 0.005 255)",
-          "oklch(45% 0.007 255)",
-          "oklch(58% 0.008 255)",
-          "oklch(70% 0.006 255)",
-          "oklch(82% 0.004 255)",
-          "oklch(95% 0.003 255)"
-        ]
-      },
-      "foil-raised": {
-        "role": "neutral",
-        "displayName": "Raised Foil",
-        "tonalRamp": [
-          "oklch(15% 0.001 255)",
-          "oklch(25% 0.002 255)",
-          "oklch(35% 0.003 255)",
-          "oklch(45% 0.003 255)",
-          "oklch(58% 0.004 255)",
-          "oklch(70% 0.003 255)",
-          "oklch(82% 0.002 255)",
-          "oklch(95% 0.001 255)"
-        ]
-      },
-      "ink": {
-        "role": "neutral",
-        "displayName": "Ink",
-        "tonalRamp": [
-          "oklch(15% 0.007 260)",
-          "oklch(25% 0.01 260)",
-          "oklch(35% 0.013 260)",
-          "oklch(45% 0.017 260)",
-          "oklch(58% 0.019 260)",
-          "oklch(70% 0.015 260)",
-          "oklch(82% 0.011 260)",
-          "oklch(95% 0.007 260)"
-        ]
-      },
-      "ink-hover": {
-        "role": "neutral",
-        "displayName": "Ink Hover",
-        "tonalRamp": [
-          "oklch(15% 0.007 260)",
-          "oklch(25% 0.01 260)",
-          "oklch(35% 0.013 260)",
-          "oklch(45% 0.017 260)",
-          "oklch(58% 0.019 260)",
-          "oklch(70% 0.015 260)",
-          "oklch(82% 0.011 260)",
-          "oklch(95% 0.007 260)"
-        ]
-      },
-      "ink-soft": {
-        "role": "neutral",
-        "displayName": "Soft Ink",
-        "tonalRamp": [
-          "oklch(15% 0.007 260)",
-          "oklch(25% 0.01 260)",
-          "oklch(35% 0.013 260)",
-          "oklch(45% 0.017 260)",
-          "oklch(58% 0.019 260)",
-          "oklch(70% 0.015 260)",
-          "oklch(82% 0.011 260)",
-          "oklch(95% 0.007 260)"
-        ]
-      },
-      "hairline": {
-        "role": "neutral",
-        "displayName": "Hairline",
-        "tonalRamp": [
-          "oklch(15% 0.004 255)",
-          "oklch(25% 0.006 255)",
-          "oklch(35% 0.008 255)",
-          "oklch(45% 0.01 255)",
-          "oklch(58% 0.011 255)",
-          "oklch(70% 0.009 255)",
-          "oklch(82% 0.007 255)",
-          "oklch(95% 0.004 255)"
-        ]
-      },
-      "perforation": {
-        "role": "neutral",
-        "displayName": "Perforation",
-        "tonalRamp": [
-          "oklch(15% 0.006 255)",
-          "oklch(25% 0.009 255)",
-          "oklch(35% 0.012 255)",
-          "oklch(45% 0.015 255)",
-          "oklch(58% 0.017 255)",
-          "oklch(70% 0.013 255)",
-          "oklch(82% 0.01 255)",
-          "oklch(95% 0.006 255)"
-        ]
-      },
-      "state-normal": {
-        "role": "tertiary",
-        "displayName": "Pharmacy Green",
-        "tonalRamp": [
-          "oklch(15% 0.03 178)",
-          "oklch(25% 0.045 178)",
-          "oklch(35% 0.06 178)",
-          "oklch(45% 0.075 178)",
-          "oklch(58% 0.085 178)",
-          "oklch(70% 0.068 178)",
-          "oklch(82% 0.05 178)",
-          "oklch(95% 0.03 178)"
-        ]
-      },
-      "state-normal-tint": {
-        "role": "tertiary",
-        "displayName": "Pharmacy Green Tint",
-        "tonalRamp": [
-          "oklch(15% 0.03 178)",
-          "oklch(25% 0.045 178)",
-          "oklch(35% 0.06 178)",
-          "oklch(45% 0.075 178)",
-          "oklch(58% 0.085 178)",
-          "oklch(70% 0.068 178)",
-          "oklch(82% 0.05 178)",
-          "oklch(95% 0.03 178)"
-        ]
-      },
-      "state-attention": {
-        "role": "tertiary",
-        "displayName": "Burnt Orange",
-        "tonalRamp": [
-          "oklch(15% 0.05 42)",
-          "oklch(25% 0.075 42)",
-          "oklch(35% 0.1 42)",
-          "oklch(45% 0.125 42)",
-          "oklch(58% 0.142 42)",
-          "oklch(70% 0.112 42)",
-          "oklch(82% 0.083 42)",
-          "oklch(95% 0.05 42)"
-        ]
-      },
-      "state-attention-tint": {
-        "role": "tertiary",
-        "displayName": "Burnt Orange Tint",
-        "tonalRamp": [
-          "oklch(15% 0.05 42)",
-          "oklch(25% 0.075 42)",
-          "oklch(35% 0.1 42)",
-          "oklch(45% 0.125 42)",
-          "oklch(58% 0.142 42)",
-          "oklch(70% 0.112 42)",
-          "oklch(82% 0.083 42)",
-          "oklch(95% 0.05 42)"
-        ]
-      },
-      "state-critical": {
-        "role": "tertiary",
-        "displayName": "Critical Red",
-        "tonalRamp": [
-          "oklch(15% 0.067 18)",
-          "oklch(25% 0.1 18)",
-          "oklch(35% 0.133 18)",
-          "oklch(45% 0.167 18)",
-          "oklch(58% 0.19 18)",
-          "oklch(70% 0.15 18)",
-          "oklch(82% 0.11 18)",
-          "oklch(95% 0.067 18)"
-        ]
-      },
-      "state-critical-deep": {
-        "role": "tertiary",
-        "displayName": "Critical Red Deep",
-        "tonalRamp": [
-          "oklch(15% 0.067 18)",
-          "oklch(25% 0.1 18)",
-          "oklch(35% 0.133 18)",
-          "oklch(45% 0.167 18)",
-          "oklch(58% 0.19 18)",
-          "oklch(70% 0.15 18)",
-          "oklch(82% 0.11 18)",
-          "oklch(95% 0.067 18)"
-        ]
-      },
-      "state-critical-tint": {
-        "role": "tertiary",
-        "displayName": "Critical Red Tint",
-        "tonalRamp": [
-          "oklch(15% 0.067 18)",
-          "oklch(25% 0.1 18)",
-          "oklch(35% 0.133 18)",
-          "oklch(45% 0.167 18)",
-          "oklch(58% 0.19 18)",
-          "oklch(70% 0.15 18)",
-          "oklch(82% 0.11 18)",
-          "oklch(95% 0.067 18)"
-        ]
-      }
+      "mist-ground": { "role": "neutral", "displayName": "Mist Ground", "canonical": "#f2f2f3", "tonalRamp": ["#1d1d1f", "#38383c", "#55555a", "#77777d", "#9c9ca1", "#c4c4c8", "#e2e2e4", "#f2f2f3"] },
+      "card-white": { "role": "neutral", "displayName": "Card White", "canonical": "#ffffff", "tonalRamp": ["#1f1f1f", "#3b3b3b", "#5a5a5a", "#7c7c7c", "#a1a1a1", "#c8c8c8", "#ebebeb", "#ffffff"] },
+      "sunk-well": { "role": "neutral", "displayName": "Sunk Well", "canonical": "#f2f2f3", "tonalRamp": ["#1d1d1f", "#38383c", "#55555a", "#77777d", "#9c9ca1", "#c4c4c8", "#e6e6e9", "#f2f2f3"] },
+      "ink": { "role": "primary", "displayName": "Ink Black", "canonical": "#111111", "tonalRamp": ["#111111", "#2a2a2e", "#46464c", "#5e5e66", "#85858c", "#adadb3", "#d6d6db", "#f2f2f3"] },
+      "ink-hover": { "role": "primary", "displayName": "Ink Hover", "canonical": "#2a2a2e", "tonalRamp": ["#111111", "#2a2a2e", "#46464c", "#5e5e66", "#85858c", "#adadb3", "#d6d6db", "#f2f2f3"] },
+      "ink-soft": { "role": "neutral", "displayName": "Ink Soft", "canonical": "#5e5e66", "tonalRamp": ["#1a1a1d", "#2f2f34", "#46464c", "#5e5e66", "#7a7a82", "#9a9aa1", "#c9c9ce", "#ececee"] },
+      "divider": { "role": "neutral", "displayName": "Divider", "canonical": "#ececee", "tonalRamp": ["#1d1d1f", "#38383c", "#55555a", "#77777d", "#9c9ca1", "#c4c4c8", "#dcdce0", "#ececee"] },
+      "line": { "role": "neutral", "displayName": "Line", "canonical": "#dcdce0", "tonalRamp": ["#1d1d1f", "#38383c", "#55555a", "#77777d", "#9c9ca1", "#c4c4c8", "#dcdce0", "#ececee"] },
+      "brand-magenta": { "role": "secondary", "displayName": "Prime Magenta", "canonical": "#9c1458", "tonalRamp": ["#2e0619", "#530b2f", "#7a1045", "#9c1458", "#c2457f", "#da82a9", "#efc0d4", "#fae9f0"] },
+      "state-normal": { "role": "tertiary", "displayName": "Normal Green", "canonical": "#0f6b5c", "tonalRamp": ["#04211c", "#083b33", "#0c5449", "#0f6b5c", "#3f9383", "#7cb9ac", "#bcdcd4", "#e3f1ed"] },
+      "state-normal-tint": { "role": "tertiary", "displayName": "Normal Tint", "canonical": "#e3f1ed", "tonalRamp": ["#04211c", "#083b33", "#0c5449", "#0f6b5c", "#3f9383", "#7cb9ac", "#bcdcd4", "#e3f1ed"] },
+      "state-attention": { "role": "tertiary", "displayName": "Attention Amber", "canonical": "#9a4a08", "tonalRamp": ["#2d1502", "#522604", "#773706", "#9a4a08", "#c2742f", "#dca46f", "#f0cfb0", "#fcecdf"] },
+      "state-attention-tint": { "role": "tertiary", "displayName": "Attention Tint", "canonical": "#fcecdf", "tonalRamp": ["#2d1502", "#522604", "#773706", "#9a4a08", "#c2742f", "#dca46f", "#f0cfb0", "#fcecdf"] },
+      "state-critical": { "role": "tertiary", "displayName": "Critical Red", "canonical": "#a3122e", "tonalRamp": ["#30050e", "#580a19", "#870e26", "#a3122e", "#c74a60", "#df8796", "#f1c2ca", "#fbe7ea"] },
+      "state-critical-tint": { "role": "tertiary", "displayName": "Critical Tint", "canonical": "#fbe7ea", "tonalRamp": ["#30050e", "#580a19", "#870e26", "#a3122e", "#c74a60", "#df8796", "#f1c2ca", "#fbe7ea"] }
     },
     "typographyMeta": {
-      "display": {
-        "displayName": "Display",
-        "purpose": "Page heading (h1), one per screen, uppercase."
-      },
-      "headline": {
-        "displayName": "Headline",
-        "purpose": "Product name in the band."
-      },
-      "title": {
-        "displayName": "Title",
-        "purpose": "Strip titles and h2."
-      },
-      "body": {
-        "displayName": "Body",
-        "purpose": "All reading text, 34rem measure, tabular numerals."
-      },
-      "label": {
-        "displayName": "Label",
-        "purpose": "Button labels; message prefixes at 1rem."
-      },
-      "meta": {
-        "displayName": "Meta",
-        "purpose": "Batch-panel labels."
-      }
+      "display": { "displayName": "Display", "purpose": "The summary number on the home card. One per screen." },
+      "headline": { "displayName": "Headline", "purpose": "Page titles, result values on number tiles, the triage next-step line." },
+      "title": { "displayName": "Title", "purpose": "Card titles." },
+      "body": { "displayName": "Body", "purpose": "All reading text at the 17px floor, 34rem measure, tabular numbers." },
+      "label": { "displayName": "Label", "purpose": "Pills, tab labels, result names, row state words, small buttons." },
+      "meta": { "displayName": "Meta", "purpose": "Dates, units, ranges, stat and fact labels only." }
     },
-    "shadows": [],
+    "shadows": [
+      { "name": "card", "value": "0 8px 24px rgba(17, 17, 17, 0.06)", "purpose": "Every resting card, stat tile, result tile, language pill, back circle, brand mark." },
+      { "name": "float", "value": "0 10px 30px rgba(17, 17, 17, 0.12)", "purpose": "The floating tab bar and the chat sheet." },
+      { "name": "brand-ring", "value": "0 0 0 2px #9c1458, 0 8px 24px rgba(17, 17, 17, 0.06)", "purpose": "The ringed brand mark in the header only." }
+    ],
     "motion": [
-      {
-        "name": "ease-out-expo",
-        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
-        "purpose": "Button background-colour change, 160ms."
-      },
-      {
-        "name": "reduced-motion",
-        "value": "transition: none",
-        "purpose": "All transitions removed under prefers-reduced-motion."
-      }
+      { "name": "ease", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Button and tab background/colour changes at 160ms; button press scale to 0.98. Off under prefers-reduced-motion." }
     ],
     "breakpoints": [
-      {
-        "name": "narrow",
-        "value": "30rem",
-        "purpose": "Action-row buttons go full width below this."
-      },
-      {
-        "name": "column",
-        "value": "40rem",
-        "purpose": "Max content and band-row width."
-      }
-    ],
-    "focus": {
-      "value": "3px solid #14181f, offset 3px",
-      "onBand": "outline-color #ffffff"
-    },
-    "tapTarget": "48px",
-    "measure": "34rem"
+      { "name": "narrow", "value": "30rem" },
+      { "name": "column", "value": "40rem" }
+    ]
   },
   "components": [
     {
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Ink action button; one per decision.",
-      "html": "<button class=\"ds-btn ds-btn-primary\">I agree</button>",
-      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 24px;border:2px solid var(--ink,#14181f);border-radius:0;cursor:pointer;font:700 1.125rem/1 'Barlow Condensed','Noto Sans',sans-serif;text-transform:uppercase;letter-spacing:.06em;transition:background-color 160ms cubic-bezier(0.16,1,0.3,1);}.ds-btn:focus-visible{outline:3px solid var(--ink,#14181f);outline-offset:3px;}.ds-btn-primary{background:var(--ink,#14181f);color:#fff;}.ds-btn-primary:hover{background:#2b313b;}.ds-btn-primary[disabled]{opacity:.55;cursor:not-allowed;}"
+      "description": "The one action on a card: an ink-black pill, often full width with a trailing arrow.",
+      "html": "<button class=\"ds-btn\">Open the report <svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg></button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 20px; border: 0; border-radius: 999px; background: #111111; color: #fff; font: 600 17px/1.5 Inter, system-ui, sans-serif; cursor: pointer; transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1), transform 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn:hover { background: #2a2a2e; } .ds-btn:active { transform: scale(0.98); } .ds-btn:focus-visible { outline: 3px solid #111111; outline-offset: 3px; }"
     },
     {
       "name": "Quiet Button",
       "kind": "button",
       "refersTo": "button-quiet",
-      "description": "Outlined secondary action or escape.",
-      "html": "<button class=\"ds-btn ds-btn-quiet\">Not now, sign out</button>",
-      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 24px;border:2px solid var(--ink,#14181f);border-radius:0;cursor:pointer;font:700 1.125rem/1 'Barlow Condensed','Noto Sans',sans-serif;text-transform:uppercase;letter-spacing:.06em;transition:background-color 160ms cubic-bezier(0.16,1,0.3,1);}.ds-btn:focus-visible{outline:3px solid var(--ink,#14181f);outline-offset:3px;}.ds-btn-quiet{background:transparent;color:var(--ink,#14181f);}.ds-btn-quiet:hover{background:var(--foil,#e7e9ec);}"
+      "description": "Secondary action: a sunk-grey pill with ink text.",
+      "html": "<button class=\"ds-btn-quiet\">Cancel</button>",
+      "css": ".ds-btn-quiet { min-height: 52px; padding: 0 20px; border: 0; border-radius: 999px; background: #f2f2f3; color: #111111; font: 600 17px/1.5 Inter, system-ui, sans-serif; cursor: pointer; transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-quiet:hover { background: #e6e6e9; } .ds-btn-quiet:focus-visible { outline: 3px solid #111111; outline-offset: 3px; }"
     },
     {
-      "name": "Danger Button",
-      "kind": "button",
-      "refersTo": "button-danger",
-      "description": "Irreversible deletion only.",
-      "html": "<button class=\"ds-btn ds-btn-danger\">Yes, delete my data</button>",
-      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 24px;border:2px solid var(--ink,#14181f);border-radius:0;cursor:pointer;font:700 1.125rem/1 'Barlow Condensed','Noto Sans',sans-serif;text-transform:uppercase;letter-spacing:.06em;transition:background-color 160ms cubic-bezier(0.16,1,0.3,1);}.ds-btn:focus-visible{outline:3px solid var(--ink,#14181f);outline-offset:3px;}.ds-btn-danger{background:var(--state-critical,#b3122e);border-color:var(--state-critical,#b3122e);color:#fff;}.ds-btn-danger:hover{background:#8f0e25;}"
+      "name": "State Pills",
+      "kind": "chip",
+      "refersTo": "pill-normal",
+      "description": "Counted states, each a word on its tint. Colour never stands alone.",
+      "html": "<div class=\"ds-pills\"><span class=\"ds-pill ds-pill--green\">2 normal</span><span class=\"ds-pill ds-pill--amber\">1 outside range</span><span class=\"ds-pill ds-pill--red\">1 urgent</span></div>",
+      "css": ".ds-pills { display: flex; flex-wrap: wrap; gap: 8px; } .ds-pill { display: inline-flex; align-items: center; min-height: 36px; padding: 0 16px; border-radius: 999px; font: 600 15px/1.3 Inter, system-ui, sans-serif; } .ds-pill--green { background: #e3f1ed; color: #0f6b5c; } .ds-pill--amber { background: #fcecdf; color: #9a4a08; } .ds-pill--red { background: #fbe7ea; color: #a3122e; font-weight: 700; }"
     },
     {
-      "name": "Phone Field",
-      "kind": "input",
-      "refersTo": "input-text",
-      "description": "Ink-bordered white well with a fixed +91 prefix; the focus ring sits on the well.",
-      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Mobile number</span><span class=\"ds-phone\"><span class=\"ds-phone-pre\">+91</span><input class=\"ds-input\" inputmode=\"numeric\" placeholder=\"98765 43210\"></span><span class=\"ds-field-hint\">We send a 6-digit code by SMS</span></label>",
-      "css": ".ds-field{display:grid;gap:8px;font:400 1.0625rem/1.5 'Noto Sans','Noto Sans Devanagari',sans-serif;color:#14181f;}.ds-field-label{font-weight:600;}.ds-field-hint{color:var(--ink-soft,#4a515c);}.ds-phone{display:flex;border:2px solid var(--ink,#14181f);background:#fff;}.ds-phone:focus-within{outline:3px solid var(--ink,#14181f);outline-offset:3px;}.ds-phone-pre{display:flex;align-items:center;padding:0 12px;border-right:1px solid var(--hairline,#b9bec5);font-weight:600;}.ds-input{width:100%;min-height:48px;border:0;padding:0 12px;background:#fff;font:inherit;font-size:1.25rem;letter-spacing:.04em;}.ds-input:focus-visible{outline:none;}"
-    },
-    {
-      "name": "Product Band",
-      "kind": "nav",
-      "refersTo": "band",
-      "description": "Magenta header on every screen: product name, bilingual greeting, one quiet action.",
-      "html": "<header class=\"ds-band\"><div><p class=\"ds-band-name\">Prime Healthcare</p><p class=\"ds-band-line\">Namaste, Asha · <span lang=\"hi\">नमस्ते</span></p></div><button class=\"ds-band-btn\">Sign out</button></header>",
-      "css": ".ds-band{background:var(--band,#9c1458);color:#fff;padding:24px 16px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;font:400 1.0625rem/1.5 'Noto Sans','Noto Sans Devanagari',sans-serif;}.ds-band-name{font:700 1.75rem/1 'Barlow Condensed',sans-serif;letter-spacing:.02em;text-transform:uppercase;margin:0;}.ds-band-line{margin:8px 0 0;}.ds-band-btn{min-height:48px;padding:0 12px;background:transparent;color:#fff;border:2px solid #fff;border-radius:0;font:700 1.125rem/1 'Barlow Condensed','Noto Sans',sans-serif;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;white-space:nowrap;}.ds-band-btn:hover{background:rgba(255,255,255,.12);}.ds-band-btn:focus-visible{outline:3px solid #fff;outline-offset:3px;}"
-    },
-    {
-      "name": "Strip",
+      "name": "Summary Card",
       "kind": "card",
-      "refersTo": "strip",
-      "description": "The world's one container: raised foil, hairline outline, dashed perforations, batch panel of facts.",
-      "html": "<section class=\"ds-strip\"><div class=\"ds-strip-head\"><h2 class=\"ds-strip-title\">Your account</h2></div><dl class=\"ds-batch\"><div><dt>Phone</dt><dd>+91 ••••• •3210</dd></div><div><dt>Consent</dt><dd>Given</dd></div></dl><div class=\"ds-strip-body\"><p>You can download or delete your data at any time.</p></div></section>",
-      "css": ".ds-strip{background:var(--foil-raised,#f7f8f9);border:1px solid var(--hairline,#b9bec5);border-radius:0;font:400 1.0625rem/1.5 'Noto Sans','Noto Sans Devanagari',sans-serif;color:#14181f;font-variant-numeric:tabular-nums;}.ds-strip-head{padding:12px 16px;}.ds-strip-title{font:700 1.375rem/1.1 'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.03em;margin:0;}.ds-batch{display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));border-top:1px solid var(--hairline,#b9bec5);margin:0;}.ds-batch>div{padding:8px 16px;border-right:1px solid var(--hairline,#b9bec5);}.ds-batch>div:last-child{border-right:0;}.ds-batch dt{font-size:.875rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft,#4a515c);}.ds-batch dd{margin:0;}.ds-strip-body{padding:16px;border-top:1px dashed var(--perforation,#8c939d);}.ds-strip-body p{margin:0;}"
+      "refersTo": "card",
+      "description": "Signature: big number, date line, counted state pills, the next step, one black pill.",
+      "html": "<section class=\"ds-summary\"><h2 class=\"ds-summary__n\">4 tests</h2><span class=\"ds-summary__label\">Latest report · 26 Nov 2026</span><div class=\"ds-summary__pills\"><span class=\"ds-sp ds-sp--g\">2 normal</span><span class=\"ds-sp ds-sp--a\">1 outside range</span><span class=\"ds-sp ds-sp--r\">1 urgent</span></div><p class=\"ds-summary__next\">Take these results to a doctor</p><a class=\"ds-summary__btn\" href=\"#\">Open the report</a></section>",
+      "css": ".ds-summary { display: grid; gap: 12px; padding: 20px; background: #fff; border-radius: 24px; box-shadow: 0 8px 24px rgba(17,17,17,0.06); font: 400 17px/1.5 Inter, system-ui, sans-serif; color: #111111; max-width: 24rem; } .ds-summary__n { margin: 0; font-size: 44px; line-height: 1; font-weight: 700; letter-spacing: -0.03em; } .ds-summary__label { margin-top: -8px; color: #5e5e66; } .ds-summary__pills { display: flex; flex-wrap: wrap; gap: 8px; } .ds-sp { display: inline-flex; align-items: center; min-height: 36px; padding: 0 16px; border-radius: 999px; font-size: 15px; font-weight: 600; } .ds-sp--g { background: #e3f1ed; color: #0f6b5c; } .ds-sp--a { background: #fcecdf; color: #9a4a08; } .ds-sp--r { background: #fbe7ea; color: #a3122e; font-weight: 700; } .ds-summary__next { margin: 0; } .ds-summary__btn { display: flex; align-items: center; justify-content: center; min-height: 52px; border-radius: 999px; background: #111111; color: #fff; font-weight: 600; text-decoration: none; transition: background-color 160ms cubic-bezier(0.16,1,0.3,1); } .ds-summary__btn:hover { background: #2a2a2e; } .ds-summary__btn:focus-visible { outline: 3px solid #111111; outline-offset: 3px; }"
     },
     {
-      "name": "Next-Step Line",
-      "kind": "custom",
-      "refersTo": "next-tag",
-      "description": "Strip footer naming the one next step, led by an ink Next tag.",
-      "html": "<p class=\"ds-next\"><span class=\"ds-next-tag\">Next</span>Your lab adds your first report</p>",
-      "css": ".ds-next{display:flex;align-items:center;gap:12px;margin:0;padding:12px 16px;border-top:1px solid var(--hairline,#b9bec5);background:var(--foil-raised,#f7f8f9);font:400 1.0625rem/1.5 'Noto Sans','Noto Sans Devanagari',sans-serif;color:#14181f;font-weight:600;}.ds-next-tag{background:var(--ink,#14181f);color:#fff;font:700 .9375rem/1 'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.06em;padding:4px 8px;}"
+      "name": "Stat Tiles",
+      "kind": "card",
+      "refersTo": "stat-tile",
+      "description": "Three white tiles in a row: number over a meta label; the urgent count turns red and keeps its word.",
+      "html": "<div class=\"ds-stats\"><div class=\"ds-stat\"><span class=\"ds-stat__n\">14</span><span class=\"ds-stat__l\">reports</span></div><div class=\"ds-stat\"><span class=\"ds-stat__n\">49</span><span class=\"ds-stat__l\">tests read</span></div><div class=\"ds-stat\"><span class=\"ds-stat__n ds-red\">8</span><span class=\"ds-stat__l\">urgent</span></div></div>",
+      "css": ".ds-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-width: 24rem; font-family: Inter, system-ui, sans-serif; } .ds-stat { display: grid; gap: 4px; padding: 12px 16px; background: #fff; border-radius: 20px; box-shadow: 0 8px 24px rgba(17,17,17,0.06); } .ds-stat__n { font-size: 28px; line-height: 1; font-weight: 700; letter-spacing: -0.02em; color: #111111; } .ds-stat__l { font-size: 14px; line-height: 1.3; color: #5e5e66; } .ds-red { color: #a3122e; }"
     },
     {
-      "name": "Error Message",
+      "name": "Result Tile",
       "kind": "custom",
-      "refersTo": "state-critical",
-      "description": "Critical-tint box prefixed by the word Problem.",
-      "html": "<div class=\"ds-msg\" role=\"alert\"><strong>Problem</strong>That code has expired. Ask for a new one.</div>",
-      "css": ".ds-msg{border:1px solid var(--state-critical,#b3122e);background:var(--state-critical-tint,#fbe8eb);color:var(--state-critical,#b3122e);padding:12px 16px;font:400 1.0625rem/1.5 'Noto Sans',sans-serif;}.ds-msg strong{margin-right:8px;font:700 1rem 'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.05em;}"
+      "refersTo": "result-tile",
+      "description": "One result as a number tile on the ground: name, state word, big value with small unit, range bar.",
+      "html": "<ul class=\"ds-results\"><li class=\"ds-result\"><span class=\"ds-result__name\">Hemoglobin</span><span class=\"ds-result__state ds-g\">Normal</span><p class=\"ds-result__v\">13.8 <span class=\"ds-result__u\">g/dL</span></p><div class=\"ds-range\"><span class=\"ds-range__zone\" style=\"left:25%;width:50%\"></span><span class=\"ds-range__mark\" style=\"left:55%\"></span></div><p class=\"ds-result__r\">13 to 17</p></li><li class=\"ds-result ds-result--red\"><span class=\"ds-result__name\">LDL Cholesterol</span><span class=\"ds-result__state ds-r\">Urgent</span><p class=\"ds-result__v\">212 <span class=\"ds-result__u\">mg/dL</span></p><p class=\"ds-result__r\">Under 100</p></li></ul>",
+      "css": ".ds-results { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 8px; max-width: 24rem; font-family: Inter, system-ui, sans-serif; color: #111111; } .ds-result { display: grid; gap: 8px; align-content: start; padding: 16px; background: #fff; border-radius: 20px; box-shadow: 0 8px 24px rgba(17,17,17,0.06); } .ds-result--red { background: #fbe7ea; } .ds-result__name { font-size: 15px; font-weight: 600; color: #5e5e66; } .ds-result__state { font-size: 15px; font-weight: 700; } .ds-g { color: #0f6b5c; } .ds-r { color: #a3122e; } .ds-result__v { margin: 0; font-size: 30px; line-height: 1; font-weight: 700; letter-spacing: -0.02em; } .ds-result__u { font-size: 14px; font-weight: 500; letter-spacing: 0; color: #5e5e66; } .ds-result__r { margin: 0; font-size: 14px; color: #5e5e66; } .ds-range { position: relative; height: 8px; border-radius: 4px; background: #dedee2; } .ds-range__zone { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: #0f6b5c; opacity: 0.35; } .ds-range__mark { position: absolute; top: -4px; bottom: -4px; width: 4px; margin-left: -2px; border-radius: 2px; background: #111111; }"
+    },
+    {
+      "name": "Floating Tab Bar",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "A floating white pill of icon + label tabs; the current page is filled black.",
+      "html": "<ul class=\"ds-nav\"><li><a class=\"ds-nav__item\" href=\"#\" aria-current=\"page\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M7 3h7l4 4v14H7z\"/><path d=\"M10 12h5M10 16h5\"/></svg>Reports</a></li><li><a class=\"ds-nav__item\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 5h16v11H9l-5 4z\"/></svg>Chat</a></li><li><a class=\"ds-nav__item\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6\"/></svg>Profile</a></li></ul>",
+      "css": ".ds-nav { list-style: none; margin: 0; padding: 6px; display: inline-flex; gap: 4px; border-radius: 999px; background: rgba(255,255,255,0.97); box-shadow: 0 10px 30px rgba(17,17,17,0.12); font-family: Inter, system-ui, sans-serif; } .ds-nav__item { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 0 16px; border-radius: 999px; color: #5e5e66; text-decoration: none; font-size: 15px; font-weight: 600; transition: background-color 160ms cubic-bezier(0.16,1,0.3,1), color 160ms cubic-bezier(0.16,1,0.3,1); } .ds-nav__item:hover { background: #f2f2f3; color: #111111; } .ds-nav__item[aria-current=\"page\"] { background: #111111; color: #fff; } .ds-nav__item:focus-visible { outline: 3px solid #111111; outline-offset: 3px; }"
+    },
+    {
+      "name": "Header Row",
+      "kind": "custom",
+      "refersTo": "brand-mark",
+      "description": "One row on the ground: magenta-ringed initial, greeting over name, language pill with the selected half black.",
+      "html": "<header class=\"ds-head\"><span class=\"ds-mark\">C</span><div class=\"ds-head__line\"><span class=\"ds-head__hello\">Namaste</span><span class=\"ds-head__name\">Chitra Rao</span></div><div class=\"ds-toggle\"><button class=\"ds-toggle__btn\" aria-pressed=\"true\">English</button><button class=\"ds-toggle__btn\" aria-pressed=\"false\" lang=\"hi\">हिंदी</button></div></header>",
+      "css": ".ds-head { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 20px 16px 0; background: #f2f2f3; font-family: Inter, 'Noto Sans Devanagari', system-ui, sans-serif; color: #111111; } .ds-mark { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: #fff; box-shadow: 0 0 0 2px #9c1458, 0 8px 24px rgba(17,17,17,0.06); font-weight: 800; color: #9c1458; } .ds-head__line { flex: 1; min-width: 0; display: flex; flex-direction: column; } .ds-head__hello { font-size: 14px; color: #5e5e66; } .ds-head__name { font-size: 18px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; } .ds-toggle { display: flex; flex: none; padding: 4px; gap: 2px; border-radius: 999px; background: #fff; box-shadow: 0 8px 24px rgba(17,17,17,0.06); } .ds-toggle__btn { min-height: 48px; min-width: 48px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; font: inherit; font-weight: 600; color: #5e5e66; cursor: pointer; } .ds-toggle__btn[aria-pressed=\"true\"] { background: #111111; color: #fff; } .ds-toggle__btn:focus-visible { outline: 3px solid #111111; outline-offset: 2px; }"
+    },
+    {
+      "name": "Phone Input",
+      "kind": "input",
+      "refersTo": "input-pill",
+      "description": "A white outlined pill with the country code in its own segment; focus rings the whole pill.",
+      "html": "<div class=\"ds-phone\"><span>+91</span><input type=\"tel\" placeholder=\"98765 43210\" aria-label=\"Phone number\"></div>",
+      "css": ".ds-phone { display: flex; align-items: stretch; max-width: 22rem; border: 1px solid #dcdce0; border-radius: 999px; background: #fff; overflow: hidden; font-family: Inter, system-ui, sans-serif; } .ds-phone span { display: flex; align-items: center; padding: 0 16px; border-right: 1px solid #ececee; font-weight: 600; color: #5e5e66; } .ds-phone input { width: 100%; min-height: 52px; border: 0; padding: 0 16px; background: transparent; font: inherit; font-size: 20px; letter-spacing: 0.04em; color: #111111; } .ds-phone input:focus-visible { outline: none; } .ds-phone:focus-within { outline: 3px solid #111111; outline-offset: 2px; }"
+    },
+    {
+      "name": "Chat Sheet",
+      "kind": "card",
+      "refersTo": "chat-user",
+      "description": "The last card on a report, styled as a bottom sheet: black user bubbles right, sunk assistant bubbles left.",
+      "html": "<section class=\"ds-sheet\"><ul class=\"ds-chat\"><li class=\"ds-msg ds-msg--user\"><span class=\"ds-who\">You</span><p>Is my LDL dangerous?</p></li><li class=\"ds-msg ds-msg--bot\"><span class=\"ds-who\">Assistant</span><p>It is well above the range. Take this report to a doctor this week.</p></li></ul></section>",
+      "css": ".ds-sheet { max-width: 24rem; padding-bottom: 8px; background: #fff; border-radius: 28px 28px 24px 24px; box-shadow: 0 10px 30px rgba(17,17,17,0.12); font: 400 17px/1.5 Inter, system-ui, sans-serif; color: #111111; } .ds-sheet::before { content: ''; display: block; width: 44px; height: 5px; margin: 12px auto 12px; border-radius: 3px; background: #d6d6db; } .ds-chat { list-style: none; margin: 0; padding: 0 20px 8px; display: grid; gap: 8px; } .ds-msg { padding: 12px 16px; border-radius: 20px; max-width: 90%; } .ds-msg p { margin: 4px 0 0; } .ds-msg--user { justify-self: end; background: #111111; color: #fff; } .ds-msg--user .ds-who { color: #c9c9ce; } .ds-msg--bot { justify-self: start; background: #f2f2f3; } .ds-who { font-size: 14px; font-weight: 600; color: #5e5e66; }"
     }
   ],
   "narrative": {
-    "northStar": "The Chemist Strip",
-    "overview": "A lab report should read like the blister strip of medicine an Indian patient already keeps in a kitchen drawer: printed foil, square cuts, dashed perforations between pockets, and a printed batch panel with the facts. The system is quiet foil grey with ink type, one saturated magenta product band at the top of every screen, and condensed uppercase headings that read like pharmacy print. It refuses the rounded-card-with-status-chip health app.\n\nDensity is calm and mobile-first (a single 40rem column, designed at 390px). Body text is set large (17px) for older readers and family caregivers, every target is at least 48px, and Hindi (Devanagari) runs alongside English as a first-class second line rather than a translation afterthought. Depth comes from the hairline-and-perforation system, never from shadow or rounding.",
+    "northStar": "The Clean Monochrome Dashboard",
+    "overview": "A lab report read the way a good fitness app reads a run: one big number for how the latest report went, a word pill for each state, and one black pill to the next step. The ground is a quiet mist grey; everything the patient reads sits on white cards that lift off it with a soft, long shadow. Ink is near-black and carries every action. Colour is not decoration here; it appears only to carry a result state, and always next to the word that names it.\n\nDensity is low and the type is large, because many readers are older and read on a phone, in English or Hindi. One column, one container shape, one action colour. The same token values are meant to carry unchanged into the later native app, so every value is a plain hex, px or rem.\n\nThe system refuses the blue-and-teal hospital portal: no icon-tile grids, no stock-photo doctor, no tinted header band.",
     "keyCharacteristics": [
-      "Foil grey ground, raised foil strips, ink type; magenta only on the product band and selection.",
-      "Square corners everywhere (radius 0).",
-      "One container, the strip: hairline outline, sections divided by dashed perforations.",
-      "Barlow Condensed uppercase for headings, buttons and labels; Noto Sans and Noto Sans Devanagari for reading text.",
-      "Tabular numerals throughout.",
-      "State is always a word plus a colour, never colour alone."
+      "Mist ground, white cards at a generous radius, separated by shadow and never by a border.",
+      "Ink black for text and every action; grey only for meta.",
+      "Colour only for state, always paired with its word.",
+      "Magenta appears once: the ring around the patient's initial.",
+      "Big, heavy Inter numbers; Noto Sans Devanagari for Hindi.",
+      "Pills for everything you press or read as a state."
     ],
     "rules": [
-      {
-        "name": "The Word-State Rule",
-        "body": "A result state is always carried by a printed word (\"Normal\", \"Problem\"), with colour as reinforcement. Colour alone never signals state.",
-        "section": "colors"
-      },
-      {
-        "name": "The One Band Rule",
-        "body": "Magenta appears as the product band and nowhere else that carries meaning. It is brand, not an action colour; actions are ink.",
-        "section": "colors"
-      },
-      {
-        "name": "The One-Language Rule",
-        "body": "A screen speaks one language at a time, chosen with the English | हिंदी switch in the band and remembered on the device. Hindi is set at the same size as English, never shrunk into a caption.",
-        "section": "typography"
-      },
-      {
-        "name": "The 17px Floor Rule",
-        "body": "Reading text never drops below 1.0625rem; only batch labels and meta reach 0.875rem.",
-        "section": "typography"
-      },
-      {
-        "name": "The Printed-Not-Lifted Rule",
-        "body": "Nothing floats. A surface is distinguished by tone and line, never by box-shadow.",
-        "section": "elevation"
-      }
+      { "name": "The Word First Rule", "body": "Every state colour sits beside the word for that state (\"2 normal\", \"Urgent\", \"outside range\"). Colour reinforces; the word carries. A coloured dot or bar with no word is not allowed.", "section": "colors" },
+      { "name": "The One Mark Rule", "body": "Magenta appears once per screen, as the ring around the initial. Anything else that wants to be \"brand\" is ink.", "section": "colors" },
+      { "name": "The Monochrome Action Rule", "body": "Every action is ink black (or quiet grey, or critical red when it destroys). No coloured primary buttons.", "section": "colors" },
+      { "name": "The Reading Floor Rule", "body": "Body text is 17px. 14px is for meta only: a date, a unit, a label over a value.", "section": "typography" },
+      { "name": "The One Language Rule", "body": "A screen is in English or in Hindi, never both side by side. In Hindi, headings and big numbers drop negative tracking and open to 1.35 line height so matras have room, and uppercase is switched off.", "section": "typography" },
+      { "name": "The Shadow Not Border Rule", "body": "Cards separate from the ground by shadow alone. Inside a card, rows separate by 1px divider hairlines. Outlines exist only on inputs.", "section": "elevation" }
     ],
     "dos": [
-      "Do put every grouped piece of content in a strip and divide its sections with dashed perforations, not with gaps or new boxes.",
-      "Do pair each state colour with a printed word.",
-      "Do give Hindi its own line or span with lang=\"hi\" at full body size.",
-      "Do keep every interactive target at least 48px tall.",
-      "Do use ink for actions and reserve magenta for the band.",
-      "Do keep numerals tabular."
+      "**Do** put every action in an ink-black pill (52px tall, 999px radius); quiet grey for secondary, critical red only for destructive.",
+      "**Do** pair every state colour with its word, on its tint, in a pill or as coloured bold text.",
+      "**Do** separate cards from the mist ground with the card shadow and nothing else; separate rows inside with 1px divider hairlines.",
+      "**Do** keep reading text at 17px and every tap target at 48px or more.",
+      "**Do** show results as number tiles with the value large and the unit small.",
+      "**Do** keep one language per screen and relax Devanagari headings to 1.35 line height with no tracking."
     ],
     "donts": [
-      "Don't round corners; radius is 0 everywhere.",
-      "Don't use box-shadow for depth.",
-      "Don't signal a result state by colour alone.",
-      "Don't use magenta as a button or link colour.",
-      "Don't set reading text below 17px."
+      "**Don't** use magenta anywhere except the ring and initial of the brand mark.",
+      "**Don't** use colour without a word: no bare dots, bars, or tinted rows that carry state alone.",
+      "**Don't** add borders to cards or tinted header bands; the ground runs to the top.",
+      "**Don't** build the blue-and-teal hospital portal: no icon-tile grids, no stock-photo doctor.",
+      "**Don't** use 14px for anything the patient must read and act on."
     ]
   }
 }

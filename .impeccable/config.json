@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-11-25T20:30:33.454Z",
+        "reason": "finish reviewer: Inter is the face of mock A, which the user picked ('Go with A'); a swap would contradict the chosen look"
+      }
+    ]
+  }
+}

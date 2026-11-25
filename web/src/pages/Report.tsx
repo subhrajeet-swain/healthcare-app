@@ -173,15 +173,21 @@ export function Report({ id, nav = false }: Props) {
 
   return (
     <div className="shell">
-      <Band>{back}</Band>
+      <Band />
       <main>
-        <h1>{t("yourReport")}</h1>
-        <p className="lede">
-          {report.collected_on
-            ? t("collected", { date: shortDate(report.collected_on, lang) })
-            : t("added", { date: shortDate(report.created_at, lang) })}
-          {report.source === "lab" && ` · ${t("fromLab")}`}
-        </p>
+        <h1 className="visually-hidden">{t("yourReport")}</h1>
+        <div className="report-head">
+          <a className="circle-btn" href="/" aria-label={t("back")} onClick={(e) => { e.preventDefault(); go("/"); }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+          </a>
+          <p className="report-head__line">
+            {report.collected_on
+              ? t("collected", { date: shortDate(report.collected_on, lang) })
+              : t("added", { date: shortDate(report.created_at, lang) })}
+            {report.source === "lab" && ` · ${t("fromLab")}`}
+          </p>
+        </div>
 
         {!finished && (
           <section className="strip" aria-labelledby="progress-title" aria-live="polite">
@@ -215,35 +221,15 @@ export function Report({ id, nav = false }: Props) {
                   {TRIAGE[report.triage][lang]}
                 </h2>
               </div>
+              {report.next_step && <p className="next">{NEXT[report.next_step][lang]}</p>}
               {report.status === "needs_review" && (
                 <div className="strip__body">
                   <p>{t("doctorTold")}</p>
                 </div>
               )}
-              {report.next_step && (
-                <p className="next">
-                  <span className="next__tag">{t("next")}</span>
-                  {NEXT[report.next_step][lang]}
-                </p>
-              )}
             </section>
 
-            <section className="strip" aria-labelledby="explain-title">
-              <div className="strip__head">
-                <h2 className="strip__title" id="explain-title">
-                  {t("whatItSays")}
-                </h2>
-              </div>
-              <ul className="perf-list" lang={lang}>
-                {lines.map((s, i) => (
-                  <li key={i} className={i === 0 && report.urgent ? "perf-list__urgent" : undefined}>
-                    {s.text}
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            <section className="strip" aria-labelledby="results-title">
+            <section className="tiles" aria-labelledby="results-title">
               <div className="strip__head">
                 <h2 className="strip__title" id="results-title">
                   {t("results")}
@@ -257,6 +243,21 @@ export function Report({ id, nav = false }: Props) {
               <ul className="results">
                 {results.map((r) => (
                   <ResultRow key={r.test_id} r={r} />
+                ))}
+              </ul>
+            </section>
+
+            <section className="strip" aria-labelledby="explain-title">
+              <div className="strip__head">
+                <h2 className="strip__title" id="explain-title">
+                  {t("whatItSays")}
+                </h2>
+              </div>
+              <ul className="perf-list" lang={lang}>
+                {lines.map((s, i) => (
+                  <li key={i} className={i === 0 && report.urgent ? "perf-list__urgent" : undefined}>
+                    {s.text}
+                  </li>
                 ))}
               </ul>
             </section>

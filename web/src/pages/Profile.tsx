@@ -10,7 +10,10 @@ export function Profile({ me, onSignOut, onDeleted }: Props) {
   const { t } = useLang();
   return (
     <div className="shell">
-      <Band line={me.name ? <span className="nowrap">{me.name}</span> : undefined}>
+      <Band
+        line={me.name ? <span className="band__person">{me.name}</span> : undefined}
+        initial={me.name?.trim().charAt(0).toUpperCase()}
+      >
         <button className="btn btn--quiet" onClick={onSignOut}>
           {t("signOut")}
         </button>

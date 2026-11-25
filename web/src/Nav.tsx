@@ -1,16 +1,23 @@
+import type { ReactNode } from "react";
 import { type Key, useLang } from "./i18n";
 import { go } from "./routes";
 
 export type Tab = "reports" | "chat" | "profile";
 
 // ponytail: Family joins in phase 2, no placeholder tab until it exists
+const ICONS: Record<Tab, ReactNode> = {
+  reports: <><path d="M7 3h7l4 4v14H7z" /><path d="M10 12h5M10 16h5" /></>,
+  chat: <path d="M4 5h16v11H9l-5 4z" />,
+  profile: <><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></>,
+};
+
 const TABS: [Tab, string, Key][] = [
   ["reports", "/", "navReports"],
   ["chat", "/chat", "navChat"],
   ["profile", "/profile", "navProfile"],
 ];
 
-/** Patient bottom nav: ink bar, magenta tick over the page you are on. */
+/** Patient bottom nav: a floating pill, the page you are on filled black. */
 export function Nav({ active }: { active: Tab }) {
   const { t } = useLang();
   return (
@@ -27,6 +34,8 @@ export function Nav({ active }: { active: Tab }) {
                 go(href);
               }}
             >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICONS[tab]}</svg>
               {t(key)}
             </a>
           </li>
