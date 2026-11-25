@@ -51,3 +51,15 @@ def test_keyboard_interrupt_still_stops_it(monkeypatch):
     monkeypatch.setattr(worker, "run_once", stop)
     with pytest.raises(KeyboardInterrupt):
         worker.serve(iterations=3, sleep=lambda s: None)
+
+
+def test_long_running_services_restart_after_a_crash():
+    # The worker once died on "database system is shutting down" and stayed dead.
+    from pathlib import Path
+
+    import yaml
+
+    compose = yaml.safe_load((Path(__file__).parents[2] / "docker-compose.yml").read_text())
+    for name in ("db", "api", "worker", "web"):
+        assert compose["services"][name].get("restart") == "unless-stopped", name
+    assert "restart" not in compose["services"]["migrate"]  # one-shot; a restart would loop
