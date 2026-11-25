@@ -225,7 +225,10 @@ Heavy, printed, unmistakable.
 - **Info:** raised foil with a hairline border.
 
 ### Navigation (the Band)
-The magenta band heads every screen: PRIME HEALTHCARE in the headline style, a greeting line in the chosen language with the English | हिंदी switch to its right (a bordered two-cell toggle, white on magenta, the chosen cell filled white), and at most one quiet button (Sign out, All reports) at the right of the name. The bottom tab nav and the per-result cell strip from the direction sketch are not built yet; document them when they ship.
+The magenta band heads every screen: PRIME HEALTHCARE in the headline style, a greeting line in the chosen language with the English | हिंदी switch to its right (a bordered two-cell toggle, white on magenta, the chosen cell filled white), and at most one quiet button at the right of the name: for staff, Sign out on the dashboard and All reports on a report; patients have none, since their tab bar is the way around and Sign out lives in Profile. The per-result cell strip from the direction sketch is not built yet; document it when it ships.
+
+### Navigation (the Tab Bar)
+Patients get an ink tab bar at the foot of every screen: Reports, Chat, Profile, three equal cells in the condensed label style (uppercase, 0.06em tracking), at least 56px tall, sticky to the viewport bottom inside the page flow and padded for the device safe area. Inactive labels are soft white on ink; the current page has a white label underlined 3px (the state cue that holds full contrast in both scripts), a slightly lifted ink cell, aria-current="page", and a short magenta tick (40px by 4px) centred on its top edge: the one place magenta appears outside the band, by the brief's choice, as brand rather than the only state signal. Hindi labels drop the condensed caps and tracking like every Devanagari display element. The page reserves scroll padding for the bar so keyboard focus is never hidden under it; moving between tabs starts the new page at the top and puts focus on its heading. Chat opens the chat for the first report in the list that chat accepts (ready or in review). Profile holds the account strip (phone, consent, download, delete). Family joins in phase 2; there is no placeholder tab. Staff, doctors and admins have no tab bar.
 
 ## Do's and Don'ts
 

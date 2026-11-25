@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dashboardFor, parseRoute } from "./routes";
+import { dashboardFor, latestReady, parseRoute } from "./routes";
 
 describe("dashboardFor", () => {
   it("maps every role to its dashboard heading", () => {
@@ -31,5 +31,30 @@ describe("report route", () => {
   });
   it("rejects ids with odd characters", () => {
     expect(parseRoute("/reports/../x")).toEqual({ name: "home" });
+  });
+});
+
+describe("nav routes", () => {
+  it("reads chat and profile", () => {
+    expect(parseRoute("/chat")).toEqual({ name: "chat" });
+    expect(parseRoute("/profile/")).toEqual({ name: "profile" });
+  });
+});
+
+describe("latestReady", () => {
+  const r = (id: string, status: string, created_at: string) => ({ id, status, created_at }) as never;
+  it("picks the first report chat accepts, in list order (newest report date first)", () => {
+    // uploaded last but collected in April: not the one the patient sees on top
+    const list = [
+      r("bad", "failed", "2026-11-25T16:02:00Z"),
+      r("nov20", "needs_review", "2026-11-25T16:18:00Z"),
+      r("busy", "extracting", "2026-11-25T16:20:00Z"),
+      r("apr", "needs_review", "2026-11-25T16:35:00Z"),
+    ];
+    expect(latestReady(list)?.id).toBe("nov20");
+  });
+  it("is undefined when nothing is ready", () => {
+    expect(latestReady([r("busy", "received", "2026-11-20T00:00:00Z")])).toBeUndefined();
+    expect(latestReady([])).toBeUndefined();
   });
 });

@@ -192,13 +192,32 @@ input.text.text--boxed { min-height: var(--tap); font-size: var(--step-0); lette
 /* Devanagari: Barlow Condensed has no Devanagari, and condensed-caps spacing crowds the
    matras. Hindi display text uses Noto Sans Devanagari at its heaviest shipped weight. */
 :lang(hi) :is(h1, h2, .strip__title, .btn, .toggle__btn, .next__tag, .report-row__state,
-  .result__state, .steps__word, .chat__who, .msg strong, .batch dt, .file::file-selector-button) {
+  .result__state, .steps__word, .chat__who, .msg strong, .batch dt, .file::file-selector-button, .nav__item) {
   font-family: "Noto Sans Devanagari", var(--font-text);
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
 }
 :lang(hi) :is(h1, h2, .strip__title, .report-row__state, .result__state) { line-height: 1.4; }
-:lang(hi) :is(.btn, .next__tag, .steps__word, .chat__who) { line-height: 1.35; }
+:lang(hi) :is(.btn, .next__tag, .steps__word, .chat__who, .nav__item) { line-height: 1.35; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* bottom nav (patients): ink bar, magenta tick on the current page. Sticky: content scrolls
+   under it, so keyboard focus scrolls clear of it (WCAG 2.4.11). */
+html { scroll-padding-bottom: calc(3.5rem + env(safe-area-inset-bottom)); }
+.nav { position: sticky; bottom: 0; background: var(--ink); padding-bottom: env(safe-area-inset-bottom); }
+.nav__list { list-style: none; margin: 0 auto; padding: 0; max-width: 40rem; display: grid; grid-template-columns: repeat(3, 1fr); }
+.nav__item {
+  position: relative; display: flex; align-items: center; justify-content: center; min-height: 3.5rem;
+  color: #c3c8d0; text-decoration: none; font: 600 1.125rem/1 var(--font-display);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.nav__item:hover { background: #2b313b; color: #fff; }
+/* the tick is brand; the white underline carries the state at full contrast, in both scripts */
+.nav__item[aria-current="page"] { color: #fff; font-weight: 700; background: #232a35;
+  text-decoration: underline 3px; text-underline-offset: 0.4em; }
+.nav__item[aria-current="page"]::before { content: ""; position: absolute; top: 0; left: 50%; width: 2.5rem; height: 4px; margin-left: -1.25rem; background: var(--band); }
+.nav__item:focus-visible { outline-color: #fff; outline-offset: -4px; }
+main h1[tabindex="-1"]:focus { outline: none; }

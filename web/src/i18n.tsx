@@ -107,6 +107,15 @@ export const STRINGS = {
   progressLede: { en: "This usually takes under a minute. The page updates by itself.", hi: "इसमें आमतौर पर एक मिनट से कम लगता है। यह पेज अपने-आप अपडेट होता है।" },
   progressSlow: { en: "Taking longer than usual. Your report is safe and will be read automatically.", hi: "सामान्य से ज़्यादा समय लग रहा है। आपकी रिपोर्ट सुरक्षित है और अपने-आप पढ़ी जाएगी।" },
 
+  // bottom nav
+  navLabel: { en: "Main", hi: "मुख्य" },
+  navReports: { en: "Reports", hi: "रिपोर्ट" },
+  navChat: { en: "Chat", hi: "सवाल" },
+  navProfile: { en: "Profile", hi: "प्रोफ़ाइल" },
+  chatAbout: { en: "About your report from {date}.", hi: "{date} की आपकी रिपोर्ट के बारे में।" },
+  openReport: { en: "Open the report", hi: "रिपोर्ट खोलें" },
+  chatNone: { en: "You can ask questions once a report has been read. Upload one under Reports.", hi: "रिपोर्ट पढ़ ली जाने के बाद आप सवाल पूछ सकते हैं। रिपोर्ट में जाकर एक अपलोड करें।" },
+
   // chat
   askTitle: { en: "Ask about this report", hi: "इस रिपोर्ट के बारे में पूछें" },
   askHint: { en: "Answers come only from this report. A doctor decides anything about treatment.", hi: "जवाब केवल इसी रिपोर्ट से आते हैं। इलाज का हर फ़ैसला डॉक्टर लेते हैं।" },

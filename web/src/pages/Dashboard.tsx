@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import { type Me, type ReportSummary, api, messageFor } from "../api";
+import { useEffect, useState } from "react";
+import { Account } from "../Account";
+import { type Me, type ReportSummary, api } from "../api";
 import { Band } from "../Band";
 import { type Key, useLang } from "../i18n";
 import { type Role, go } from "../routes";
+import { Nav } from "../Nav";
 import { Upload } from "../Upload";
 import { Staff } from "./Staff";
 import { STATUS, TRIAGE, shortDate } from "../words";
@@ -78,32 +80,8 @@ function ReportList() {
 }
 
 export function Dashboard({ me, onSignOut, onDeleted }: Props) {
-  const { lang, t } = useLang();
-  const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const keepRef = useRef<HTMLButtonElement>(null);
-  const deleteRef = useRef<HTMLButtonElement>(null);
-  const opened = useRef(false);
-
-  // The button that had focus unmounts when the confirm opens or closes; move focus on purpose.
-  useEffect(() => {
-    if (confirming) keepRef.current?.focus();
-    else if (opened.current) deleteRef.current?.focus();
-    opened.current = confirming || opened.current;
-  }, [confirming]);
-
-  async function deleteAll() {
-    setBusy(true);
-    setError(null);
-    try {
-      await api.deleteMe();
-      onDeleted();
-    } catch (e) {
-      setError(messageFor(e, lang));
-      setBusy(false);
-    }
-  }
+  const { t } = useLang();
+  const patient = me.role === "patient";
 
   const greeting = me.name ? (
     <>
@@ -115,15 +93,18 @@ export function Dashboard({ me, onSignOut, onDeleted }: Props) {
 
   return (
     <div className="shell">
+      {/* patients sign out from Profile, so the band stays the same on every tab */}
       <Band line={greeting}>
-        <button className="btn btn--quiet" onClick={onSignOut}>
-          {t("signOut")}
-        </button>
+        {!patient && (
+          <button className="btn btn--quiet" onClick={onSignOut}>
+            {t("signOut")}
+          </button>
+        )}
       </Band>
       <main>
         <h1>{t(HEAD[me.role][0])}</h1>
 
-        {me.role === "patient" ? (
+        {patient ? (
           <>
             <Upload />
             <ReportList />
@@ -138,54 +119,10 @@ export function Dashboard({ me, onSignOut, onDeleted }: Props) {
           </section>
         )}
 
-        <section className="strip" aria-labelledby="account-title">
-          <div className="strip__head">
-            <h2 className="strip__title" id="account-title">{t("yourAccount")}</h2>
-          </div>
-          <dl className="batch">
-            <div>
-              <dt>{t("phone")}</dt>
-              <dd>{me.phone_masked}</dd>
-            </div>
-            <div>
-              <dt>{t("consent")}</dt>
-              <dd>{t(me.consent.core ? "given" : "notGiven")}</dd>
-            </div>
-          </dl>
-          <div className="strip__body">
-            {error && (
-              <div className="msg msg--error" role="alert">
-                <strong>{t("problem")}</strong>
-                {error}
-              </div>
-            )}
-            {confirming ? (
-              <div role="group" aria-labelledby="delete-q">
-                <p id="delete-q">
-                  <strong>{t("deleteQ")}</strong> {t("deleteBody")}
-                </p>
-                <div className="actions">
-                  <button className="btn btn--danger" onClick={deleteAll} disabled={busy} aria-busy={busy}>
-                    {busy ? t("deleting") : t("yesDelete")}
-                  </button>
-                  <button ref={keepRef} className="btn btn--quiet" onClick={() => setConfirming(false)} disabled={busy}>
-                    {t("keepData")}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="actions">
-                <a className="btn btn--quiet" href={api.exportUrl} download>
-                  {t("download")}
-                </a>
-                <button ref={deleteRef} className="btn btn--quiet" onClick={() => setConfirming(true)}>
-                  {t("deleteData")}
-                </button>
-              </div>
-            )}
-          </div>
-        </section>
+        {/* patients find their account under Profile in the nav */}
+        {!patient && <Account me={me} onDeleted={onDeleted} />}
       </main>
+      {patient && <Nav active="reports" />}
     </div>
   );
 }

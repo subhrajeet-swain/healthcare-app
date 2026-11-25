@@ -4,12 +4,13 @@ import { Band } from "../Band";
 import { Chat } from "../Chat";
 import { rangePosition } from "../range";
 import { go } from "../routes";
+import { Nav } from "../Nav";
 import { StatusSteps } from "../StatusSteps";
 import { isStalled } from "../steps";
 import { type T, useLang } from "../i18n";
 import { FLAG, NEXT, TRIAGE, fmt, shortDate } from "../words";
 
-type Props = { id: string };
+type Props = { id: string; nav?: boolean };
 
 const POLL_MS = 5000;
 
@@ -113,12 +114,13 @@ function ResultRow({ r }: { r: Result }) {
   );
 }
 
-export function Report({ id }: Props) {
+export function Report({ id, nav = false }: Props) {
   const { report, error, reload } = useReport(id);
   const now = useNow(!!report && !TERMINAL.includes(report.status));
   const { lang, t } = useLang();
 
-  const back = (
+  // with the nav, its Reports tab is the way back
+  const back = nav ? undefined : (
     <button className="btn btn--quiet" onClick={() => go("/")}>
       {t("allReports")}
     </button>
@@ -132,6 +134,7 @@ export function Report({ id }: Props) {
           <h1>{t("notFound")}</h1>
           <p className="lede">{t("notFoundBody")}</p>
         </main>
+        {nav && <Nav active="reports" />}
       </div>
     );
   }
@@ -154,6 +157,7 @@ export function Report({ id }: Props) {
             <p className="lede">{t("loading")}</p>
           )}
         </main>
+        {nav && <Nav active="reports" />}
       </div>
     );
   }
@@ -261,6 +265,7 @@ export function Report({ id }: Props) {
           </>
         )}
       </main>
+      {nav && <Nav active="reports" />}
     </div>
   );
 }

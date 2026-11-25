@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, type Me, api, messageFor } from "./api";
 import { Band } from "./Band";
 import { Consent } from "./pages/Consent";
 import { Dashboard } from "./pages/Dashboard";
+import { ChatPage } from "./pages/ChatPage";
 import { Login } from "./pages/Login";
+import { Profile } from "./pages/Profile";
 import { Report } from "./pages/Report";
 import { useLang } from "./i18n";
 import { go, parseRoute } from "./routes";
@@ -31,6 +33,22 @@ export default function App() {
   const [path, setPath] = useState(location.pathname);
   const [me, setMe] = useState<Me | null | undefined>(undefined); // undefined = loading
   const [loadError, setLoadError] = useState<{ error: unknown } | null>(null);
+
+  // After an in-app move, put focus on the new page's heading so a screen reader announces
+  // it (the tapped nav link unmounts with the old page). Skipped on first load.
+  const moved = useRef(false);
+  useEffect(() => {
+    if (!moved.current) {
+      moved.current = true;
+      return;
+    }
+    const id = requestAnimationFrame(() => {
+      const h = document.querySelector<HTMLElement>("main h1");
+      h?.setAttribute("tabindex", "-1");
+      h?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [path]);
 
   useEffect(() => {
     const onPop = () => setPath(location.pathname);
@@ -121,6 +139,9 @@ export default function App() {
   if (route.name === "consent" || !me.consent.core) {
     return <Consent onAgreed={loadMe} onSignOut={signOut} />;
   }
-  if (route.name === "report") return <Report id={route.id} />;
+  const patient = me.role === "patient";
+  if (route.name === "report") return <Report id={route.id} nav={patient} />;
+  if (patient && route.name === "chat") return <ChatPage />;
+  if (patient && route.name === "profile") return <Profile me={me} onSignOut={signOut} onDeleted={signedOut} />;
   return <Dashboard me={me} onSignOut={signOut} onDeleted={signedOut} />;
 }
