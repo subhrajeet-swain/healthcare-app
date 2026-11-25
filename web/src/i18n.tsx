@@ -103,6 +103,29 @@ export const STRINGS = {
   stepDone: { en: "Done", hi: "पूरा" },
   stepNow: { en: "Now", hi: "अभी" },
   stepNext: { en: "Next", hi: "आगे" },
+
+  // chat
+  askTitle: { en: "Ask about this report", hi: "इस रिपोर्ट के बारे में पूछें" },
+  askHint: { en: "Answers come only from this report. A doctor decides anything about treatment.", hi: "जवाब केवल इसी रिपोर्ट से आते हैं। इलाज का हर फ़ैसला डॉक्टर लेते हैं।" },
+  you: { en: "You", hi: "आप" },
+  assistant: { en: "Prime", hi: "प्राइम" },
+  yourQuestion: { en: "Your question", hi: "आपका सवाल" },
+  charsLeft: { en: "{n} characters left", hi: "{n} अक्षर बाकी" },
+  asking: { en: "Asking…", hi: "पूछा जा रहा है…" },
+  ask: { en: "Ask", hi: "पूछें" },
+  noQuestions: { en: "For example: “What is my hemoglobin?” or “Why is this high?”", hi: "उदाहरण: “मेरा हीमोग्लोबिन कितना है?” या “यह ज़्यादा क्यों है?”" },
+
+  // lab console
+  newOrder: { en: "New test order", hi: "नया टेस्ट ऑर्डर" },
+  patientPhone: { en: "Patient's mobile number", hi: "मरीज़ का मोबाइल नंबर" },
+  patientName: { en: "Patient's name (optional)", hi: "मरीज़ का नाम (वैकल्पिक)" },
+  creating: { en: "Creating…", hi: "बनाया जा रहा है…" },
+  createOrder: { en: "Create order", hi: "ऑर्डर बनाएं" },
+  orderCreated: { en: "Order created. Sample collected.", hi: "ऑर्डर बन गया। सैंपल लिया गया।" },
+  labReports: { en: "Reports in this lab", hi: "इस लैब की रिपोर्ट" },
+  noLabReports: { en: "No reports yet. Create an order when you collect a sample.", hi: "अभी कोई रिपोर्ट नहीं। सैंपल लेने पर ऑर्डर बनाएं।" },
+  markInLab: { en: "Mark in lab", hi: "लैब में भेजें" },
+  uploadResult: { en: "Upload result", hi: "परिणाम अपलोड करें" },
 } satisfies Record<string, Pair>;
 
 export type Key = keyof typeof STRINGS;

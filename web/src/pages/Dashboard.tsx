@@ -4,6 +4,7 @@ import { Band } from "../Band";
 import { type Key, useLang } from "../i18n";
 import { type Role, go } from "../routes";
 import { Upload } from "../Upload";
+import { Staff } from "./Staff";
 import { STATUS, TRIAGE, shortDate } from "../words";
 
 type Props = { me: Me; onSignOut: () => void; onDeleted: () => void };
@@ -121,6 +122,8 @@ export function Dashboard({ me, onSignOut, onDeleted }: Props) {
             <Upload />
             <ReportList />
           </>
+        ) : me.role === "lab_staff" || me.role === "lab_admin" ? (
+          <Staff />
         ) : (
           <section className="strip" aria-label="Status">
             <div className="strip__body strip__body--first">

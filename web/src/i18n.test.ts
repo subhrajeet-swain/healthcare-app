@@ -24,3 +24,10 @@ describe("i18n", () => {
     expect(messageFor(new Error("x"), "hi")).toMatch(/[\u0900-\u097F]/);
   });
 });
+
+describe("chat errors", () => {
+  it("are localised", () => {
+    expect(messageFor(new ApiError(429, "too_many_messages"), "en")).toContain("30");
+    expect(messageFor(new ApiError(409, "report_not_ready"), "hi")).toMatch(/[\u0900-\u097F]/);
+  });
+});

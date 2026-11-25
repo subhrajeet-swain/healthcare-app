@@ -77,6 +77,16 @@ export type ReportDetail = ReportSummary & {
   results: Result[];
   explanations: Partial<Record<Lang, { source: "model" | "template"; statements: Statement[] }>>;
 };
+export type ChatMessage = { role: "user" | "assistant"; text: string; tier: string; created_at: string };
+export type StaffReport = {
+  id: string;
+  status: Status;
+  triage: Triage | null;
+  source: "patient" | "lab";
+  created_at: string;
+  phone_masked: string;
+  name: string | null;
+};
 export const TERMINAL: Status[] = ["ready", "needs_review", "failed"];
 
 async function upload<T>(path: string, file: File): Promise<T> {
@@ -106,6 +116,14 @@ export const api = {
   uploadReport: (file: File) => upload<{ id: string; status: Status }>("/api/reports", file),
   fileUrl: (id: string) => `/api/reports/${id}/file`,
   eventsUrl: (id: string) => `/api/reports/${id}/events`,
+  chatHistory: (id: string) => req<ChatMessage[]>("GET", `/api/reports/${id}/chat`),
+  ask: (id: string, question: string, language: Lang) =>
+    req<{ reply: string; tier: string }>("POST", `/api/reports/${id}/chat`, { question, language }),
+  staffReports: () => req<StaffReport[]>("GET", "/api/staff/reports"),
+  order: (phone: string, name: string) =>
+    req<{ id: string }>("POST", "/api/staff/orders", { phone, name: name || null }),
+  markInLab: (id: string) => req<void>("POST", `/api/staff/reports/${id}/status`, { status: "in_lab" }),
+  staffUpload: (id: string, file: File) => upload<{ status: Status }>(`/api/staff/reports/${id}/file`, file),
 };
 
 // Hindi lines are machine-drafted; a native speaker must review them before real users.
@@ -138,6 +156,22 @@ const MESSAGES: Record<string, { en: string; hi: string }> = {
   unreadable_file: {
     en: "We couldn't open this PDF. It may be password-protected or longer than 20 pages.",
     hi: "यह PDF खुल नहीं सकी। शायद इस पर पासवर्ड है या यह 20 पेज से लंबी है।",
+  },
+  too_many_messages: {
+    en: "You've asked 30 questions about this report in the last hour. Try again later.",
+    hi: "आपने पिछले एक घंटे में इस रिपोर्ट के बारे में 30 सवाल पूछे हैं। थोड़ी देर बाद फिर पूछें।",
+  },
+  report_not_ready: {
+    en: "This report isn't ready yet. Ask again when it's explained.",
+    hi: "यह रिपोर्ट अभी तैयार नहीं है। समझाए जाने के बाद फिर पूछें।",
+  },
+  bad_transition: {
+    en: "This report has already moved on. Refresh the list.",
+    hi: "यह रिपोर्ट आगे बढ़ चुकी है। सूची रीफ़्रेश करें।",
+  },
+  not_a_patient: {
+    en: "This number belongs to lab staff, not a patient.",
+    hi: "यह नंबर लैब स्टाफ़ का है, मरीज़ का नहीं।",
   },
   consent_required: {
     en: "Give consent on the first screen before uploading a report.",

@@ -1,13 +1,14 @@
-import { type ReactNode, useCallback, useEffect, useState } from "react";
-import { ApiError, type Lang, type ReportDetail, type Result, type Status, TERMINAL, api } from "../api";
+import { useCallback, useEffect, useState } from "react";
+import { ApiError, type ReportDetail, type Result, type Status, TERMINAL, api } from "../api";
 import { Band } from "../Band";
+import { Chat } from "../Chat";
 import { rangePosition } from "../range";
 import { go } from "../routes";
 import { StatusSteps } from "../StatusSteps";
 import { type T, useLang } from "../i18n";
 import { FLAG, NEXT, TRIAGE, shortDate } from "../words";
 
-type Props = { id: string; chat?: (report: ReportDetail, lang: Lang) => ReactNode };
+type Props = { id: string };
 
 const POLL_MS = 5000;
 
@@ -97,7 +98,7 @@ function ResultRow({ r }: { r: Result }) {
   );
 }
 
-export function Report({ id, chat }: Props) {
+export function Report({ id }: Props) {
   const { report, error, reload } = useReport(id);
   const { lang, t } = useLang();
 
@@ -235,7 +236,7 @@ export function Report({ id, chat }: Props) {
               </ul>
             </section>
 
-            {chat?.(report, lang)}
+            <Chat reportId={report.id} />
           </>
         )}
       </main>
