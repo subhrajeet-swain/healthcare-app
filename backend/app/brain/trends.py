@@ -5,14 +5,17 @@ converted range (see units.convert). The rule, from planning ruling Q4:
 
 - the last 3 points by date (one per day, the later report wins);
 - every step in one direction, judged on each point's *position* in its own range
-  (0 = low edge, 1 = high edge) so labs with different ranges compare correctly;
+  (0 = low edge, 1 = high edge) so labs with different ranges compare correctly, and the
+  raw values must move the same way (last != first); a step counts only above 1e-9;
 - total change |last position - first position| >= 10% of range width;
 - alert only when moving away from the range midpoint AND the last point is out of range or
   within 10% of the edge, OR past halfway from the edge to a critical limit.
 
 A one-sided range uses its single bound as the edge and |bound| * 0.5 as the width, but only
 that real bound can alert out_of_range: moving toward the side with no bound never does.
-Critical wins when both apply. A test with no critical.json entry can only be out_of_range.
+Critical wins when both apply, but a critical limit counts only if it lies strictly beyond
+the printed edge (a child's printed range can exceed an adult limit). A test with no usable
+critical limit can only be out_of_range.
 
 THE THRESHOLDS (10% change, 10% edge zone, halfway-to-critical) ARE NOT CLINICALLY VALIDATED.
 They need a clinician's check before this is relied on (spec risk).
@@ -72,23 +75,27 @@ def _trend(test_id: str, points: list[Point]) -> Trend | None:
     if len(last3) < _POINTS:
         return None
     pos = [_position(p) for p in last3]
-    if None in pos:
+    if None in pos:  # a range-less point among the last 3 deliberately yields no trend
         return None
     steps = [b - a for a, b in zip(pos, pos[1:], strict=False)]
-    rising = all(s > 0 for s in steps)
-    if not (rising or all(s < 0 for s in steps)):
+    rising = all(s > _EPS for s in steps)
+    if not (rising or all(s < -_EPS for s in steps)):
+        return None
+    last = last3[-1]
+    sign = 1 if rising else -1
+    if sign * (last.value - last3[0].value) <= _EPS:  # ranges can drift while the value does not
         return None
     if abs(pos[-1] - pos[0]) < _MIN_CHANGE - _EPS:
         return None
     if not (pos[-1] > 0.5 if rising else pos[-1] < 0.5):  # recovery, not decline
         return None
 
-    last = last3[-1]
-    sign = 1 if rising else -1
     edge = last.ref_high if rising else last.ref_low  # the real bound in the direction of travel
     if edge is None:
         return None
     crit = _CRITICAL.get(test_id, {}).get("critical_high" if rising else "critical_low")
+    if crit is not None and sign * (crit - edge) <= 0:  # a limit inside the printed range (e.g. a child's) is not a limit
+        crit = None
     if crit is not None and sign * (last.value - (edge + crit) / 2) > 0:
         toward = "critical"
     elif sign * (pos[-1] - (1 if rising else 0)) >= -_EDGE_ZONE - _EPS:

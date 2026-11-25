@@ -38,6 +38,21 @@ CASES = [
     ("no critical entry: out_of_range only", "inflammation.crp", [(6, 0, 5), (8, 0, 5), (11, 0, 5)], ("rising", "out_of_range")),
     ("a flat step is not one direction", "hba1c.hba1c", [(6.1, 4.0, 5.6), (6.5, 4.0, 5.6), (6.5, 4.0, 5.6)], None),
     ("one of the last three has no range", "hba1c.hba1c", [(6.1, 4.0, 5.6), (6.5, None, None), (7.0, 4.0, 5.6)], None),
+    # Critical limit only counts when it lies strictly beyond the printed edge: a newborn's
+    # printed range can sit above the adult critical limit.
+    ("newborn hb inside its own range, adult critical 20 is below the edge", "cbc.hemoglobin", [(16, 14, 24), (19, 14, 24), (22.5, 14, 24)], None),
+    ("newborn hct near the edge, adult critical 60 is below the edge", "cbc.hematocrit", [(50, 44, 64), (56, 44, 64), (62.5, 44, 64)], ("rising", "out_of_range")),
+    ("edge equal to the critical limit does not swallow out_of_range", "cbc.hematocrit", [(55, 40, 60), (58, 40, 60), (60.5, 40, 60)], ("rising", "out_of_range")),
+    ("rising toward critical_high (alt)", "lft.alt", [(200, 0, 40), (300, 0, 40), (400, 0, 40)], ("rising", "critical")),
+    ("rising toward critical_high (ldl)", "lipid.ldl", [(130, 0, 100), (160, 0, 100), (185, 0, 100)], ("rising", "critical")),
+    ("rising out of range but not halfway to critical (alt)", "lft.alt", [(60, 0, 40), (90, 0, 40), (120, 0, 40)], ("rising", "out_of_range")),
+    # Direction must hold on the raw values too, and a step is a move only above 1e-9.
+    ("same raw value while the printed high drops", "hba1c.hba1c", [(6.0, 4.0, 5.6), (6.0, 4.0, 5.5), (6.0, 4.0, 5.4)], None),
+    ("raw values fall while positions rise", "hba1c.hba1c", [(6.0, 4.0, 5.6), (5.9, 4.0, 5.3), (5.8, 4.0, 5.0)], None),
+    ("float noise is not a step", "hba1c.hba1c", [(6.1, 4.0, 5.6), (6.5, 4.0, 5.6), (6.5000000001, 4.0, 5.6)], None),
+    ("change of exactly 10% of the range width counts", "glucose.fasting", [(94, 70, 100), (96, 70, 100), (97, 70, 100)], ("rising", "out_of_range")),
+    ("zero-width range is unpositionable", "hba1c.hba1c", [(6, 5, 5), (7, 5, 5), (8, 5, 5)], None),
+    ("one-sided range with a zero bound is unpositionable", "hba1c.hba1c", [(-3, None, 0), (-2, None, 0), (-1, None, 0)], None),
 ]
 
 
