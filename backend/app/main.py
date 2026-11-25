@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app import auth, db, errors, privacy, reports, tracing
+from app import auth, db, errors, privacy, reports, staff, tracing
 from app.config import settings
 
 # App logs (incl. the dev OTP) go to the console; uvicorn only configures its own loggers.
@@ -28,6 +28,7 @@ errors.install(app)
 app.include_router(auth.router)
 app.include_router(privacy.router)
 app.include_router(reports.router)
+app.include_router(staff.router)
 
 
 @app.get("/health")
