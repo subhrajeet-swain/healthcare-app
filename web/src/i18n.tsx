@@ -107,6 +107,18 @@ export const STRINGS = {
   progressLede: { en: "This usually takes under a minute. The page updates by itself.", hi: "इसमें आमतौर पर एक मिनट से कम लगता है। यह पेज अपने-आप अपडेट होता है।" },
   progressSlow: { en: "Taking longer than usual. Your report is safe and will be read automatically.", hi: "सामान्य से ज़्यादा समय लग रहा है। आपकी रिपोर्ट सुरक्षित है और अपने-आप पढ़ी जाएगी।" },
 
+  // reports home summary
+  latestReport: { en: "Latest report · {date}", hi: "ताज़ा रिपोर्ट · {date}" },
+  testsOne: { en: "1 test", hi: "1 जांच" },
+  testsMany: { en: "{n} tests", hi: "{n} जांचें" },
+  statReports: { en: "reports", hi: "रिपोर्ट" },
+  statTests: { en: "tests read", hi: "जांचें पढ़ी गईं" },
+  statUrgent: { en: "urgent reports", hi: "तुरंत ध्यान वाली रिपोर्ट" },
+  countGreen: { en: "{n} normal", hi: "{n} सामान्य" },
+  countAmber: { en: "{n} outside range", hi: "{n} सीमा से बाहर" },
+  countRed: { en: "{n} urgent", hi: "{n} तुरंत ध्यान" },
+  back: { en: "Back to reports", hi: "रिपोर्ट पर वापस" },
+
   // bottom nav
   navLabel: { en: "Main", hi: "मुख्य" },
   navReports: { en: "Reports", hi: "रिपोर्ट" },

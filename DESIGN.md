@@ -1,248 +1,309 @@
 ---
 name: Prime Healthcare
-description: Patient lab-report app that reads like a medicine strip the patient already trusts.
+description: Patient lab-report app that reads like a well-made fitness dashboard, one big number, word pills, one black pill to the next step.
 colors:
-  band-magenta: "#9c1458"
-  band-ink: "#ffffff"
-  foil: "#e7e9ec"
-  foil-raised: "#f7f8f9"
-  ink: "#14181f"
-  ink-hover: "#2b313b"
-  ink-soft: "#4a515c"
-  hairline: "#b9bec5"
-  perforation: "#8c939d"
+  mist-ground: "#f2f2f3"
+  card-white: "#ffffff"
+  sunk-well: "#f2f2f3"
+  ink: "#111111"
+  ink-hover: "#2a2a2e"
+  ink-soft: "#5e5e66"
+  divider: "#ececee"
+  line: "#dcdce0"
+  brand-magenta: "#9c1458"
   state-normal: "#0f6b5c"
-  state-normal-tint: "#e6f2ef"
-  state-attention: "#a33c08"
-  state-attention-tint: "#fbefe7"
-  state-critical: "#b3122e"
-  state-critical-deep: "#8f0e25"
-  state-critical-tint: "#fbe8eb"
+  state-normal-tint: "#e3f1ed"
+  state-attention: "#9a4a08"
+  state-attention-tint: "#fcecdf"
+  state-critical: "#a3122e"
+  state-critical-tint: "#fbe7ea"
 typography:
   display:
-    fontFamily: "Barlow Condensed, Noto Sans, sans-serif"
-    fontSize: "2.5rem"
+    fontFamily: "Inter, Noto Sans Devanagari, system-ui, sans-serif"
+    fontSize: "2.75rem"
     fontWeight: 700
     lineHeight: 1
-    letterSpacing: "0.03em"
+    letterSpacing: "-0.03em"
   headline:
-    fontFamily: "Barlow Condensed, Noto Sans, sans-serif"
-    fontSize: "1.75rem"
-    fontWeight: 700
-    lineHeight: 1
-    letterSpacing: "0.02em"
-  title:
-    fontFamily: "Barlow Condensed, Noto Sans, sans-serif"
-    fontSize: "1.375rem"
+    fontFamily: "Inter, Noto Sans Devanagari, system-ui, sans-serif"
+    fontSize: "1.875rem"
     fontWeight: 700
     lineHeight: 1.1
-    letterSpacing: "0.03em"
+    letterSpacing: "-0.02em"
+  title:
+    fontFamily: "Inter, Noto Sans Devanagari, system-ui, sans-serif"
+    fontSize: "1.25rem"
+    fontWeight: 700
+    lineHeight: 1.2
+    letterSpacing: "-0.01em"
   body:
-    fontFamily: "Noto Sans, Noto Sans Devanagari, sans-serif"
+    fontFamily: "Inter, Noto Sans Devanagari, system-ui, sans-serif"
     fontSize: "1.0625rem"
     fontWeight: 400
     lineHeight: 1.5
     fontFeature: "tnum"
   label:
-    fontFamily: "Barlow Condensed, Noto Sans, sans-serif"
-    fontSize: "1.125rem"
-    fontWeight: 700
-    lineHeight: 1
-    letterSpacing: "0.06em"
-  meta:
-    fontFamily: "Noto Sans, Noto Sans Devanagari, sans-serif"
-    fontSize: "0.875rem"
+    fontFamily: "Inter, Noto Sans Devanagari, system-ui, sans-serif"
+    fontSize: "0.9375rem"
     fontWeight: 600
-    letterSpacing: "0.06em"
+    lineHeight: 1.3
+  meta:
+    fontFamily: "Inter, Noto Sans Devanagari, system-ui, sans-serif"
+    fontSize: "0.875rem"
+    fontWeight: 400
+    lineHeight: 1.3
 rounded:
-  none: "0"
+  well: "16px"
+  tile: "20px"
+  card: "24px"
+  pill: "999px"
 spacing:
   "1": "4px"
   "2": "8px"
   "3": "12px"
   "4": "16px"
-  "5": "24px"
+  "5": "20px"
   "6": "32px"
   "7": "48px"
+  tap: "48px"
 components:
   button-primary:
     backgroundColor: "{colors.ink}"
-    textColor: "{colors.band-ink}"
-    typography: "{typography.label}"
-    rounded: "{rounded.none}"
-    padding: "0 24px"
-    height: "48px"
+    textColor: "{colors.card-white}"
+    typography: "{typography.body}"
+    rounded: "{rounded.pill}"
+    padding: "0 20px"
+    height: "52px"
   button-primary-hover:
     backgroundColor: "{colors.ink-hover}"
   button-quiet:
-    backgroundColor: "transparent"
+    backgroundColor: "{colors.sunk-well}"
     textColor: "{colors.ink}"
-    typography: "{typography.label}"
-    rounded: "{rounded.none}"
-    padding: "0 24px"
-    height: "48px"
-  button-quiet-hover:
-    backgroundColor: "{colors.foil}"
+    rounded: "{rounded.pill}"
+    padding: "0 20px"
+    height: "52px"
   button-danger:
     backgroundColor: "{colors.state-critical}"
-    textColor: "{colors.band-ink}"
-    typography: "{typography.label}"
-    rounded: "{rounded.none}"
-    padding: "0 24px"
-    height: "48px"
-  button-danger-hover:
-    backgroundColor: "{colors.state-critical-deep}"
-  strip:
-    backgroundColor: "{colors.foil-raised}"
-    rounded: "{rounded.none}"
+    textColor: "{colors.card-white}"
+    rounded: "{rounded.pill}"
+    padding: "0 20px"
+    height: "52px"
+  card:
+    backgroundColor: "{colors.card-white}"
+    rounded: "{rounded.card}"
+    padding: "20px"
+  stat-tile:
+    backgroundColor: "{colors.card-white}"
+    rounded: "{rounded.tile}"
+    padding: "12px 16px"
+  result-tile:
+    backgroundColor: "{colors.card-white}"
+    rounded: "{rounded.tile}"
     padding: "16px"
-  input-text:
-    backgroundColor: "{colors.band-ink}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.none}"
-    padding: "0 12px"
-    height: "48px"
-  band:
-    backgroundColor: "{colors.band-magenta}"
-    textColor: "{colors.band-ink}"
-    typography: "{typography.headline}"
-    padding: "24px 16px 16px"
-  next-tag:
+  result-tile-critical:
+    backgroundColor: "{colors.state-critical-tint}"
+  pill-normal:
+    backgroundColor: "{colors.state-normal-tint}"
+    textColor: "{colors.state-normal}"
+    typography: "{typography.label}"
+    rounded: "{rounded.pill}"
+    padding: "0 16px"
+    height: "36px"
+  pill-attention:
+    backgroundColor: "{colors.state-attention-tint}"
+    textColor: "{colors.state-attention}"
+    typography: "{typography.label}"
+    rounded: "{rounded.pill}"
+    padding: "0 16px"
+    height: "36px"
+  pill-critical:
+    backgroundColor: "{colors.state-critical-tint}"
+    textColor: "{colors.state-critical}"
+    typography: "{typography.label}"
+    rounded: "{rounded.pill}"
+    padding: "0 16px"
+    height: "36px"
+  nav-item:
+    textColor: "{colors.ink-soft}"
+    typography: "{typography.label}"
+    rounded: "{rounded.pill}"
+    padding: "0 16px"
+    height: "52px"
+  nav-item-current:
     backgroundColor: "{colors.ink}"
-    textColor: "{colors.band-ink}"
-    rounded: "{rounded.none}"
-    padding: "4px 8px"
+    textColor: "{colors.card-white}"
+  input-pill:
+    backgroundColor: "{colors.card-white}"
+    rounded: "{rounded.pill}"
+    padding: "0 16px"
+    height: "52px"
+  chat-user:
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.card-white}"
+    rounded: "{rounded.tile}"
+    padding: "12px 16px"
+  chat-assistant:
+    backgroundColor: "{colors.sunk-well}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.tile}"
+    padding: "12px 16px"
+  brand-mark:
+    backgroundColor: "{colors.card-white}"
+    textColor: "{colors.brand-magenta}"
+    rounded: "{rounded.pill}"
+    size: "40px"
 ---
 
 # Design System: Prime Healthcare
 
 ## Overview
 
-**Creative North Star: "The Chemist Strip"**
+**Creative North Star: "The Clean Monochrome Dashboard"**
 
-A lab report should read like the blister strip of medicine an Indian patient already keeps in a kitchen drawer: printed foil, square cuts, dashed perforations between pockets, and a printed batch panel with the facts. The system is quiet foil grey with ink type, one saturated magenta product band at the top of every screen, and condensed uppercase headings that read like pharmacy print. It refuses the rounded-card-with-status-chip health app.
+A lab report read the way a good fitness app reads a run: one big number for how the latest report went, a word pill for each state, and one black pill to the next step. The ground is a quiet mist grey; everything the patient reads sits on white cards that lift off it with a soft, long shadow. Ink is near-black and carries every action. Colour is not decoration here; it appears only to carry a result state, and always next to the word that names it.
 
-Density is calm and mobile-first (a single 40rem column, designed at 390px). Body text is set large (17px) for older readers and family caregivers, every target is at least 48px, and the whole interface runs in one chosen language, English or Hindi (Devanagari), picked once from the band and remembered on the device; Hindi is a first-class language, not a translation afterthought. Depth comes from the hairline-and-perforation system, never from shadow or rounding.
+Density is low and the type is large, because many readers are older and read on a phone, in English or Hindi. One column, one container shape, one action colour. The same token values are meant to carry unchanged into the later native app, so every value is a plain hex, px or rem.
+
+The system refuses the blue-and-teal hospital portal: no icon-tile grids, no stock-photo doctor, no tinted header band.
 
 **Key Characteristics:**
-- Foil grey ground, raised foil strips, ink type; magenta only on the product band and selection.
-- Square corners everywhere (radius 0).
-- One container, the strip: hairline outline, sections divided by dashed perforations.
-- Barlow Condensed uppercase for headings, buttons and labels; Noto Sans and Noto Sans Devanagari for reading text.
-- Tabular numerals throughout.
-- State is always a word plus a colour, never colour alone.
+- Mist ground, white cards at a generous radius, separated by shadow and never by a border.
+- Ink black for text and every action; grey only for meta.
+- Colour only for state, always paired with its word.
+- Magenta appears once: the ring around the patient's initial.
+- Big, heavy Inter numbers; Noto Sans Devanagari for Hindi.
+- Pills for everything you press or read as a state.
 
 ## Colors
 
-A cool, near-neutral foil palette with one magenta brand voice and a reserved three-state result scale.
+A monochrome system with one brand mark and three state colours that only speak with words.
 
 ### Primary
-- **Strip Magenta** (band-magenta): the product band at the top of every screen, text selection, and the input caret. 7.9:1 with white. Never used for buttons or body content.
+- **Ink Black** (ink): text, headings, and the fill of every action: primary buttons, the current tab, the selected language half, the user's chat bubble, the current progress step. Hover deepens to **Ink Hover** (ink-hover).
 
-### Tertiary (result states)
-- **Pharmacy Green** (state-normal) on its tint: the "normal" result state. Defined and reserved for result cells; not yet rendered in phase 0.
-- **Burnt Orange** (state-attention) on its tint: the "attention" result state. Reserved like green. This shipped value is darker than the direction contract's orange; the build wins.
-- **Critical Red** (state-critical), with a deeper hover (state-critical-deep) and tint: critical results, error messages, and destructive actions (delete-my-data).
+### Secondary
+- **Prime Magenta** (brand-magenta): the brand mark only. A 2px ring and the initial letter inside the round mark at the start of the header. Never a fill, never a button, never text elsewhere.
+
+### Tertiary (state)
+- **Normal Green** (state-normal) on **Normal Tint** (state-normal-tint): results within range.
+- **Attention Amber** (state-attention) on **Attention Tint** (state-attention-tint): results outside range that are not urgent.
+- **Critical Red** (state-critical) on **Critical Tint** (state-critical-tint): urgent results, the danger button, error messages. A critical result tile takes the tint as its whole background.
 
 ### Neutral
-- **Foil** (foil): page ground, and the quiet-button hover fill.
-- **Raised Foil** (foil-raised): strip and info-message surfaces.
-- **Ink** (ink): all text, the primary button, field borders, focus outlines, and the Next tag.
-- **Ink Hover** (ink-hover): primary button hover.
-- **Soft Ink** (ink-soft): ledes, hints, batch-panel labels. 6.2:1 on foil.
-- **Hairline** (hairline): the one solid border: strip outlines, batch-panel cell dividers, phone-prefix divider.
-- **Perforation** (perforation): dashed 1px dividers between sections inside a strip.
-- **Paper White** (band-ink): text on the band, on ink and on red; the input field fill.
+- **Mist Ground** (mist-ground): the page itself, running to the top edge with no header band.
+- **Card White** (card-white): every card, tile, the floating tab bar, the language pill, input pills.
+- **Sunk Well** (sunk-well): quiet fills inside a card: fact wells, the quiet button, the assistant's chat bubble, boxed inputs at rest. Same value as the ground, used inside white.
+- **Ink Soft** (ink-soft): dates, labels, hints, units, inactive tabs (5.9:1 on white, 5.3:1 on ground).
+- **Divider** (divider): 1px hairlines between rows inside a card.
+- **Line** (line): input outlines and the dashed file-picker well.
 
 ### Named Rules
-**The Word-State Rule.** A result state is always carried by a printed word ("Normal", "Problem"), with colour as reinforcement. Colour alone never signals state.
+**The Word First Rule.** Every state colour sits beside the word for that state ("2 normal", "Urgent", "outside range"). Colour reinforces; the word carries. A coloured dot or bar with no word is not allowed.
 
-**The One Band Rule.** Magenta appears as the product band and nowhere else that carries meaning. It is brand, not an action colour; actions are ink.
+**The One Mark Rule.** Magenta appears once per screen, as the ring around the initial. Anything else that wants to be "brand" is ink.
+
+**The Monochrome Action Rule.** Every action is ink black (or quiet grey, or critical red when it destroys). No coloured primary buttons.
 
 ## Typography
 
-**Display Font:** Barlow Condensed 600/700 (with Noto Sans, sans-serif), self-hosted.
-**Body Font:** Noto Sans variable (with Noto Sans Devanagari, sans-serif), self-hosted.
+**Display Font:** Inter (variable, self-hosted), with Noto Sans Devanagari, then system-ui
+**Body Font:** Inter, same stack
+**Hindi:** Noto Sans Devanagari (self-hosted, 400 to 600), reached through the stack because Inter has no Devanagari
 
-**Character:** Condensed uppercase print against a humanist sans: pharmacy-label authority on top, plain readable text below, with Devanagari matched to the body face.
+**Character:** One sans at heavy weights for numbers and headings and a regular weight for reading; numbers are tabular throughout so values line up.
 
 ### Hierarchy
-- **Display** (700, 2.5rem, 1.0, uppercase, 0.03em): the page heading (h1), one per screen.
-- **Headline** (700, 1.75rem, 1.0, uppercase, 0.02em): the product name in the band.
-- **Title** (700, 1.375rem, 1.1): strip titles and h2.
-- **Body** (400, 1.0625rem, 1.5, tabular numerals): all reading text; ledes and strip paragraphs held to a 34rem measure.
-- **Label** (700, 1.125rem, uppercase, 0.06em, display face): buttons; message prefixes ("Problem") use the same face at 1rem.
-- **Meta** (600, 0.875rem, uppercase, 0.06em, text face): batch-panel labels such as Phone, Consent, Purpose, Version.
+- **Display** (700, 44px, 1): the summary number on the home card ("4 tests"). One per screen.
+- **Headline** (700, 30px, 1.1): page titles, result values on number tiles, the triage next-step line.
+- **Title** (700, 20px, 1.2): card titles.
+- **Body** (400, 17px, 1.5): all reading text, capped at 34rem measure. 17px is the floor for anything a patient reads.
+- **Label** (600, 15px): pills, tab labels, result names, row state words, small buttons.
+- **Meta** (400, 14px): dates, units, ranges, stat labels, fact labels. Never for sentences the patient must act on.
+- Stat numbers sit between title and headline (700, 28px, 1, -0.02em).
 
 ### Named Rules
-**The One-Language Rule.** A screen speaks one language at a time: the one chosen with the English | हिंदी switch in the band (stored on the device, sets `<html lang>`). Hindi is set at the same size as English and never shrunk into a caption. Devanagari headings drop the uppercase display face and use Noto Sans Devanagari. Test names stay in English as the lab prints them ("आपका Hemoglobin 11.3 g/dL है"), in Hindi too: they match the paper report and the doctor's words, and a transliteration would be a second name for the same test. Numbers use Indian digit grouping (2,45,000) in both languages.
+**The Reading Floor Rule.** Body text is 17px. 14px is for meta only: a date, a unit, a label over a value.
 
-**The 17px Floor Rule.** Reading text never drops below 1.0625rem; only batch labels and meta reach 0.875rem.
+**The One Language Rule.** A screen is in English or in Hindi, never both side by side. In Hindi, headings and big numbers drop negative tracking and open to 1.35 line height so matras have room, and uppercase is switched off.
 
 ## Layout
 
-Single centered column, max 40rem, 16px side gutter; main has 32px top and 48px bottom padding. The band row shares the same column so the product name aligns with content. Spacing runs on a 4px base (4, 8, 12, 16, 24, 32, 48). Strips stack with 24px between them. Action rows wrap with 12px gaps, and below 30rem every button in an action row goes full width. The batch panel is an auto-fit grid of cells at least 8rem wide, so facts sit side by side on phone and desktop alike.
+One centred column, max 40rem, 16px side gutters, on every width; desktop is the same column with more ground around it. Spacing runs on a 4px base (4, 8, 12, 16, 20, 32, 48). Cards stack with 16px between them; card content is inset 20px. Tiles sit in grids with 8px gaps: three stat tiles in a fixed row; result tiles auto-fill at a 9rem minimum. The header is one row: ringed mark, greeting over the patient's name (which wraps, never truncates), the language pill at the right. The patient tab bar floats at the foot, centred, 20px above the safe area; the page reserves scroll padding so content never hides beneath it. Below 30rem, buttons in an action row go full width.
+
+Every tap target is at least 48px.
 
 ## Elevation & Depth
 
-Flat. There are no shadows anywhere. Depth is expressed as print: the raised foil tone of a strip against the foil ground, a 1px hairline outline, and dashed perforations between sections inside it.
+Depth is shadow-only and soft: two ambient shadows, both a low-alpha ink tint with a long blur. Surfaces never carry a border to separate them from the ground.
+
+### Shadow Vocabulary
+- **Card** (`box-shadow: 0 8px 24px rgba(17, 17, 17, 0.06)`): every resting card, stat tile, result tile, the language pill, the back circle, the brand mark.
+- **Float** (`box-shadow: 0 10px 30px rgba(17, 17, 17, 0.12)`): things that hover above the page: the floating tab bar and the chat sheet.
 
 ### Named Rules
-**The Printed-Not-Lifted Rule.** Nothing floats. A surface is distinguished by tone and line, never by box-shadow.
+**The Shadow Not Border Rule.** Cards separate from the ground by shadow alone. Inside a card, rows separate by 1px divider hairlines. Outlines exist only on inputs.
 
 ## Shapes
 
-Strips are cut square: radius is 0 on every surface, button and field. Borders come in exactly three kinds: 1px solid hairline (outlines and cell dividers), 1px dashed perforation (section breaks inside a strip), and 2px solid ink (buttons and input wells). Focus is a 3px solid ink outline offset 3px, switching to white on the magenta band.
+Everything is rounded, and the radius tells you the size of the thing: cards 24px, tiles and chat bubbles 20px, inner wells and messages 16px, and every pressable thing a full pill. Round marks (the brand initial, the back button) are full circles. The chat card is the one sheet: a larger 28px top radius with a small grey grab handle, so it reads as a bottom sheet resting at the foot of the report.
 
 ## Components
 
 ### Buttons
-Heavy, printed, unmistakable.
-- **Shape:** square (0), 2px ink border, minimum 48px high, 24px horizontal padding.
-- **Primary:** ink fill, white uppercase condensed label; hover lightens to ink-hover over 160ms (cubic-bezier(0.16, 1, 0.3, 1)).
-- **Quiet:** transparent fill, ink border and text; hover fills with foil. On the band it inverts to white border and text with a 12% white hover wash.
-- **Danger:** critical-red fill and border, used only for irreversible deletion; hover deepens.
-- **States:** disabled at 0.55 opacity; aria-busy shows a progress cursor and a verb in progress ("Saving…").
-- **Link button:** underlined plain text at full tap height, for secondary escapes such as changing the phone number.
+Black, round, confident.
+- **Shape:** full pill (999px), 52px tall; small buttons 48px.
+- **Primary:** ink fill, white 17px/600 label, 20px side padding; often full width with a trailing arrow.
+- **Hover / Active / Focus:** hover lightens to ink hover; press scales to 0.98; focus is a 3px ink outline, 3px offset. Transitions 160ms on an ease-out curve; none under reduced motion.
+- **Quiet:** sunk-grey fill, ink text.
+- **Danger:** critical red fill, for destructive actions only.
+- **Disabled:** 50% opacity.
 
-### Cards / Containers (the Strip)
-- **Corner Style:** square.
-- **Background:** raised foil.
-- **Shadow Strategy:** none (see Elevation).
-- **Border:** 1px hairline outline; sections inside divided by 1px dashed perforation.
-- **Internal Padding:** 16px; head row 12px by 16px with the title on the baseline.
-- **Batch panel:** a definition-list footer row of cells divided by hairlines, uppercase meta labels over plain values; the strip's "facts" panel.
-- **Perforated list:** list items separated by dashed perforations.
-- **Next-step line:** a hairline-topped row at the strip foot: an ink "Next" tag followed by the one action the patient should expect.
+### Chips (state pills)
+- **Style:** pill, 36px tall, 15px/600, tint background with the state colour text; a neutral pill uses the sunk fill.
+- **Use:** counted states on the summary card ("2 normal", "1 urgent"); the triage word on a report, where it is uppercase with slight tracking in English.
+
+### Cards / Containers
+- **Corner Style:** 24px.
+- **Background:** white.
+- **Shadow Strategy:** card shadow (see Elevation).
+- **Border:** none.
+- **Internal Padding:** 20px; rows inside divided by 1px hairlines; facts sit in 16px-radius sunk wells, label over value.
 
 ### Inputs / Fields
-- **Style:** a white well with a 2px ink border, square; text at 1.25rem with 0.04em tracking. The phone field carries a fixed +91 prefix cell divided by a hairline.
-- **Focus:** the well (not the input) takes the 3px ink focus outline via focus-within.
-- **Label and hint:** 600-weight label above, soft-ink hint below, linked by aria-describedby.
+- **Style:** a white pill with a 1px line outline, 52px tall, 20px entry text for phone and code; the country code sits in its own segment behind a divider. Free text uses a sunk, 20px-radius box.
+- **Focus:** a 3px ink outline around the whole pill; boxed fields turn white on focus.
+- **File picker:** the native control inside a dashed, sunk 20px well, its button a white shadowed pill.
 
-### Messages
-- **Error:** critical-tint fill, critical border and text, prefixed with an uppercase condensed word ("Problem").
-- **Info:** raised foil with a hairline border.
+### Navigation
+- **Tab bar:** a floating white pill (float shadow) holding three items: icon (20px line icon, 2px stroke) plus label. Inactive items are ink-soft; hover fills sunk; the current page is filled ink black with white text.
+- **Header:** one row on the ground, no band. Ringed brand mark (40px circle, white, 2px magenta ring, initial in magenta 800), "Namaste" in meta over the name in 18px/600, language toggle as a white pill whose selected half is filled black.
+- **Report header:** a 48px white back circle beside the collected-on line.
 
-### Navigation (the Band)
-The magenta band heads every screen: PRIME HEALTHCARE in the headline style, a greeting line in the chosen language with the English | हिंदी switch to its right (a bordered two-cell toggle, white on magenta, the chosen cell filled white), and at most one quiet button at the right of the name: for staff, Sign out on the dashboard and All reports on a report; patients have none, since their tab bar is the way around and Sign out lives in Profile. The per-result cell strip from the direction sketch is not built yet; document it when it ships.
+### Summary Card (signature)
+The home screen's first card: the display number, the date line in ink-soft under it, a wrapping row of counted state pills, the next step as a plain sentence, then a full-width black pill to open the report. Below it, three stat tiles (white, 20px radius, number over a meta label); the urgent count turns critical red, its label saying "urgent".
 
-### Navigation (the Tab Bar)
-Patients get an ink tab bar at the foot of every screen: Reports, Chat, Profile, three equal cells in the condensed label style (uppercase, 0.06em tracking), at least 56px tall, sticky to the viewport bottom inside the page flow and padded for the device safe area. Inactive labels are soft white on ink; the current page has a white label underlined 3px (the state cue that holds full contrast in both scripts), a slightly lifted ink cell, aria-current="page", and a short magenta tick (40px by 4px) centred on its top edge: the one place magenta appears outside the band, by the brief's choice, as brand rather than the only state signal. Hindi labels drop the condensed caps and tracking like every Devanagari display element. The page reserves scroll padding for the bar so keyboard focus is never hidden under it; moving between tabs starts the new page at the top and puts focus on its heading. Chat opens the chat for the first report in the list that chat accepts (ready or in review). Profile holds the account strip (phone, consent, download, delete). Family joins in phase 2; there is no placeholder tab. Staff, doctors and admins have no tab bar.
+### Result Tiles
+Each result is its own white tile on the ground, not a row in a table: name in ink-soft, the state word in its colour, the value at headline size with its unit in meta, the reference range in meta, and a range bar (8px track, the normal zone in translucent green, a 4px ink marker for the value). A critical result fills its tile with the critical tint.
+
+### Chat Sheet
+The last card on a report, styled as a bottom sheet (28px top radius, grab handle, float shadow). The patient's messages are black bubbles at the right; the assistant's are sunk-grey bubbles at the left, 20px radius, each with a small "who" label.
+
+### Progress Steps
+A list inside a card: a short state word column and the step text, divided by hairlines. The current step's word is a small black pill; done is green, stopped is red, later steps are ink-soft.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** put every grouped piece of content in a strip and divide its sections with dashed perforations, not with gaps or new boxes.
-- **Do** pair each state colour with a printed word.
-- **Do** show one language per screen, from the band switch, with Hindi at full body size.
-- **Do** keep every interactive target at least 48px tall.
-- **Do** use ink for actions and reserve magenta for the band.
-- **Do** keep numerals tabular.
+- **Do** put every action in an ink-black pill (52px tall, 999px radius); quiet grey for secondary, critical red only for destructive.
+- **Do** pair every state colour with its word, on its tint, in a pill or as coloured bold text.
+- **Do** separate cards from the mist ground with the card shadow and nothing else; separate rows inside with 1px divider hairlines.
+- **Do** keep reading text at 17px and every tap target at 48px or more.
+- **Do** show results as number tiles with the value large and the unit small.
+- **Do** keep one language per screen and relax Devanagari headings to 1.35 line height with no tracking.
 
 ### Don't:
-- **Don't** round corners; radius is 0 everywhere.
-- **Don't** use box-shadow for depth.
-- **Don't** signal a result state by colour alone.
-- **Don't** use magenta as a button or link colour.
-- **Don't** set reading text below 17px.
+- **Don't** use magenta anywhere except the ring and initial of the brand mark.
+- **Don't** use colour without a word: no bare dots, bars, or tinted rows that carry state alone.
+- **Don't** add borders to cards or tinted header bands; the ground runs to the top.
+- **Don't** build the blue-and-teal hospital portal: no icon-tile grids, no stock-photo doctor.
+- **Don't** use 14px for anything the patient must read and act on.
