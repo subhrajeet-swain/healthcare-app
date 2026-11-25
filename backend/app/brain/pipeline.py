@@ -76,8 +76,9 @@ def build_graph(deps: PipelineDeps, checkpointer):
         return {"extracted": extract(data, mime, deps.known, deps.extract_model).model_dump(mode="json")}
 
     def flag_node(state: State) -> State:
-        report, warnings = flag_report(canonicalise(ExtractedReport(**state["extracted"])))
-        return {"report": report.model_dump(mode="json"), "warnings": warnings}
+        known, dropped = canonicalise(ExtractedReport(**state["extracted"]))
+        report, warnings = flag_report(known)
+        return {"report": report.model_dump(mode="json"), "warnings": dropped + warnings}
 
     def decide_node(state: State) -> State:
         step, urgent, _ = decide(_report(state))
@@ -125,8 +126,11 @@ def build_graph(deps: PipelineDeps, checkpointer):
 def run(graph, thread: str) -> PipelineResult:
     """Run to the end, resuming from the last finished node if this thread was interrupted."""
     config = {"configurable": {"thread_id": thread}}
-    resuming = bool(graph.get_state(config).next)
-    s = graph.invoke(None if resuming else {}, config)
+    state = graph.get_state(config)
+    if "triage" in state.values and not state.next:
+        s = state.values  # finished earlier (the save failed): never re-extract
+    else:
+        s = graph.invoke(None if state.next else {}, config)
     report = LabReport(**s["report"])
     triage: Triage = s["triage"]
     explanations = {k: Explanation(**v) for k, v in s["explanations"].items()}

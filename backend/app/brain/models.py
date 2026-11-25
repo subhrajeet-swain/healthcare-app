@@ -52,7 +52,8 @@ class ExtractedTest(BaseModel):
     answer can hurt someone, which is here and not on the letterhead.
     """
 
-    model_config = {"extra": "forbid"}
+    # NaN/Infinity compare False against every bound and would be flagged normal: reject
+    model_config = {"extra": "forbid", "allow_inf_nan": False}
 
     test_id: str
     test_name: str

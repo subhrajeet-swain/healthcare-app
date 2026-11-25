@@ -91,3 +91,12 @@ def test_other_patient_gets_404_not_stream(client, patient, login):
         login(patient[0], "9876500002", c=other)
         r = other.get(f"/api/reports/{rid}/events")
     assert r.status_code == 404 and r.json() == {"error": "not_found"}
+
+
+def test_stream_limit_returns_503(client, patient, monkeypatch):  # I3
+    from app import reports as rep
+
+    rid = _upload(client)
+    monkeypatch.setattr(rep, "MAX_STREAMS_PER_USER", 0)
+    r = client.get(f"/api/reports/{rid}/events")
+    assert r.status_code == 503 and r.json() == {"error": "too_many_streams"}

@@ -121,7 +121,7 @@ def test_gate_replaces_model_line_about_critical_result(red_sheet):
     text, gated = gate_answer(raw, red_sheet, "en")
     assert gated is True and text.startswith(URGENT_EN)
     assert "a bit low" not in text and "Your Hemoglobin is 5 g/dL" in text
-    assert "Your MCV is 90, in range." in text
+    assert "Your MCV is 90 fL" in text and "in range." not in text  # red: templates only
 
 
 def test_tier2_good_answer_passes_gate(cbc_sheet):
@@ -156,3 +156,10 @@ def test_tier2_history_is_sent(cbc_sheet):
 def test_model_down_gives_fallback(cbc_sheet):
     r = answer("Why is it low?", cbc_sheet, [], "en", RaisingModel())
     assert r.text == REPLIES["fallback"]["en"] and r.gated is True
+
+
+def test_gate_on_red_sheet_never_returns_model_text(red_sheet):  # C2
+    raw = _ans(("Your hemoglobin is nothing to worry about.", ["cbc.mcv"]))
+    text, gated = gate_answer(raw, red_sheet, "en")
+    assert "nothing to worry" not in text and gated is True
+    assert text.startswith(URGENT_EN) and "Your MCV is 90 fL" in text

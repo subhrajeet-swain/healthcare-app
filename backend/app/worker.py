@@ -34,6 +34,10 @@ GIVE_UP = (
 )
 
 
+class WaitingConsent(Exception):
+    """The patient has not consented yet; nothing leaves for a model until they do."""
+
+
 class ReportGone(Exception):
     """The report was deleted (delete-my-data) while its job was in flight."""
 
@@ -46,15 +50,28 @@ def claim(conn: psycopg.Connection) -> dict | None:
         WHERE id = (
             SELECT id FROM jobs
             WHERE (status = 'queued' AND run_after <= now())
-               OR (status = 'running' AND locked_at < now() - %s)
+               OR (status = 'running' AND locked_at < now() - %s AND attempts < %s)
             ORDER BY run_after
             FOR UPDATE SKIP LOCKED
             LIMIT 1
         )
         RETURNING *
         """,
-        (STALE_AFTER,),
+        (STALE_AFTER, MAX_ATTEMPTS),
     ).fetchone()
+
+
+def _sweep_dead() -> None:
+    """Jobs whose worker died on every attempt (OOM, hang): fail them instead of looping."""
+    with _tx() as c:
+        dead = c.execute(
+            "UPDATE jobs SET status = 'failed', locked_at = NULL "
+            "WHERE status = 'running' AND locked_at < now() - %s AND attempts >= %s "
+            "RETURNING tenant_id, payload",
+            (STALE_AFTER, MAX_ATTEMPTS),
+        ).fetchall()
+    for d in dead:
+        _try_status(d["tenant_id"], UUID(d["payload"]["report_id"]), "failed", GIVE_UP)
 
 
 def _tx(tenant_id: UUID | None = None):
@@ -107,6 +124,13 @@ def _pipeline(job: dict, models: dict | None, saver) -> None:
         if report is None:
             raise ReportGone
         user = c.execute("SELECT * FROM users WHERE id = %s", (report["user_id"],)).fetchone()
+        consented = c.execute(
+            "SELECT 1 FROM consents WHERE user_id = %s AND purpose = 'core' "
+            "AND withdrawn_at IS NULL",
+            (user["id"],),
+        ).fetchone()
+        if consented is None:
+            raise WaitingConsent  # a lab upload; granting consent re-queues it
         cipher = cipher_for(c, tid)
     # identifiers are only used to redact the text layer; never logged or put in graph state
     known = [cipher.decrypt(user["phone_enc"])]
@@ -135,6 +159,7 @@ def run_once(models: dict | None = None) -> bool:
     """Process at most one job. Returns False when there was nothing to do."""
     from langgraph.checkpoint.postgres import PostgresSaver
 
+    _sweep_dead()
     with _tx() as c:
         job = claim(c)
     if job is None:
@@ -151,8 +176,11 @@ def run_once(models: dict | None = None) -> bool:
             _finish_job(job["id"], "done")
         except ReportGone:
             _finish_job(job["id"], "done")
+        except WaitingConsent:
+            _finish_job(job["id"], "waiting_consent")
         except ExtractionFailed as e:
-            log.info("report %s: extraction failed: %s", rid, e.detail[:200])
+            # the detail can echo model output (pydantic input_value): never log it
+            log.info("report %s: extraction failed (%s)", rid, type(e.__cause__).__name__)
             _try_status(tid, rid, "failed", e.message)
             _finish_job(job["id"], "done")
         except Exception:

@@ -56,6 +56,13 @@ def grant_consent(body: ConsentIn, ctx: Ctx) -> dict[str, str]:
                 "VALUES (%s, %s, %s, %s)",
                 (ctx.tenant_id, ctx.user_id, body.purpose, body.version),
             )
+        # lab uploads that waited for this consent go to the pipeline now
+        c.execute(
+            "UPDATE jobs SET status = 'queued', run_after = now() "
+            "WHERE status = 'waiting_consent' AND payload->>'report_id' IN "
+            "(SELECT id::text FROM reports WHERE user_id = %s)",
+            (ctx.user_id,),
+        )
         audit(c, ctx, "consent_grant", "consent", body.purpose)
     return {"status": "granted"}
 

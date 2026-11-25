@@ -85,22 +85,22 @@ def test_value_sentence_one_sided_ranges():
     )
 
 
-def test_red_rule_replaces_model_sentences_about_critical_tests():
+def test_red_report_explanation_is_all_templates():
     report = _report_of(
         _result("cbc.hemoglobin", 5.0, ref=(13.0, 17.0), flag=Flag.CRITICAL),
         _result("cbc.wbc", 7000, "/uL", (4000, 11000)),
     )
-    model = Explanation(
-        language="en",
-        statements=[
-            Statement(text="Your hemoglobin is 5.", test_ids=["cbc.hemoglobin"]),
-            Statement(text="WBC is fine.", test_ids=["cbc.wbc"]),
-        ],
-    )
+    model = Explanation(language="en", statements=[
+        Statement(text="WBC is fine and so is everything.", test_ids=["cbc.wbc"])])
     out = apply_red_rule(model, report)
-    hb = [s for s in out.statements if "cbc.hemoglobin" in s.test_ids]
-    assert len(hb) == 1 and hb[0].source == "system"
-    assert any(s.text == "WBC is fine." for s in out.statements)
+    assert all(s.source == "system" for s in out.statements)
+    assert [s.test_ids for s in out.statements] == [["cbc.hemoglobin"], ["cbc.wbc"]]
+
+
+def test_red_rule_leaves_non_red_reports_alone():
+    report = _report_of(_result("cbc.wbc", 7000, "/uL", (4000, 11000)))
+    model = Explanation(language="en", statements=[Statement(text="WBC 7000.", test_ids=["cbc.wbc"])])
+    assert apply_red_rule(model, report) == model
 
 
 def test_red_rule_adds_template_even_when_model_skipped_critical():

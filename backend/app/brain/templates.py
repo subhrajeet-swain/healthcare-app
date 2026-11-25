@@ -49,14 +49,13 @@ def template_explanation(report: LabReport, lang: str) -> Explanation:
 
 
 def apply_red_rule(e: Explanation, report: LabReport) -> Explanation:
-    """Model sentences touching a critical test are replaced by that test's template.
+    """A report with a critical result is explained by templates only.
 
-    Runs before `pipeline._frame`, so the urgent banner still lands first.
+    Checking only which tests a model sentence cites is not enough: "your hemoglobin and MCV
+    are fine" can cite MCV alone and still talk about the critical hemoglobin, in any
+    language. So a red report gets no model sentences at all. Runs before `pipeline._frame`,
+    which adds the urgent banner first and the closing advice last.
     """
-    critical = [r for r in report.results if r.flag is Flag.CRITICAL]
-    ids = {r.test_id for r in critical}
-    # Any sentence touching a critical test goes, system-written ones too: on template input
-    # they are the same value sentence and would print twice. The banner is added later.
-    kept = [s for s in e.statements if not ids & set(s.test_ids)]
-    templated = [value_sentence(r, e.language.value) for r in critical]
-    return Explanation(language=e.language, statements=templated + kept)
+    if any(r.flag is Flag.CRITICAL for r in report.results):
+        return template_explanation(report, e.language.value)
+    return e

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 import time
 from collections.abc import Iterator
 from uuid import UUID
@@ -200,6 +201,10 @@ def get_report(report_id: UUID, ctx: Ctx) -> dict:
     return detail
 
 
+MAX_STREAMS = 16  # every stream holds a threadpool thread (40 shared by the whole API)
+MAX_STREAMS_PER_USER = 3
+_streams: dict = {}
+_streams_lock = threading.Lock()
 KEEPALIVE_S = 15
 STREAM_FOR_S = 60  # then close; EventSource reconnects and gets a fresh snapshot
 
@@ -218,6 +223,16 @@ def _snapshot(ctx: TenantCtx, report_id: UUID) -> dict:
 
 
 def _stream(ctx: TenantCtx, report_id: UUID, first: dict) -> Iterator[str]:
+    try:
+        yield from _stream_body(ctx, report_id, first)
+    finally:
+        with _streams_lock:
+            _streams[ctx.user_id] -= 1
+            if _streams[ctx.user_id] <= 0:
+                del _streams[ctx.user_id]
+
+
+def _stream_body(ctx: TenantCtx, report_id: UUID, first: dict) -> Iterator[str]:
     yield _sse(first)
     if first["status"] in TERMINAL:
         return
@@ -252,6 +267,11 @@ def _stream(ctx: TenantCtx, report_id: UUID, first: dict) -> Iterator[str]:
 @router.get("/{report_id}/events")
 def events(report_id: UUID, ctx: Ctx) -> StreamingResponse:
     first = _snapshot(ctx, report_id)  # 404 before any stream starts
+    with _streams_lock:
+        mine = _streams.get(ctx.user_id, 0)
+        if sum(_streams.values()) >= MAX_STREAMS or mine >= MAX_STREAMS_PER_USER:
+            raise ApiError(503, "too_many_streams")  # the client falls back to polling
+        _streams[ctx.user_id] = _streams.get(ctx.user_id, 0) + 1
     return StreamingResponse(
         _stream(ctx, report_id, first),
         media_type="text/event-stream",

@@ -213,9 +213,21 @@ CANONICAL: dict[str, str] = {
 MAX_NAME = 60
 
 
-def canonicalise(report: ExtractedReport) -> ExtractedReport:
-    results = [
-        r.model_copy(update={"test_name": CANONICAL.get(r.test_id, r.test_name[:MAX_NAME])})
-        for r in report.results
-    ]
-    return report.model_copy(update={"results": results})
+def canonicalise(report: ExtractedReport) -> tuple[ExtractedReport, list[str]]:
+    """Keep only vocabulary tests, once each, under our own names. Returns warnings.
+
+    A row outside the vocabulary has no threshold, no stable id and an untrusted name, so it
+    is dropped and the report goes to review. Nothing left means nothing to explain.
+    """
+    results, warnings, seen = [], [], set()
+    for r in report.results:
+        if r.test_id not in CANONICAL:
+            warnings.append(f"{r.test_id[:40]}: not a known test, left out")
+        elif r.test_id in seen:
+            warnings.append(f"{r.test_id}: printed more than once, first value kept")
+        else:
+            seen.add(r.test_id)
+            results.append(r.model_copy(update={"test_name": CANONICAL[r.test_id]}))
+    if not results:
+        raise ExtractionFailed("no known tests", message=ExtractionFailed.NOT_A_REPORT)
+    return report.model_copy(update={"results": results}), warnings

@@ -47,21 +47,14 @@ def gate_answer(raw: str, sheet: FactSheet, lang: str) -> tuple[str, bool]:
     if not kept.statements:
         return fallback
 
-    critical = {r.test_id: r for r in sheet.report.results if r.flag is Flag.CRITICAL}
-    out: list[str] = []
-    replaced: set[str] = set()
-    for s in kept.statements:
-        cited = [i for i in s.test_ids if i in critical]
-        if not cited:
-            out.append(s.text)
-            continue
-        for i in cited:
-            if i not in replaced:
-                replaced.add(i)
-                out.append(value_sentence(critical[i], lang).text)
-    if replaced:
-        out.insert(0, urgent_message(lang))
-    return " ".join(out), bool(dropped or replaced)
+    by_id = {r.test_id: r for r in sheet.report.results}
+    if any(r.flag is Flag.CRITICAL for r in sheet.report.results):
+        # Red report: the model only picks which results the question is about; every word
+        # shown comes from templates, and the urgent line leads (same rule as the page).
+        cited = list(dict.fromkeys(i for s in kept.statements for i in s.test_ids))
+        return " ".join([urgent_message(lang), *(value_sentence(by_id[i], lang).text
+                                                 for i in cited)]), True
+    return " ".join(s.text for s in kept.statements), bool(dropped)
 
 
 @dataclass

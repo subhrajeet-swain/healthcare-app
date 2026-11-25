@@ -145,3 +145,62 @@ def test_checkpoint_thread_deleted_after_job(client, patient):
         n = c.execute("SELECT count(*) FROM graph.checkpoints WHERE thread_id = %s",
                       (thread_id(tid, rid),)).fetchone()[0]
     assert n == 0
+
+
+# --- final review fixes -------------------------------------------------------------
+
+def test_stale_job_out_of_attempts_is_failed_not_reclaimed(client, patient):  # I2
+    rid = _upload(client)
+    with _wconn() as c:
+        c.execute(
+            "UPDATE jobs SET status = 'running', attempts = %s, "
+            "locked_at = now() - interval '6 minutes' WHERE payload->>'report_id' = %s",
+            (worker.MAX_ATTEMPTS, rid))
+    assert worker.run_once(_models()) is False  # nothing claimable
+    assert _job(rid)["status"] == "failed"
+    d = client.get(f"/api/reports/{rid}").json()
+    assert d["status"] == "failed" and d["failure_message"] == worker.GIVE_UP
+
+
+def test_model_clients_have_timeouts(monkeypatch):  # I2
+    from app.brain import llm
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "google_api_key", "x")
+    monkeypatch.setattr(settings, "groq_api_key", "x")
+    for m in (llm.chat_model("extract"), llm.fallback_model()):
+        assert 0 < (getattr(m, "timeout", None) or getattr(m, "request_timeout", None)) <= 90
+        assert m.max_retries <= 2
+
+
+def test_lab_upload_waits_for_patient_consent(client, lab, login):  # I4
+    from tests.test_staff import PATIENT_PHONE, STAFF_PHONE, make_user
+
+    slug, tid = lab
+    make_user(tid, STAFF_PHONE, "lab_staff")
+    login(slug, STAFF_PHONE)
+    rid = client.post("/api/staff/orders", json={"phone": PATIENT_PHONE}).json()["id"]
+    up = client.post(f"/api/staff/reports/{rid}/file",
+                     files={"file": ("r.pdf", pdf_bytes(), "application/pdf")})
+    assert up.status_code == 200
+    models = _models()
+    assert worker.run_once(models) is True
+    assert models["extract"].calls == []  # nothing left the building
+    assert _job(rid)["status"] == "waiting_consent"
+    login(slug, PATIENT_PHONE)
+    consent = {"purpose": "core", "version": "v1"}
+    assert client.post("/api/consents", json=consent).status_code == 201
+    assert _job(rid)["status"] == "queued"
+    assert worker.run_once(models) is True
+    assert client.get(f"/api/reports/{rid}").json()["status"] == "ready"
+
+
+def test_extraction_failure_log_carries_no_model_input(client, patient, caplog):  # minor 5
+    import logging
+
+    caplog.set_level(logging.INFO, logger="app.worker")
+    _upload(client)
+    leak = json.dumps({"results": [{"test_id": "cbc.mcv", "test_name": "MCV", "value": 1,
+                                    "unit": "fL", "patient_name": "Asha Rao"}]})
+    worker.run_once(_models(extract_reply=leak))
+    assert "Asha" not in caplog.text
