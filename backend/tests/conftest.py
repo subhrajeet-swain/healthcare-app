@@ -10,6 +10,7 @@ for var, role, pw in [
     ("DATABASE_URL", "hc_app", "app_dev"),
     ("OWNER_DATABASE_URL", "hc_owner", "owner_dev"),
     ("GRAPH_DATABASE_URL", "hc_graph", "graph_dev"),
+    ("WORKER_DATABASE_URL", "hc_worker", "worker_dev"),
 ]:
     os.environ.setdefault(var, f"postgresql://{role}:{pw}@localhost:5433/hc_test")
 os.environ.setdefault(

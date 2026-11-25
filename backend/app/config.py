@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -12,6 +13,14 @@ class Settings(BaseSettings):
     owner_database_url: str = ""
     graph_database_url: str = ""
     admin_database_url: str = ""
+    worker_database_url: str = ""  # worker process only: claims jobs across tenants
+    storage_dir: Path = Path("data/files")
+    google_api_key: str = ""
+    groq_api_key: str = ""
+    extract_model: str = "gemini-3.5-flash-lite"
+    explain_model: str = "gemini-3.1-flash-lite"
+    chat_model: str = "gemini-3.1-flash-lite"
+    groq_model: str = "llama-3.3-70b-versatile"
     master_key: str
     otp_pepper: str
     langsmith_tracing: bool = False
