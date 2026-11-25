@@ -89,7 +89,8 @@ def test_new_tables_usable_by_app_under_tenant(lab):
             ).fetchone()["id"]
             c.execute(
                 "INSERT INTO results (tenant_id, report_id, test_id, test_name, value, unit, "
-                "flag, triage) VALUES (%s, %s, 'cbc.hemoglobin', 'Hb', 11.2, 'g/dL', 'low', 'amber')",
+                "flag, triage) "
+                "VALUES (%s, %s, 'cbc.hemoglobin', 'Hb', 11.2, 'g/dL', 'low', 'amber')",
                 (tid, rid),
             )
             c.execute(
@@ -98,7 +99,8 @@ def test_new_tables_usable_by_app_under_tenant(lab):
                 (tid, rid),
             )
             c.execute(
-                "INSERT INTO report_steps (tenant_id, report_id, status) VALUES (%s, %s, 'received')",
+                "INSERT INTO report_steps (tenant_id, report_id, status) "
+                "VALUES (%s, %s, 'received')",
                 (tid, rid),
             )
             c.execute(
