@@ -1,6 +1,6 @@
 # Phase 1: Report vault, web chat and the safety brain
 
-Status: not started. Depends on: phase 0. See [PLAN.md](../PLAN.md).
+Status: built on branch `phase-1` (2026-11-25); live checks wait for a rotated Gemini key. Depends on: phase 0. See [PLAN.md](../PLAN.md).
 
 ## 1. Plan
 
@@ -16,7 +16,7 @@ Status: not started. Depends on: phase 0. See [PLAN.md](../PLAN.md).
 - **Status tracking**, a step list rather than a map: `received`, `extracting`, `explaining`, then `needs_review` or `ready`, then `notified`. For lab uploads, `sample collected` and `in lab` come first. The page updates live through SSE (LISTEN/NOTIFY), with polling as a fallback.
 - **Web chat about a report**: questions are answered only from that report's fact sheet. Off-topic or diagnosis requests get a fixed safe reply.
 - **Report view**: values, ranges, colours, the explanation, the next step, and the original PDF through a short-lived link.
-- **Languages:** English and Hindi (the explainer already has Hindi messages in `nextstep.py`).
+- **Languages:** English and Hindi (the explainer already has Hindi messages in `nextstep.py`). The web app shows one language at a time, chosen in the band (decided 2026-11-25).
 - **Evals:** port the explainer's 30 eval cases and 40 grounding cases; add chat cases (prompt injection inside the PDF, "what's my diagnosis", "is this cancer").
 
 **Out of scope:** the timeline across reports, doctor review (red results show "your doctor will be told", and the alert path arrives in phase 2), WhatsApp, voice.
@@ -33,9 +33,9 @@ Status: not started. Depends on: phase 0. See [PLAN.md](../PLAN.md).
 
 **Done when**
 - [ ] The 3 sample Drlogy PDFs (CBC, lipid, thyroid) and `B080.pdf` / `Z005.pdf` go from upload to explanation in under 30 s, with live status.
-- [ ] The ported evals pass at the same scores as the explainer (30/30 eval, 40/40 grounding).
-- [ ] The chat refuses diagnosis questions and survives the prompt-injection cases.
-- [ ] Canary tests still pass with reports in the database.
+- [ ] The ported evals pass at the same scores as the explainer (30/30 eval, 40/40 grounding). Offline half done: fixtures 15/15. Live `reports` suite pending the key.
+- [x] The chat refuses diagnosis questions and survives the prompt-injection cases (offline evals: chat 16/16, injection fixtures 2/2; live model run pending).
+- [x] Canary tests still pass with reports in the database.
 - [ ] The UI passes an `impeccable` review.
 - [ ] `security-review` is clean: file upload, signed links, injection.
 
