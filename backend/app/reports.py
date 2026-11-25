@@ -3,14 +3,20 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import time
+from collections.abc import Iterator
 from uuid import UUID
 
+import psycopg
 from fastapi import APIRouter, Response, UploadFile
+from fastapi.responses import StreamingResponse
 from psycopg.types.json import Jsonb
 
 from app import db, files
 from app.audit import audit
 from app.auth import Ctx
+from app.config import settings
 from app.crypto import cipher_for
 from app.errors import ApiError, not_found
 from app.tenancy import TenantCtx
@@ -158,6 +164,65 @@ def get_report(report_id: UUID, ctx: Ctx) -> dict:
         detail = report_detail(c, visible_report(c, ctx, report_id))
         audit(c, ctx, "read", "report", report_id)
     return detail
+
+
+KEEPALIVE_S = 15
+STREAM_FOR_S = 60  # then close; EventSource reconnects and gets a fresh snapshot
+
+
+def _sse(data: dict) -> str:
+    return f"event: status\ndata: {json.dumps(data, default=str)}\n\n"
+
+
+def _snapshot(ctx: TenantCtx, report_id: UUID) -> dict:
+    with db.tenant_tx(ctx) as c:
+        report = visible_report(c, ctx, report_id)
+        steps = c.execute(
+            "SELECT status, at FROM report_steps WHERE report_id = %s ORDER BY id", (report_id,)
+        ).fetchall()
+    return {"status": report["status"], "steps": steps}
+
+
+def _stream(ctx: TenantCtx, report_id: UUID, first: dict) -> Iterator[str]:
+    yield _sse(first)
+    if first["status"] in TERMINAL:
+        return
+    # ponytail: one LISTEN connection and one thread per open stream (P15). Ceiling: the
+    # threadpool size. Upgrade: one listener per process fanning out to queues.
+    with psycopg.connect(settings.database_url, autocommit=True) as conn:
+        conn.execute("LISTEN report_status")
+        # a change between the snapshot and LISTEN would be lost; re-read once
+        now = _snapshot(ctx, report_id)
+        last = first["status"]
+        if now["status"] != last:
+            last = now["status"]
+            yield _sse(now)
+            if last in TERMINAL:
+                return
+        deadline = time.monotonic() + STREAM_FOR_S
+        while time.monotonic() < deadline:
+            got = False
+            for n in conn.notifies(timeout=KEEPALIVE_S, stop_after=1):
+                got = True
+                rid, _, status = n.payload.partition(":")
+                if rid != str(report_id) or status == last:
+                    continue
+                last = status
+                yield _sse({"status": status})
+                if status in TERMINAL:
+                    return
+            if not got:
+                yield ": keepalive\n\n"
+
+
+@router.get("/{report_id}/events")
+def events(report_id: UUID, ctx: Ctx) -> StreamingResponse:
+    first = _snapshot(ctx, report_id)  # 404 before any stream starts
+    return StreamingResponse(
+        _stream(ctx, report_id, first),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/{report_id}/file")
