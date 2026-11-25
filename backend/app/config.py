@@ -15,11 +15,15 @@ class Settings(BaseSettings):
     admin_database_url: str = ""
     worker_database_url: str = ""  # worker process only: claims jobs across tenants
     storage_dir: Path = Path("data/files")
-    google_api_key: str = ""
+    # Up to three Gemini keys from separate accounts (separate quotas), tried in order.
+    google_api_key_1: str = ""
+    google_api_key_2: str = ""
+    google_api_key_3: str = ""
+    google_api_key: str = ""  # old single-key name, tried last
     groq_api_key: str = ""
     extract_model: str = "gemini-3.5-flash-lite"
-    explain_model: str = "gemini-3.1-flash-lite"
-    chat_model: str = "gemini-3.1-flash-lite"
+    explain_model: str = "gemini-3.5-flash-lite"
+    chat_model: str = "gemini-3.5-flash-lite"
     groq_model: str = "llama-3.3-70b-versatile"
     master_key: str
     otp_pepper: str

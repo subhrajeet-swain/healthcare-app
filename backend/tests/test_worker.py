@@ -166,11 +166,11 @@ def test_model_clients_have_timeouts(monkeypatch):  # I2
     from app.brain import llm
     from app.config import settings
 
-    monkeypatch.setattr(settings, "google_api_key", "x")
+    monkeypatch.setattr(settings, "google_api_key_1", "x")
     monkeypatch.setattr(settings, "groq_api_key", "x")
-    for m in (llm.chat_model("extract"), llm.fallback_model()):
+    for m in llm.models("explain"):  # one Gemini, then Groq
         assert 0 < (getattr(m, "timeout", None) or getattr(m, "request_timeout", None)) <= 90
-        assert m.max_retries <= 2
+        assert m.max_retries == 0  # failover to the next key instead (tests/brain/test_llm.py)
 
 
 def test_lab_upload_waits_for_patient_consent(client, lab, login):  # I4

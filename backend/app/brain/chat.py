@@ -73,15 +73,15 @@ def answer(
     if kind == "value":
         return ChatReply(reply, "tier1", False)
 
-    fallback = None
+    fallbacks = []
     if model is None:
-        from .llm import chat_model, fallback_model
+        from .llm import models
 
-        model, fallback = chat_model("chat"), fallback_model()
+        model, *fallbacks = models("chat")  # the other Gemini keys, then Groq
     middleware = [
         PIIMiddleware("email", strategy="redact"),
         PIIMiddleware("phone_in", detector=PHONE_IN, strategy="redact"),
-        *([ModelFallbackMiddleware(fallback)] if fallback else []),
+        *([ModelFallbackMiddleware(*fallbacks)] if fallbacks else []),
         SafetyGateMiddleware(),
     ]
     agent = create_agent(
