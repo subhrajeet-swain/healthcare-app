@@ -201,3 +201,21 @@ def extract(
         raise ExtractionFailed(str(e), text, message=failure_message(text)) from e
     # Quasi-identifiers: nothing downstream reads them (ruling P8).
     return report.model_copy(update={"patient_age": None, "patient_sex": None})
+
+
+# Display names come from our vocabulary, never from the page: a test name is untrusted
+# text that a template or the results table would otherwise print verbatim.
+CANONICAL: dict[str, str] = {
+    parts[0]: parts[1]
+    for line in VOCABULARY.splitlines()
+    if len(parts := re.split(r"\s{2,}", line.strip())) >= 2
+}
+MAX_NAME = 60
+
+
+def canonicalise(report: ExtractedReport) -> ExtractedReport:
+    results = [
+        r.model_copy(update={"test_name": CANONICAL.get(r.test_id, r.test_name[:MAX_NAME])})
+        for r in report.results
+    ]
+    return report.model_copy(update={"results": results})

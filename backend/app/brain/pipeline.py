@@ -17,7 +17,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langgraph.graph import END, START, StateGraph
 
 from .explain import explain
-from .extract import extract
+from .extract import canonicalise, extract
 from .flags import flag_report
 from .ground import verify
 from .models import Explanation, ExtractedReport, Flag, LabReport, NextStep, Statement
@@ -76,7 +76,7 @@ def build_graph(deps: PipelineDeps, checkpointer):
         return {"extracted": extract(data, mime, deps.known, deps.extract_model).model_dump(mode="json")}
 
     def flag_node(state: State) -> State:
-        report, warnings = flag_report(ExtractedReport(**state["extracted"]))
+        report, warnings = flag_report(canonicalise(ExtractedReport(**state["extracted"])))
         return {"report": report.model_dump(mode="json"), "warnings": warnings}
 
     def decide_node(state: State) -> State:
