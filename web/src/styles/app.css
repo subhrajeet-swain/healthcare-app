@@ -58,6 +58,7 @@ h1 { font-size: var(--step-2); line-height: 1.1; margin: var(--space-4) 0 var(--
 .batch > div { padding: var(--space-3) var(--space-4); background: var(--sunk); border-radius: 16px; }
 .batch dt { font-size: var(--step--1); color: var(--ink-soft); }
 .batch dd { margin: 0; font-weight: 600; }
+.batch code { font-size: var(--step-1); }
 
 /* list rows divided by hairlines */
 .perf-list { list-style: none; margin: 0; padding: 0 var(--space-5) var(--space-2); }
@@ -197,9 +198,10 @@ input.text.text--boxed { min-height: 3.25rem; border-radius: var(--radius-pill);
 .chat__msg { padding: var(--space-3) var(--space-4); border-radius: 20px; max-width: 90%; }
 .chat__msg p { margin: var(--space-1) 0 0; max-width: var(--measure); }
 .chat__msg--user { justify-self: end; background: var(--ink); color: #fff; }
-.chat__msg--user .chat__who { color: #c9c9ce; }
+.chat__msg--user .chat__who, .chat__msg--user .chat__via { color: #c9c9ce; }
 .chat__msg--assistant { justify-self: start; background: var(--sunk); }
 .chat__who { font-size: var(--step--1); font-weight: 600; color: var(--ink-soft); }
+.chat__via { margin-left: var(--space-2); font-size: var(--step--1); color: var(--ink-soft); }
 section.strip[aria-labelledby="chat-title"] { border-radius: 28px 28px var(--radius-card) var(--radius-card); box-shadow: var(--shadow-float); }
 section.strip[aria-labelledby="chat-title"]::before { content: ""; display: block; width: 44px; height: 5px; margin: var(--space-3) auto 0; border-radius: 3px; background: #d6d6db; }
 

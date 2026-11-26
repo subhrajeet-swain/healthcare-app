@@ -4,6 +4,7 @@ import { Band } from "../Band";
 import { FamilySection } from "../Family";
 import { useLang } from "../i18n";
 import { Nav } from "../Nav";
+import { WhatsApp } from "../WhatsApp";
 
 type Props = { me: Me; onSignOut: () => void; onDeleted: () => void };
 
@@ -22,6 +23,7 @@ export function Profile({ me, onSignOut, onDeleted }: Props) {
       <main>
         <h1>{t("navProfile")}</h1>
         <Account me={me} onDeleted={onDeleted} />
+        <WhatsApp />
         <FamilySection />
       </main>
       <Nav active="profile" />

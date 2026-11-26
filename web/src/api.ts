@@ -8,7 +8,7 @@ export type Me = {
   role: Role;
   phone_masked: string | null; // null for a child, who has no phone
   name: string | null;
-  consent: { core: boolean };
+  consent: { core: boolean; whatsapp: boolean };
 };
 
 export type Relation = "child" | "parent" | "spouse" | "other";
@@ -129,7 +129,22 @@ export type ReportDetail = ReportSummary & {
 export type SharedReport = Omit<ReportDetail, "steps" | "has_file" | "failure_message">;
 export type SharedView = { expires_at: string; reports: SharedReport[] };
 export type ShareLink = { id: string; report_ids: string[]; expires_at: string; created_at: string };
-export type ChatMessage = { role: "user" | "assistant"; text: string; tier: string; created_at: string };
+export type ChatMessage = {
+  role: "user" | "assistant";
+  text: string;
+  tier: string;
+  created_at: string;
+  channel?: "web" | "whatsapp"; // absent on a message just sent from this page: it is web
+};
+/** The patient's WhatsApp link: `lab_number` is the number to message, null when the lab has none. */
+export type WaLink = {
+  available: boolean;
+  lab_number: string | null;
+  linked: boolean;
+  number_masked: string | null;
+  opted_in: boolean;
+};
+export type WaLinkCode = { code: string; lab_number: string; expires_in: number }; // expires_in: seconds
 export type StaffReport = {
   id: string;
   status: Status;
@@ -219,6 +234,9 @@ export const api = {
     req<{ link_id: string }>("POST", "/api/family", { relation, name, phone }, true),
   acceptInvite: (linkId: string) => req<void>("POST", `/api/family/${linkId}/accept`, undefined, true),
   revokeLink: (linkId: string) => req<void>("DELETE", `/api/family/${linkId}`, undefined, true),
+  waLink: () => req<WaLink>("GET", "/api/whatsapp/link", undefined, true),
+  waLinkCode: (language: Lang) => req<WaLinkCode>("POST", "/api/whatsapp/link-code", { language }, true),
+  waUnlink: () => req<void>("DELETE", "/api/whatsapp/link", undefined, true),
   exportUrl: "/api/me/export",
   reports: () => req<ReportSummary[]>("GET", "/api/reports"),
   timeline: () => req<TimelineTest[]>("GET", "/api/timeline"),
@@ -321,6 +339,10 @@ const MESSAGES: Record<string, { en: string; hi: string }> = {
   already_linked: {
     en: "This person is already in your family list.",
     hi: "यह व्यक्ति पहले से आपकी परिवार सूची में है।",
+  },
+  whatsapp_unavailable: {
+    en: "Your lab hasn't set up WhatsApp yet.",
+    hi: "आपकी लैब ने अभी WhatsApp शुरू नहीं किया है।",
   },
   invalid_name: { en: "Enter a name.", hi: "नाम डालें।" },
   too_many_invites: {

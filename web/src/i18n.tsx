@@ -250,6 +250,19 @@ export const STRINGS = {
   famSendInvite: { en: "Send invite", hi: "न्योता भेजें" },
   famChildAdded: { en: "Added. Switch to them at the top of the screen.", hi: "जोड़ दिया गया। स्क्रीन के ऊपर से उन पर जाएं।" },
   famInvited: { en: "Invite sent. It shows as active once they accept.", hi: "न्योता भेज दिया गया। उनके मंज़ूर करने पर यह सक्रिय दिखेगा।" },
+  // whatsapp
+  waTitle: { en: "WhatsApp", hi: "व्हाट्सऐप" },
+  waLede: { en: "Link your WhatsApp number to get a message when a report is ready, and to ask about it there.", hi: "अपना WhatsApp नंबर जोड़ें, ताकि रिपोर्ट तैयार होने पर संदेश मिले और आप वहीं उसके बारे में पूछ सकें।" },
+  waUnavailable: { en: "Your lab hasn't set up WhatsApp yet.", hi: "आपकी लैब ने अभी WhatsApp शुरू नहीं किया है।" },
+  waGetCode: { en: "Get a link code", hi: "लिंक कोड पाएं" },
+  waCode: { en: "Your code", hi: "आपका कोड" },
+  waSendCode: { en: "Send {text} to {number} on WhatsApp. The code works for {min} minutes.", hi: "WhatsApp पर {number} को {text} भेजें। यह कोड {min} मिनट तक चलेगा।" },
+  waCopy: { en: "Copy", hi: "कॉपी करें" },
+  waCopied: { en: "Copied.", hi: "कॉपी हो गया।" },
+  waLinked: { en: "Linked to {number}.", hi: "{number} से जुड़ा है।" },
+  waOptedOut: { en: "Messages are paused. Send START on WhatsApp to turn them back on.", hi: "संदेश रुके हुए हैं। दोबारा चालू करने के लिए WhatsApp पर START भेजें।" },
+  waUnlink: { en: "Unlink", hi: "अनलिंक करें" },
+  viaWhatsApp: { en: "via WhatsApp", hi: "WhatsApp से" },
 } satisfies Record<string, Pair>;
 
 export type Key = keyof typeof STRINGS;

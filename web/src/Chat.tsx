@@ -53,6 +53,7 @@ export function Chat({ reportId }: { reportId: string }) {
           {messages.map((m, i) => (
             <li key={i} className={`chat__msg chat__msg--${m.role}`}>
               <span className="chat__who">{t(m.role === "user" ? "you" : "assistant")}</span>
+              {m.channel === "whatsapp" && <span className="chat__via">{t("viaWhatsApp")}</span>}
               <p>{m.text}</p>
             </li>
           ))}
