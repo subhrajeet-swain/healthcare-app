@@ -6,10 +6,51 @@ export type { Lang };
 export type Me = {
   id: string;
   role: Role;
-  phone_masked: string;
+  phone_masked: string | null; // null for a child, who has no phone
   name: string | null;
   consent: { core: boolean };
 };
+
+export type Relation = "child" | "parent" | "spouse" | "other";
+export type LinkStatus = "pending" | "active";
+/** members: people I manage. invites: people who manage me, or ask to. */
+export type Family = {
+  members: { link_id: string; member_id: string; relation: Relation; status: LinkStatus; name: string | null }[];
+  invites: { link_id: string; manager_id: string; relation: Relation; status: LinkStatus; name: string | null }[];
+};
+
+// The family member the signed-in patient is acting for; null is themselves. Per tab, so
+// two tabs can show two people. The server checks the link on every request.
+const PROFILE_KEY = "ph:profile";
+
+export function getProfile(): string | null {
+  try {
+    return sessionStorage.getItem(PROFILE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setProfile(id: string | null) {
+  try {
+    if (id) sessionStorage.setItem(PROFILE_KEY, id);
+    else sessionStorage.removeItem(PROFILE_KEY);
+  } catch {
+    /* storage blocked: the switch holds until reload */
+  }
+  current = id;
+}
+
+let current = getProfile();
+
+function profileHeader(own: boolean): Record<string, string> {
+  return !own && current ? { "X-Profile": current } : {};
+}
+
+/** For URLs the browser fetches itself (EventSource, file links): they cannot send headers. */
+function withProfile(path: string): string {
+  return current ? `${path}?profile=${encodeURIComponent(current)}` : path;
+}
 
 export class ApiError extends Error {
   status: number;
@@ -21,11 +62,12 @@ export class ApiError extends Error {
   }
 }
 
-async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
+/** `own`: a personal route (account, consent, family) that never takes a profile. */
+async function req<T>(method: string, path: string, body?: unknown, own = false): Promise<T> {
   const r = await fetch(path, {
     method,
     credentials: "include",
-    headers: body ? { "Content-Type": "application/json" } : undefined,
+    headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...profileHeader(own) },
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!r.ok) {
@@ -90,7 +132,7 @@ export type StaffReport = {
   triage: Triage | null;
   source: "patient" | "lab";
   created_at: string;
-  phone_masked: string;
+  phone_masked: string | null;
   name: string | null;
 };
 export const TERMINAL: Status[] = ["ready", "needs_review", "under_review", "failed"];
@@ -148,7 +190,7 @@ export type ReviewDetail = ReviewItem & { report: ReportDetail | null };
 async function upload<T>(path: string, file: File): Promise<T> {
   const body = new FormData();
   body.append("file", file);
-  const r = await fetch(path, { method: "POST", credentials: "include", body });
+  const r = await fetch(path, { method: "POST", credentials: "include", body, headers: profileHeader(false) });
   if (!r.ok) {
     const data = await r.json().catch(() => ({}));
     throw new ApiError(r.status, typeof data.error === "string" ? data.error : "request_failed");
@@ -162,17 +204,24 @@ export const api = {
   requestOtp: (slug: string, phone: string) => req<void>("POST", `/api/auth/${slug}/otp`, { phone }),
   verify: (slug: string, phone: string, code: string) =>
     req<{ role: Role }>("POST", `/api/auth/${slug}/verify`, { phone, code }),
-  me: () => req<Me>("GET", "/api/me"),
-  grantConsent: () => req<void>("POST", "/api/consents", { purpose: "core", version: CONSENT_VERSION }),
-  logout: () => req<void>("POST", "/api/auth/logout"),
-  deleteMe: () => req<void>("DELETE", "/api/me"),
+  me: () => req<Me>("GET", "/api/me", undefined, true),
+  grantConsent: () => req<void>("POST", "/api/consents", { purpose: "core", version: CONSENT_VERSION }, true),
+  logout: () => req<void>("POST", "/api/auth/logout", undefined, true),
+  deleteMe: () => req<void>("DELETE", "/api/me", undefined, true),
+  family: () => req<Family>("GET", "/api/family", undefined, true),
+  addChild: (name: string) =>
+    req<{ link_id: string }>("POST", "/api/family", { relation: "child", name, version: CONSENT_VERSION }, true),
+  invite: (relation: Exclude<Relation, "child">, name: string, phone: string) =>
+    req<{ link_id: string }>("POST", "/api/family", { relation, name, phone }, true),
+  acceptInvite: (linkId: string) => req<void>("POST", `/api/family/${linkId}/accept`, undefined, true),
+  revokeLink: (linkId: string) => req<void>("DELETE", `/api/family/${linkId}`, undefined, true),
   exportUrl: "/api/me/export",
   reports: () => req<ReportSummary[]>("GET", "/api/reports"),
   timeline: () => req<TimelineTest[]>("GET", "/api/timeline"),
   report: (id: string) => req<ReportDetail>("GET", `/api/reports/${id}`),
   uploadReport: (file: File) => upload<{ id: string; status: Status }>("/api/reports", file),
-  fileUrl: (id: string) => `/api/reports/${id}/file`,
-  eventsUrl: (id: string) => `/api/reports/${id}/events`,
+  fileUrl: (id: string) => withProfile(`/api/reports/${id}/file`),
+  eventsUrl: (id: string) => withProfile(`/api/reports/${id}/events`),
   chatHistory: (id: string) => req<ChatMessage[]>("GET", `/api/reports/${id}/chat`),
   ask: (id: string, question: string, language: Lang) =>
     req<{ reply: string; tier: string }>("POST", `/api/reports/${id}/chat`, { question, language }),
@@ -251,9 +300,18 @@ const MESSAGES: Record<string, { en: string; hi: string }> = {
     hi: "चैट के जवाब को आगे नहीं भेजा जा सकता। उसे मंज़ूर करें, या नोट के साथ बदलें।",
   },
   consent_required: {
-    en: "Give consent on the first screen before uploading a report.",
-    hi: "रिपोर्ट अपलोड करने से पहले पहली स्क्रीन पर सहमति दें।",
+    en: "Give consent on the first screen before uploading a report. For a family member, they sign in and give it themselves.",
+    hi: "रिपोर्ट अपलोड करने से पहले पहली स्क्रीन पर सहमति दें। परिवार के सदस्य के लिए, वे ख़ुद साइन इन करके सहमति देते हैं।",
   },
+  own_phone: {
+    en: "That's your own number. Enter your family member's mobile number.",
+    hi: "यह आपका अपना नंबर है। परिवार के सदस्य का मोबाइल नंबर डालें।",
+  },
+  already_linked: {
+    en: "This person is already in your family list.",
+    hi: "यह व्यक्ति पहले से आपकी परिवार सूची में है।",
+  },
+  invalid_name: { en: "Enter a name.", hi: "नाम डालें।" },
 };
 const FALLBACK = {
   en: "Something went wrong on our side. Try again in a minute.",

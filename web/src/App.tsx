@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, type Me, api, messageFor } from "./api";
+import { ApiError, type Me, api, messageFor, setProfile } from "./api";
 import { Band } from "./Band";
+import { ProfileProvider } from "./Family";
 import { Consent } from "./pages/Consent";
 import { Dashboard } from "./pages/Dashboard";
 import { Review } from "./pages/Doctor";
@@ -62,6 +63,7 @@ export default function App() {
     setLoadError(null);
     try {
       const m = await api.me();
+      if (m.role !== "patient") setProfile(null); // only patients act for family
       setMe(m);
       // keep deep links (/reports/:id); only leave the login and consent screens
       const here = parseRoute(location.pathname).name;
@@ -78,6 +80,7 @@ export default function App() {
   }, [loadMe]);
 
   const signedOut = useCallback(() => {
+    setProfile(null);
     setMe(null);
     const slug = lastSlug();
     go(slug ? `/${slug}/login` : "/");
@@ -142,10 +145,18 @@ export default function App() {
     return <Consent onAgreed={loadMe} onSignOut={signOut} />;
   }
   const patient = me.role === "patient";
-  if (route.name === "report") return <Report id={route.id} nav={patient} />;
   if (route.name === "review" && me.role === "doctor") return <Review key={route.id} id={route.id} />;
-  if (patient && route.name === "chat") return <ChatPage />;
-  if (patient && route.name === "timeline") return <Timeline />;
-  if (patient && route.name === "profile") return <Profile me={me} onSignOut={signOut} onDeleted={signedOut} />;
-  return <Dashboard me={me} onSignOut={signOut} onDeleted={signedOut} />;
+  const page =
+    route.name === "report" ? (
+      <Report id={route.id} nav={patient} />
+    ) : patient && route.name === "chat" ? (
+      <ChatPage />
+    ) : patient && route.name === "timeline" ? (
+      <Timeline />
+    ) : patient && route.name === "profile" ? (
+      <Profile me={me} onSignOut={signOut} onDeleted={signedOut} />
+    ) : (
+      <Dashboard me={me} onSignOut={signOut} onDeleted={signedOut} />
+    );
+  return patient ? <ProfileProvider>{page}</ProfileProvider> : page;
 }

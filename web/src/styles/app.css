@@ -208,6 +208,13 @@ section.strip[aria-labelledby="chat-title"]::before { content: ""; display: bloc
 .toggle__btn { min-height: var(--tap); min-width: var(--tap); padding: 0 var(--space-3); border: 0; border-radius: var(--radius-pill); background: transparent; cursor: pointer; font-weight: 600; color: var(--ink-soft); }
 .toggle__btn[aria-pressed="true"] { background: var(--ink); color: #fff; }
 .toggle__btn:focus-visible { outline-offset: 2px; }
+/* whose reports: the same pill, scrolling sideways when the family is large */
+.toggle--profiles { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.toggle--profiles .toggle__btn { flex: none; white-space: nowrap; padding-inline: var(--space-4); }
+.toggle--flat { display: grid; grid-template-columns: 1fr 1fr; box-shadow: none; background: var(--sunk); border-radius: 28px; }
+.actions.family__actions .btn { flex: none; }
+.family__sub { margin: 0 0 var(--space-4); font-size: var(--step-0); font-weight: 700; }
+.family__label { font-weight: 600; }
 
 /* lab console */
 .perf-list .staff-row { display: grid; gap: var(--space-3); }

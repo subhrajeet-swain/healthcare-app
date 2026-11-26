@@ -1,6 +1,7 @@
 import { Account } from "../Account";
 import type { Me } from "../api";
 import { Band } from "../Band";
+import { FamilySection } from "../Family";
 import { useLang } from "../i18n";
 import { Nav } from "../Nav";
 
@@ -21,6 +22,7 @@ export function Profile({ me, onSignOut, onDeleted }: Props) {
       <main>
         <h1>{t("navProfile")}</h1>
         <Account me={me} onDeleted={onDeleted} />
+        <FamilySection />
       </main>
       <Nav active="profile" />
     </div>

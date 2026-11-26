@@ -27,7 +27,7 @@ function Row({ r, onChange, onError }: { r: StaffReport; onChange: () => void; o
       <div className="staff-row__head">
         <span>
           <span className="report-row__what">{r.name ?? r.phone_masked}</span>
-          {r.name && `${r.phone_masked} · `}
+          {r.name && r.phone_masked && `${r.phone_masked} · `}
           {shortDate(r.created_at, lang)}
         </span>
         <span className={`report-row__state${finished && r.triage ? ` state--${r.triage}` : ""}`}>
