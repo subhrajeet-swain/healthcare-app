@@ -65,6 +65,13 @@ def test_chat_tier0_and_tier2_roundtrip(client, patient, model):
     assert hist[0]["text"] == "Do I have cancer?"
 
 
+def test_web_history_has_channel(client, patient, model):
+    _, tid, _ = patient
+    rid = _ready_report(client, tid)
+    _ask(client, rid, "Do I have cancer?")
+    assert [h["channel"] for h in client.get(f"/api/reports/{rid}/chat").json()] == ["web"] * 2
+
+
 def test_needs_review_report_can_chat(client, patient, model):
     _, tid, _ = patient
     rid = _ready_report(client, tid, "needs_review")

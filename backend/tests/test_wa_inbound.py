@@ -6,12 +6,18 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 
-from app import auth, db, whatsapp, worker
+from app import auth, chat_api, db, wa_jobs, whatsapp, worker
+from app.brain.router import REPLIES
 from app.config import settings
+from app.crypto import cipher_for
+from app.errors import ApiError
+from app.tenancy import TenantCtx
 from app.whatsapp import COPY
 from tests.conftest import pdf_bytes
+from tests.test_chat_api import GOOD, _ask, model  # noqa: F401
 from tests.test_review_flow import RED, _decide, _drain
 from tests.test_review_flow import _models as _red_models
+from tests.test_visibility import UNSAFE, _chat_items
 from tests.test_wa_webhook import SECRET, _mid, _payload, signed
 from tests.test_worker import _models, _upload, _wconn, no_stray_jobs  # noqa: F401
 
@@ -34,7 +40,7 @@ def texts(bodies):
     return [b["text"]["body"] for b in bodies]
 
 
-def deliver(client, wa_lab, sender=NUMBER, text=None, media_id=None):
+def deliver(client, wa_lab, sender=NUMBER, text=None, media_id=None, models=None):
     """Post one signed message from `sender` and run its `wa.inbound` job."""
     _, pn = wa_lab
     msg = {"from": sender.lstrip("+"), "id": _mid()}
@@ -43,7 +49,7 @@ def deliver(client, wa_lab, sender=NUMBER, text=None, media_id=None):
     else:
         msg |= {"type": "text", "text": {"body": text}}
     assert signed(client, _payload(pn, msg)).status_code == 200
-    assert worker.run_once(_models()) is True
+    assert worker.run_once(models or _models()) is True
     return msg["id"]
 
 
@@ -222,10 +228,132 @@ def test_report_command_red_sends_red_line(client, patient, wa_lab, sent):
     _assert_red_only(sent)
 
 
-def test_other_text_is_not_ready_for_now(client, patient, wa_lab, sent):
+def _ready(client):
+    rid = _upload(client)
+    assert worker.run_once(_models()) is True  # ready, amber: Hemoglobin is 11.2.
+    return rid
+
+
+def _ask_wa(client, wa_lab, chat, text="why is it low?"):
+    return deliver(client, wa_lab, text=text, models={"chat": chat})
+
+
+def test_question_without_report_says_so(client, patient, wa_lab, sent, model):  # noqa: F811
     _linked(client, wa_lab, sent)
-    deliver(client, wa_lab, text="is my sugar ok?")
-    assert texts(sent) == [COPY["not_ready"]["en"]]
+    _ask_wa(client, wa_lab, model)
+    assert texts(sent) == [COPY["no_report"]["en"]] and model.calls == []
+
+
+def test_question_on_whatsapp_stored_with_channel(client, patient, wa_lab, sent, model):  # noqa: F811
+    _, tid, _ = patient
+    rid = _ready(client)
+    _linked(client, wa_lab, sent)
+    model.replies.append(GOOD)
+    _ask_wa(client, wa_lab, model)
+    assert texts(sent) == ["Your hemoglobin is 11.2 g/dL."] and sent[0]["to"] == NUMBER
+    with _owner(tid) as c:
+        rows = c.execute(
+            "SELECT role, channel, tier FROM chat_messages ORDER BY created_at, role DESC"
+        ).fetchall()
+        assert c.execute(
+            "SELECT 1 FROM audit_log WHERE action = 'chat' AND entity = 'report' "
+            "AND entity_id = %s", (rid,)
+        ).fetchone()
+    assert [(r["role"], r["channel"], r["tier"]) for r in rows] == [
+        ("user", "whatsapp", "tier2"), ("assistant", "whatsapp", "tier2")]
+
+
+def test_conversation_continues_across_channels(client, patient, wa_lab, sent, model):  # noqa: F811
+    rid = _ready(client)
+    _linked(client, wa_lab, sent)
+    model.replies.append(GOOD)
+    assert _ask(client, rid, "why is it low?").json()["tier"] == "tier2"  # on the web
+    model.replies.append(GOOD)
+    _ask_wa(client, wa_lab, model, "tell me more about it")
+    assert "why is it low?" in str([m.content for m in model.calls[1]])  # the web turn is history
+    hist = client.get(f"/api/reports/{rid}/chat").json()
+    assert [(h["role"], h["channel"]) for h in hist] == [
+        ("user", "web"), ("assistant", "web"), ("user", "whatsapp"), ("assistant", "whatsapp")]
+
+
+def test_question_on_red_report_refused(client, patient, wa_lab, sent, model):  # noqa: F811
+    _, tid, _ = patient
+    rid = _upload(client)
+    assert worker.run_once(_red_models(RED)) is True  # red, held for a doctor
+    _drain()
+    _linked(client, wa_lab, sent)
+    _ask_wa(client, wa_lab, model)
+    _assert_red_only(sent)
+    sent.clear()
+    with _owner(tid) as c:
+        item = c.execute("SELECT id FROM review_items WHERE report_id = %s", (rid,)).fetchone()
+    _decide(tid, item["id"], "approved")  # released, still red
+    _drain()
+    _ask_wa(client, wa_lab, model)
+    _assert_red_only(sent)
+    with _owner(tid) as c:
+        assert c.execute("SELECT 1 FROM chat_messages").fetchall() == []
+    assert model.calls == []
+
+
+def test_hourly_limit_counts_both_channels(client, patient, wa_lab, sent, model):  # noqa: F811
+    _, tid, uid = patient
+    rid = _ready(client)
+    _linked(client, wa_lab, sent)
+    with _owner(tid) as c:  # 29 questions asked on the web
+        text_enc = cipher_for(c, tid).encrypt("why is it low?")
+        for _ in range(chat_api.CHAT_LIMIT_PER_HOUR - 1):
+            c.execute(
+                "INSERT INTO chat_messages (tenant_id, report_id, user_id, role, text_enc, tier, "
+                "channel) VALUES (%s, %s, %s, 'user', %s, 'tier2', 'web')",
+                (tid, rid, uid, text_enc),
+            )
+    model.replies.append(GOOD)
+    _ask_wa(client, wa_lab, model)  # the 30th
+    assert texts(sent) == ["Your hemoglobin is 11.2 g/dL."]
+    sent.clear()
+    _ask_wa(client, wa_lab, model)
+    assert texts(sent) == [COPY["too_many"]["en"]] and len(model.calls) == 1
+
+
+def test_gated_whatsapp_answer_opens_review(client, patient, wa_lab, sent, model):  # noqa: F811
+    _, tid, uid = patient
+    _ready(client)
+    _linked(client, wa_lab, sent)
+    model.replies.append(UNSAFE)
+    _ask_wa(client, wa_lab, model)
+    assert texts(sent) == [REPLIES["fallback"]["en"]]  # never the model's own words
+    (item,) = _chat_items(tid)
+    assert (item["reason"], item["status"], item["user_id"], item["role"]) == (
+        "gated_answer", "pending", uid, "assistant")
+
+
+def test_long_whatsapp_question_cut_to_web_limit(client, patient, wa_lab, sent, model):  # noqa: F811
+    _, tid, _ = patient
+    _ready(client)
+    _linked(client, wa_lab, sent)
+    _ask_wa(client, wa_lab, model, "Do I have cancer? " + "x" * 600)  # tier 0: no model call
+    assert texts(sent) == [REPLIES["diagnosis"]["en"]]
+    with _owner(tid) as c:
+        row = c.execute("SELECT text_enc FROM chat_messages WHERE role = 'user'").fetchone()
+        assert len(cipher_for(c, tid).decrypt(row["text_enc"])) == chat_api.MAX_QUESTION == 500
+
+
+@pytest.mark.parametrize("status, error, key", [
+    (409, "report_not_ready", "not_ready"), (409, "under_review", "red"),
+    (409, "red_result", "red"), (429, "too_many_messages", "too_many"),
+    (404, "not_found", "no_report"),
+])
+def test_refused_question_gets_its_copy(client, patient, wa_lab, sent, monkeypatch,
+                                        status, error, key):
+    _, tid, uid = patient
+    _ready(client)
+
+    def refuse(*a, **kw):
+        raise ApiError(status, error)
+
+    monkeypatch.setattr(chat_api, "converse", refuse)
+    assert wa_jobs.question(TenantCtx(tid, uid, "patient"), "hi", "en") == [COPY[key]["en"]]
 
 
 def _graph(monkeypatch, url=LOOKASIDE, data=None):

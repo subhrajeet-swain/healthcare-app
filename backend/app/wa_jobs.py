@@ -7,6 +7,8 @@ Each message is decided in a short worker-role transaction, and replies go out a
 never a transaction across a Graph or model call. The body is cleared in the transaction that
 makes the change, so a retried job never links twice or makes two reports; replies are therefore
 sent at most once. A red or held report only ever gets `COPY["red"]` (W1).
+
+A question is answered by `chat_api.converse`, the same core as the web chat (W11).
 """
 
 from __future__ import annotations
@@ -16,7 +18,7 @@ import logging
 import re
 from uuid import UUID
 
-from app import db, files, visibility, whatsapp
+from app import chat_api, db, files, visibility, whatsapp
 from app.audit import audit
 from app.auth import _code_hash
 from app.config import settings
@@ -32,6 +34,11 @@ log = logging.getLogger("app.wa_jobs")
 UNLINKED_MAX_PER_HOUR = 10
 WA_CONSENT_VERSION = "wa-2026-11-v1"
 _LINK = re.compile(r"link\s*(\d{6})", re.IGNORECASE)
+# converse's refusals, and the line each one gets on WhatsApp
+_REFUSED = {
+    "under_review": "red", "red_result": "red", "report_not_ready": "not_ready",
+    "too_many_messages": "too_many", "not_found": "no_report",
+}
 
 
 def _tx(tid: UUID):
@@ -61,7 +68,7 @@ def inbound(job: dict, models: dict | None, saver) -> None:
     if out == "media":
         out = _media(tid, mid, m.media_id, ctx, lang)
     elif out == "question":
-        out = question(ctx, m.text, lang)
+        out = question(ctx, m.text or "", lang, models)
     if not pn:
         log.warning("whatsapp reply dropped: the lab has no business number now")
         return
@@ -149,12 +156,17 @@ def _link(c, cipher: TenantCipher, tid: UUID, fp: bytes, sender: str, code: str,
     return COPY["linked"][row["lang"]]
 
 
-def _report(c, ctx: TenantCtx, lang: str) -> list[str]:
-    r = c.execute(
+def _latest(c, ctx: TenantCtx):
+    """The patient's newest report that can be read or asked about, or None."""
+    return c.execute(
         "SELECT id FROM reports WHERE user_id = %s AND status IN ('ready', 'needs_review') "
         "ORDER BY created_at DESC LIMIT 1",
         (ctx.user_id,),
     ).fetchone()
+
+
+def _report(c, ctx: TenantCtx, lang: str) -> list[str]:
+    r = _latest(c, ctx)
     if r is None:
         return [COPY["no_report"][lang]]
     detail = report_detail(c, r)  # the patient view
@@ -186,9 +198,22 @@ def _media(tid: UUID, mid: str, media_id: str, ctx: TenantCtx, lang: str) -> lis
     return [COPY["reading"][lang]]
 
 
-def question(ctx: TenantCtx, text: str, lang: str) -> list[str]:
+def question(ctx: TenantCtx, text: str, lang: str, models: dict | None = None) -> list[str]:
     """Free text from a linked, consented patient. Runs after commit, so a model call fits here.
 
-    Placeholder until Task 6 answers it with `chat_api.converse`.
+    The report is the latest chat-ready one, as for REPORT. Red or held never reaches the model.
     """
-    return [COPY["not_ready"][lang]]
+    with _tx(ctx.tenant_id) as c:
+        r = _latest(c, ctx)
+    if r is None:
+        return [COPY["no_report"][lang]]
+    try:
+        reply = chat_api.converse(
+            lambda: _tx(ctx.tenant_id), ctx, r["id"], text.strip()[: chat_api.MAX_QUESTION], lang,
+            models.get("chat") if models else None, "whatsapp", allow_red=False,
+        )
+    except ApiError as e:
+        if e.error not in _REFUSED:
+            raise
+        return [COPY[_REFUSED[e.error]][lang]]
+    return whatsapp.split([reply.text])
