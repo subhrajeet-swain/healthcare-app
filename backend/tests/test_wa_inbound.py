@@ -1,7 +1,10 @@
 """The `wa.inbound` worker job: LINK, STOP, START, REPORT, unlinked senders and media."""
 
+import json
 import uuid
+from datetime import date, timedelta
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -13,13 +16,14 @@ from app.crypto import cipher_for
 from app.errors import ApiError
 from app.tenancy import TenantCtx
 from app.whatsapp import COPY
+from tests.brain.fakes import ScriptedModel
 from tests.conftest import pdf_bytes
 from tests.test_chat_api import GOOD, _ask, model  # noqa: F401
 from tests.test_review_flow import RED, _drain
 from tests.test_review_flow import _models as _red_models
 from tests.test_visibility import UNSAFE, _chat_items
 from tests.test_wa_webhook import SECRET, _mid, _payload, signed
-from tests.test_worker import _models, _upload, _wconn, no_stray_jobs  # noqa: F401
+from tests.test_worker import HB, LOW, _models, _upload, _wconn, no_stray_jobs  # noqa: F401
 
 NUMBER = "+919812345678"
 OTHER = "+919822222222"
@@ -33,6 +37,26 @@ def sent(monkeypatch):
     monkeypatch.setattr(settings, "wa_access_token", "test")
     monkeypatch.setattr(settings, "wa_app_secret", SECRET)
     monkeypatch.setattr(whatsapp, "graph_post", lambda path, body: bodies.append(body) or {})
+    return bodies
+
+
+class Flaky(list):
+    down = True  # the next Graph call raises, once
+
+
+@pytest.fixture
+def flaky(sent, monkeypatch):
+    """`sent`, except that the first Graph call raises `ConnectError` (set `.down` to move that)."""
+    bodies = Flaky()
+
+    def post(path, body):
+        if bodies.down:
+            bodies.down = False
+            raise httpx.ConnectError("down")
+        bodies.append(body)
+        return {}
+
+    monkeypatch.setattr(whatsapp, "graph_post", post)
     return bodies
 
 
@@ -393,3 +417,111 @@ def test_body_cleared_after_handling(client, patient, wa_lab, sent, monkeypatch)
         rows = c.execute("SELECT message_id, body_enc FROM wa_inbound").fetchall()
     assert {r["message_id"] for r in rows} >= set(ids)
     assert all(r["body_enc"] is None for r in rows)
+
+
+def _due(tid):
+    """Make a queued inbound retry due now, and ahead of any other job (it backs off 30 s)."""
+    with _owner(tid) as c:
+        c.execute("UPDATE jobs SET run_after = now() - interval '1 hour' "
+                  "WHERE status = 'queued' AND kind = 'wa.inbound'")
+
+
+def _inbound_job(tid, mid):
+    with _owner(tid) as c:
+        return c.execute("SELECT status, attempts FROM jobs WHERE kind = 'wa.inbound' "
+                         "AND payload->>'message_id' = %s", (mid,)).fetchone()
+
+
+def _body(tid, mid):
+    with _owner(tid) as c:
+        row = c.execute("SELECT body_enc FROM wa_inbound WHERE message_id = %s", (mid,)).fetchone()
+        return None if row["body_enc"] is None else json.loads(
+            cipher_for(c, tid).decrypt(row["body_enc"]))
+
+
+def test_failed_send_is_retried_and_arrives(client, patient, wa_lab, flaky):
+    _, tid, _ = patient
+    _ready(client)
+    flaky.down = False
+    _linked(client, wa_lab, flaky)
+    flaky.down = True
+    mid = deliver(client, wa_lab, text="REPORT")
+    assert flaky == [] and dict(_inbound_job(tid, mid)) == {"status": "queued", "attempts": 1}
+    assert _body(tid, mid)["to"] == NUMBER  # the replies wait in the outbox
+    _due(tid)
+    assert worker.run_once(_models()) is True
+    out = texts(flaky)
+    assert "Hemoglobin is 11.2." in out[0] and out[-1] == COPY["ask_more"]["en"]
+    assert _body(tid, mid) is None
+    flaky.clear()
+    deliver(client, wa_lab, text="REPORT")
+    assert texts(flaky) == out  # the retry sent exactly what a clean REPORT sends
+
+
+def test_retried_link_links_once(client, patient, wa_lab, flaky):
+    _, tid, uid = patient
+    code = _code(client)
+    mid = deliver(client, wa_lab, text=f"LINK {code}")
+    assert flaky == [] and len(_links(tid)) == 1  # linked, reply not sent
+    _due(tid)
+    assert worker.run_once(_models()) is True
+    assert texts(flaky) == [COPY["linked"]["en"]] and len(_links(tid)) == 1
+    with _owner(tid) as c:
+        consents = c.execute("SELECT 1 FROM consents WHERE user_id = %s AND purpose = 'whatsapp' "
+                             "AND withdrawn_at IS NULL", (uid,)).fetchall()
+        used = c.execute("SELECT used_at FROM wa_link_codes WHERE user_id = %s", (uid,)).fetchone()
+    assert len(consents) == 1 and used["used_at"] is not None and _body(tid, mid) is None
+
+
+def test_retried_media_one_report(client, patient, wa_lab, flaky, monkeypatch):
+    _, tid, _ = patient
+    flaky.down = False
+    _linked(client, wa_lab, flaky)
+    flaky.down = True
+    _graph(monkeypatch)
+    deliver(client, wa_lab, media_id="media-1")
+    assert flaky == [] and len(_reports(tid)) == 1  # the report is made, the reply not sent
+    _due(tid)
+    assert worker.run_once(_models()) is True
+    assert texts(flaky) == [COPY["reading"]["en"]]
+    (r,) = _reports(tid)
+    assert r["source"] == "whatsapp"
+    with _wconn() as c:
+        jobs = c.execute("SELECT 1 FROM jobs WHERE kind = 'report.pipeline' "
+                         "AND payload->>'report_id' = %s", (str(r["id"]),)).fetchall()
+    assert len(jobs) == 1
+
+
+def _report_of(value, collected_on):
+    """A scripted pipeline run: Hemoglobin `value`, collected on `collected_on`."""
+    lab = json.loads(LOW)
+    lab["results"][0]["value"], lab["collected_on"] = value, collected_on.isoformat()
+    stmts = [dict(HB[0], text=f"Hemoglobin is {value}.")]
+    expl = json.dumps({"explanations": [{"language": lang, "statements": stmts}
+                                        for lang in ("en", "hi")]})
+    return _models(json.dumps(lab), explain=ScriptedModel(replies=[expl]))
+
+
+def _read_report(tid):
+    """The report the latest audited `read` named."""
+    with _owner(tid) as c:
+        return c.execute("SELECT entity_id FROM audit_log WHERE action = 'read' "
+                         "AND entity = 'report' ORDER BY id DESC LIMIT 1").fetchone()["entity_id"]
+
+
+def test_latest_matches_report_list_order(client, patient, wa_lab, sent):
+    _, tid, _ = patient
+    today = date.today()
+    _upload(client)  # A: made first, collected today
+    assert worker.run_once(_report_of(11.2, today)) is True
+    _upload(client)  # B: made later, collected a month ago
+    assert worker.run_once(_report_of(11.4, today - timedelta(days=30))) is True
+    _linked(client, wa_lab, sent)
+    deliver(client, wa_lab, text="REPORT")
+    assert "Hemoglobin is 11.2." in texts(sent)[0]  # A: the newest by collection date
+    with _owner(tid) as c:  # the same day, the same instant: only the id tells them apart
+        c.execute("UPDATE reports SET collected_on = %s, created_at = now()", (today,))
+    deliver(client, wa_lab, text="REPORT")
+    first = next(r["id"] for r in client.get("/api/reports").json()
+                 if r["status"] in ("ready", "needs_review"))
+    assert _read_report(tid) == first

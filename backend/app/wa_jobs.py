@@ -4,9 +4,11 @@ Commands (W5): `LINK <code>`, `STOP`, `START`, `REPORT`. A sender with no link m
 (W3, W4); a media message from a linked patient becomes a `whatsapp` report (W13).
 
 Each message is decided in a short worker-role transaction, and replies go out after it commits:
-never a transaction across a Graph or model call. The body is cleared in the transaction that
-makes the change, so a retried job never links twice or makes two reports; replies are therefore
-sent at most once. A red report is sent like any other, urgent line first (ruling T1).
+never a transaction across a Graph or model call. The transaction that makes a change also
+overwrites the inbound body with an outbox, the replies still to send (ruling T4). The sends then
+clear it. A retry that finds an outbox only resends it, so a link, a consent or a report is never
+made twice and a reply is never lost; a failed send part-way may repeat the first replies.
+A red report is sent like any other, urgent line first (ruling T1).
 
 A question is answered by `chat_api.converse`, the same core as the web chat (W11).
 
@@ -50,12 +52,17 @@ def _tx(tid: UUID):
     return db.owner_tx(settings.worker_database_url, tid)
 
 
-def _clear(c, message_id: str) -> None:
-    c.execute("UPDATE wa_inbound SET body_enc = NULL WHERE message_id = %s", (message_id,))
+def _outbox(c, cipher: TenantCipher, message_id: str, to: str, texts: list[str]) -> None:
+    """Replace the inbound body with the replies to send; in the transaction of their effects."""
+    c.execute(
+        "UPDATE wa_inbound SET body_enc = %s WHERE message_id = %s",
+        (cipher.encrypt(json.dumps({"outbox": texts, "to": to})), message_id),
+    )
 
 
 def inbound(job: dict, models: dict | None, saver) -> None:
     tid, mid = job["tenant_id"], job["payload"]["message_id"]
+    out = None
     with _tx(tid) as c:
         row = c.execute(
             "SELECT sender_fp, body_enc FROM wa_inbound WHERE message_id = %s", (mid,)
@@ -63,22 +70,40 @@ def inbound(job: dict, models: dict | None, saver) -> None:
         if row is None or row["body_enc"] is None:
             return  # handled already
         cipher = cipher_for(c, tid)
-        m = Inbound(**json.loads(cipher.decrypt(row["body_enc"])))
+        body = json.loads(cipher.decrypt(row["body_enc"]))
+        if "outbox" not in body:  # a first run: decide, then the outbox, in one transaction
+            m = Inbound(**body)
+            out, ctx, lang = _decide(c, cipher, tid, bytes(row["sender_fp"]), m)
+            if isinstance(out, list):
+                _outbox(c, cipher, mid, m.sender, out)
+    if out == "media":
+        _media(tid, mid, m, ctx, lang)
+    elif out == "question":
+        replies = question(ctx, m.text or "", lang, models)
+        # ponytail: converse commits its own turn first, so a crash before this write re-asks
+        # once (a duplicate chat turn); one transaction around a model call is not worth it
+        with _tx(tid) as c:
+            _outbox(c, cipher_for(c, tid), mid, m.sender, replies)
+    _deliver(tid, mid)
+
+
+def _deliver(tid: UUID, message_id: str) -> None:
+    """Send the outbox, then clear the body. A send that raises leaves it for the retry."""
+    with _tx(tid) as c:
+        row = c.execute(
+            "SELECT body_enc FROM wa_inbound WHERE message_id = %s", (message_id,)
+        ).fetchone()
+        box = json.loads(cipher_for(c, tid).decrypt(row["body_enc"]))
         pn = c.execute(
             "SELECT wa_phone_number_id FROM tenants WHERE id = %s", (tid,)
         ).fetchone()["wa_phone_number_id"]
-        out, ctx, lang = _decide(c, cipher, tid, bytes(row["sender_fp"]), m)
-        if out != "media":
-            _clear(c, mid)
-    if out == "media":
-        out = _media(tid, mid, m.media_id, ctx, lang)
-    elif out == "question":
-        out = question(ctx, m.text or "", lang, models)
-    if not pn:
+    if pn:
+        for text in box["outbox"]:
+            whatsapp.send(Outbound(pn, box["to"], text=text))
+    else:
         log.warning("whatsapp reply dropped: the lab has no business number now")
-        return
-    for text in out:
-        whatsapp.send(Outbound(pn, m.sender, text=text))
+    with _tx(tid) as c:
+        c.execute("UPDATE wa_inbound SET body_enc = NULL WHERE message_id = %s", (message_id,))
 
 
 def _decide(c, cipher: TenantCipher, tid: UUID, fp: bytes, m: Inbound):
@@ -165,7 +190,8 @@ def _latest(c, ctx: TenantCtx):
     """The patient's newest report that can be read or asked about, or None."""
     return c.execute(
         "SELECT id FROM reports WHERE user_id = %s AND status IN ('ready', 'needs_review') "
-        "ORDER BY created_at DESC LIMIT 1",
+        "ORDER BY coalesce(collected_on, created_at::date) DESC, created_at DESC, id DESC "
+        "LIMIT 1",  # the report list's order (ruling T5)
         (ctx.user_id,),
     ).fetchone()
 
@@ -179,20 +205,19 @@ def _report(c, ctx: TenantCtx, lang: str) -> list[str]:
     return [*whatsapp.split(whatsapp.report_paragraphs(detail, lang)), COPY["ask_more"][lang]]
 
 
-def _media(tid: UUID, mid: str, media_id: str, ctx: TenantCtx, lang: str) -> list[str]:
+def _media(tid: UUID, mid: str, m: Inbound, ctx: TenantCtx, lang: str) -> None:
     """Download and check outside any transaction, then a `whatsapp` report for the pipeline."""
     try:
-        data = whatsapp.fetch_media(media_id)
+        data = whatsapp.fetch_media(m.media_id)
         mime = files.check_bytes(data)
     except ApiError:
         with _tx(tid) as c:
-            _clear(c, mid)
-        return [COPY["bad_file"][lang]]
+            _outbox(c, cipher_for(c, tid), mid, m.sender, [COPY["bad_file"][lang]])
+        return
     with _tx(tid) as c:
         rid = create_report(c, ctx, ctx.user_id, "whatsapp", "received")
         attach_file(c, ctx, rid, data, mime)
-        _clear(c, mid)
-    return [COPY["reading"][lang]]
+        _outbox(c, cipher_for(c, tid), mid, m.sender, [COPY["reading"][lang]])
 
 
 def question(ctx: TenantCtx, text: str, lang: str, models: dict | None = None) -> list[str]:

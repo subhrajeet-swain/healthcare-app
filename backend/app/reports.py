@@ -235,7 +235,8 @@ def list_reports(ctx: Ctx) -> list[dict]:
             "(SELECT string_agg(test_name, ', ' ORDER BY test_name) FROM results "
             " WHERE report_id = r.id) AS tests "
             "FROM reports r WHERE r.user_id = %s "
-            "ORDER BY coalesce(r.collected_on, r.created_at::date) DESC, r.created_at DESC",
+            "ORDER BY coalesce(r.collected_on, r.created_at::date) DESC, r.created_at DESC, "
+            "r.id DESC",
             (ctx.user_id,),
         ).fetchall()
         audit(c, ctx, "list", "report", ctx.user_id)
