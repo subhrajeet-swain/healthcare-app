@@ -15,7 +15,7 @@ from app.crypto import cipher_for
 
 router = APIRouter(prefix="/api")
 
-Purpose = Literal["core"]
+Purpose = Literal["core", "whatsapp"]
 
 
 class ConsentIn(BaseModel):
@@ -43,7 +43,7 @@ def me(ctx: Ctx) -> dict:
         "role": u["role"],
         "phone_masked": phone[:3] + "******" + phone[-4:] if phone else None,
         "name": cipher.decrypt(u["name_enc"]) if u["name_enc"] else None,
-        "consent": {"core": "core" in consents},
+        "consent": {"core": "core" in consents, "whatsapp": "whatsapp" in consents},
     }
 
 
@@ -56,13 +56,14 @@ def grant_consent(body: ConsentIn, ctx: Own) -> dict[str, str]:
                 "VALUES (%s, %s, %s, %s)",
                 (ctx.tenant_id, ctx.user_id, body.purpose, body.version),
             )
-        # lab uploads that waited for this consent go to the pipeline now
-        c.execute(
-            "UPDATE jobs SET status = 'queued', run_after = now() "
-            "WHERE status = 'waiting_consent' AND payload->>'report_id' IN "
-            "(SELECT id::text FROM reports WHERE user_id = %s)",
-            (ctx.user_id,),
-        )
+        if body.purpose == "core":
+            # lab uploads that waited for this consent go to the pipeline now
+            c.execute(
+                "UPDATE jobs SET status = 'queued', run_after = now() "
+                "WHERE status = 'waiting_consent' AND payload->>'report_id' IN "
+                "(SELECT id::text FROM reports WHERE user_id = %s)",
+                (ctx.user_id,),
+            )
         audit(c, ctx, "consent_grant", "consent", body.purpose)
     return {"status": "granted"}
 

@@ -36,6 +36,16 @@ def test_shared_phone_two_tenants_two_users(seeded):
     assert found == [seeded["lab-alpha:shared"], seeded["lab-beta:shared"]]
 
 
+def test_seed_gives_lab_alpha_its_dev_whatsapp_number(seeded):
+    with db.owner_tx(settings.owner_database_url) as c:
+        rows = {
+            r["slug"]: (r["wa_phone_number_id"], r["wa_display_phone"])
+            for r in c.execute("SELECT slug, wa_phone_number_id, wa_display_phone FROM tenants")
+        }
+    assert rows["lab-alpha"] == ("dev-alpha", "+15550000001")
+    assert rows["lab-beta"] == (None, None)
+
+
 def test_canary_never_crosses(seeded):
     for lab, own, other in [
         ("lab-alpha", "CANARY-ALPHA", "CANARY-BETA"),

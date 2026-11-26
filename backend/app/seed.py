@@ -16,6 +16,9 @@ from app.tenancy import TenantCtx
 
 SHARED_PHONE = "+919000000001"
 
+# A fake WhatsApp business number for lab-alpha, so the webhook can be tried in dev.
+DEV_WA = {"lab-alpha": ("dev-alpha", "+15550000001")}
+
 LABS = {
     "lab-alpha": ("Alpha Diagnostics", "ALPHA-7319", "91"),
     "lab-beta": ("Beta Pathlabs", "BETA-4826", "92"),
@@ -74,6 +77,13 @@ def run() -> dict[str, UUID]:
             row = c.execute("SELECT id FROM tenants WHERE slug = %s", (slug,)).fetchone()
         tid = row["id"] if row else crypto.provision_tenant(slug, name)
         out[slug] = tid
+        if slug in DEV_WA:
+            with db.owner_tx(settings.owner_database_url) as c:
+                c.execute(
+                    "UPDATE tenants SET wa_phone_number_id = %s, wa_display_phone = %s "
+                    "WHERE id = %s AND wa_phone_number_id IS NULL",
+                    (*DEV_WA[slug], tid),
+                )
         with db.owner_tx(settings.owner_database_url, tid) as c:
             cipher = crypto.cipher_for(c, tid)
             for role, phone, person in _people(tag, prefix):

@@ -19,16 +19,44 @@ def test_me_masks_phone_and_audits_read(client, lab, login, db_urls):
     me = client.get("/api/me").json()
     assert me["phone_masked"] == "+91******3210"
     assert me["role"] == "patient" and me["name"] is None
-    assert me["consent"] == {"core": False}
+    assert me["consent"] == {"core": False, "whatsapp": False}
     assert "read" in _audit_actions(db_urls, tid)
 
 
 def test_consent_grant_and_withdraw_reflected_in_me(client, lab, login):
     login(lab[0])
     assert client.post("/api/consents", json=CONSENT).status_code == 201
-    assert client.get("/api/me").json()["consent"] == {"core": True}
+    assert client.get("/api/me").json()["consent"] == {"core": True, "whatsapp": False}
     assert client.delete("/api/consents/core").status_code == 204
-    assert client.get("/api/me").json()["consent"] == {"core": False}
+    assert client.get("/api/me").json()["consent"] == {"core": False, "whatsapp": False}
+
+
+def test_whatsapp_consent_grant_and_withdraw(client, patient):
+    wa = {"purpose": "whatsapp", "version": "wa-2026-11-v1"}
+    assert client.post("/api/consents", json=wa).status_code == 201
+    assert client.get("/api/me").json()["consent"] == {"core": True, "whatsapp": True}
+    assert client.delete("/api/consents/whatsapp").status_code == 204
+    assert client.get("/api/me").json()["consent"]["whatsapp"] is False
+
+
+def test_whatsapp_grant_does_not_requeue_consent_jobs(client, patient, db_urls):
+    _, tid, uid = patient
+    with db.owner_tx(db_urls["owner"], tid) as c:
+        rid = c.execute(
+            "INSERT INTO reports (tenant_id, user_id, uploaded_by, source, status) "
+            "VALUES (%s, %s, %s, 'lab', 'received') RETURNING id", (tid, uid, uid)
+        ).fetchone()["id"]
+        c.execute(
+            "INSERT INTO jobs (tenant_id, kind, payload, status) "
+            "VALUES (%s, 'report.pipeline', jsonb_build_object('report_id', %s::text), "
+            "'waiting_consent')", (tid, rid))
+    wa = {"purpose": "whatsapp", "version": "wa-2026-11-v1"}
+    assert client.post("/api/consents", json=wa).status_code == 201
+    with db.owner_tx(db_urls["owner"], tid) as c:
+        status = c.execute(
+            "SELECT status FROM jobs WHERE payload->>'report_id' = %s", (str(rid),)
+        ).fetchone()["status"]
+    assert status == "waiting_consent"
 
 
 def test_unknown_consent_purpose_422(client, lab, login):
@@ -75,7 +103,7 @@ def test_relogin_after_delete_is_fresh_account(client, lab, login):
     login(slug)
     me = client.get("/api/me").json()
     assert me["id"] != old_id
-    assert me["consent"] == {"core": False}
+    assert me["consent"] == {"core": False, "whatsapp": False}
 
 
 def test_second_delete_with_old_cookie_is_401(client, lab, login):

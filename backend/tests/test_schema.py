@@ -51,11 +51,12 @@ def test_app_role_has_no_access_to_graph_schema(db_urls):
 
 
 PHASE2 = ["trends", "review_items", "family_links", "share_links"]
+PHASE3 = ["wa_links", "wa_link_codes", "wa_inbound"]
 
 
-def test_phase2_tables_have_forced_rls(db_urls):
+def _assert_forced_rls(db_urls, tables):
     with psycopg.connect(db_urls["owner"]) as c:
-        for t in PHASE2:
+        for t in tables:
             row = c.execute(
                 "SELECT relrowsecurity, relforcerowsecurity, "
                 "(SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND tablename = %s) "
@@ -63,6 +64,14 @@ def test_phase2_tables_have_forced_rls(db_urls):
                 (t, t),
             ).fetchone()
             assert row is not None and row[0] and row[1] and row[2] >= 1, t
+
+
+def test_phase2_tables_have_forced_rls(db_urls):
+    _assert_forced_rls(db_urls, PHASE2)
+
+
+def test_phase3_tables_have_forced_rls(db_urls):
+    _assert_forced_rls(db_urls, PHASE3)
 
 
 def _user(c, tid, role="patient", fp=True):
@@ -185,3 +194,37 @@ def test_results_need_user_and_observed_on(lab):
                 "flag, triage) VALUES (%s, %s, 'x', 'X', 1, 'u', 'normal', 'green')",
                 (tid, _report(c, tid, uid)),
             )
+
+
+def test_report_source_whatsapp_allowed(lab):
+    tid = lab[1]
+    with db.owner_tx(settings.owner_database_url, tid) as c:
+        uid = _user(c, tid)
+        c.execute(
+            "INSERT INTO reports (tenant_id, user_id, uploaded_by, source, status) "
+            "VALUES (%s, %s, %s, 'whatsapp', 'received')", (tid, uid, uid))
+    with pytest.raises(psycopg.errors.CheckViolation):
+        with db.owner_tx(settings.owner_database_url, tid) as c:
+            uid = _user(c, tid)
+            c.execute(
+                "INSERT INTO reports (tenant_id, user_id, uploaded_by, source, status) "
+                "VALUES (%s, %s, %s, 'sms', 'received')", (tid, uid, uid))
+
+
+def test_chat_channel_defaults_web(lab):
+    tid = lab[1]
+    insert = (
+        "INSERT INTO chat_messages (tenant_id, report_id, user_id, role, text_enc, tier{col}) "
+        "VALUES (%s, %s, %s, 'user', 'x', 'tier0'{val}) RETURNING channel"
+    )
+    with db.owner_tx(settings.owner_database_url, tid) as c:
+        uid = _user(c, tid)
+        args = (tid, _report(c, tid, uid), uid)
+        assert c.execute(insert.format(col="", val=""), args).fetchone()["channel"] == "web"
+        wa = insert.format(col=", channel", val=", 'whatsapp'")
+        assert c.execute(wa, args).fetchone()["channel"] == "whatsapp"
+    with pytest.raises(psycopg.errors.CheckViolation):
+        with db.owner_tx(settings.owner_database_url, tid) as c:
+            uid = _user(c, tid)
+            args = (tid, _report(c, tid, uid), uid)
+            c.execute(insert.format(col=", channel", val=", 'sms'"), args)
