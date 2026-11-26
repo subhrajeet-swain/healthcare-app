@@ -23,7 +23,7 @@ from uuid import UUID
 import psycopg
 from psycopg.rows import dict_row
 
-from app import alerts, db, files, reports, review, tracing
+from app import alerts, db, files, reports, review, tracing, wa_jobs
 from app.brain.extract import ExtractionFailed
 from app.brain.pipeline import (
     Decision,
@@ -245,6 +245,7 @@ HANDLERS: dict[str, Callable[[dict, dict | None, Any], None]] = {
     "report.resume": lambda job, models, saver: _review_job(job, saver, timeout=False),
     "review.timeout": lambda job, models, saver: _review_job(job, saver, timeout=True),
     "alert.email": _alert,
+    "wa.inbound": wa_jobs.inbound,
 }
 
 
