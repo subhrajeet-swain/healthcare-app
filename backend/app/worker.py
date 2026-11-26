@@ -85,11 +85,11 @@ def _sweep_dead() -> None:
         dead = c.execute(
             "UPDATE jobs SET status = 'failed', locked_at = NULL "
             "WHERE status = 'running' AND locked_at < now() - %s AND attempts >= %s "
-            "RETURNING tenant_id, payload",
+            "RETURNING tenant_id, kind, payload",
             (STALE_AFTER, MAX_ATTEMPTS),
         ).fetchall()
     for d in dead:
-        if "report_id" in d["payload"]:  # report.pipeline; other kinds have no report to fail
+        if d["kind"] == "report.pipeline":  # W10: other kinds may carry a report_id, never fail it
             _try_status(d["tenant_id"], UUID(d["payload"]["report_id"]), "failed", GIVE_UP)
 
 
@@ -127,6 +127,7 @@ def _save(tid: UUID, rid: UUID, res: PipelineResult) -> None:
         if report is None:
             raise ReportGone
         reports.store_result(c, tid, rid, res)
+        wa_jobs.queue_notify(c, tid, report["user_id"], "report_ready", rid)  # it checks the hold
         if res.pending:
             review.open_review(
                 c, tid, kind="report", reason="red" if res.triage == "red" else "warnings",
@@ -225,6 +226,7 @@ def _review_job(job: dict, saver, timeout: bool) -> None:
             "by": str(item["decided_by"]) if item["decided_by"] else None,
         }
         reports.store_result(c, tid, item["report_id"], resume(graph, thread, decision))
+        wa_jobs.queue_notify(c, tid, item["user_id"], "review_complete", item["report_id"])
         if action == "escalate":
             review.queue_job(c, tid, "alert.email", item["id"])
     saver.delete_thread(thread)  # after commit: a failed save keeps the thread for the retry
@@ -246,6 +248,7 @@ HANDLERS: dict[str, Callable[[dict, dict | None, Any], None]] = {
     "review.timeout": lambda job, models, saver: _review_job(job, saver, timeout=True),
     "alert.email": _alert,
     "wa.inbound": wa_jobs.inbound,
+    "wa.notify": wa_jobs.notify,
 }
 
 
@@ -265,8 +268,9 @@ def run_once(models: dict | None = None) -> bool:
         _finish_job(job["id"], "failed")
         return True
     tid = job["tenant_id"]
-    # report.pipeline's thread is cleaned up here; the review jobs delete their own
-    rid = UUID(job["payload"]["report_id"]) if "report_id" in job["payload"] else None
+    # report.pipeline's thread is cleaned up here; the review jobs delete their own. Only by
+    # kind (W10): a wa.notify carries a report_id too and must never touch a parked thread.
+    rid = UUID(job["payload"]["report_id"]) if job["kind"] == "report.pipeline" else None
     thread = thread_id(tid, rid) if rid else None
     try:
         sc = _saver_conn()

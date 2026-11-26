@@ -224,6 +224,8 @@ def test_report_command_red_sends_red_line(client, patient, wa_lab, sent):
         item = c.execute("SELECT id FROM review_items WHERE report_id = %s", (rid,)).fetchone()
     _decide(tid, item["id"], "approved")  # released, still red
     _drain()
+    _assert_red_only(sent)  # its review_complete notify
+    sent.clear()
     deliver(client, wa_lab, text="REPORT")
     _assert_red_only(sent)
 
@@ -289,6 +291,8 @@ def test_question_on_red_report_refused(client, patient, wa_lab, sent, model):  
         item = c.execute("SELECT id FROM review_items WHERE report_id = %s", (rid,)).fetchone()
     _decide(tid, item["id"], "approved")  # released, still red
     _drain()
+    _assert_red_only(sent)  # its review_complete notify
+    sent.clear()
     _ask_wa(client, wa_lab, model)
     _assert_red_only(sent)
     with _owner(tid) as c:

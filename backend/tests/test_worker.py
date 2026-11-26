@@ -165,6 +165,20 @@ def test_stale_job_out_of_attempts_is_failed_not_reclaimed(client, patient):  # 
     assert d["status"] == "failed" and d["failure_message"] == worker.GIVE_UP
 
 
+def test_dead_non_pipeline_job_with_report_id_leaves_the_report(client, patient):  # W10
+    _, tid, uid = patient
+    rid = _upload(client)
+    assert worker.run_once(_models()) is True
+    with _wconn() as c:
+        c.execute(
+            "INSERT INTO jobs (tenant_id, kind, payload, status, attempts, locked_at) "
+            "VALUES (%s, 'wa.notify', %s, 'running', %s, now() - interval '6 minutes')",
+            (tid, json.dumps({"user_id": str(uid), "event": "report_ready", "report_id": rid}),
+             worker.MAX_ATTEMPTS))
+    assert worker.run_once(_models()) is False
+    assert client.get(f"/api/reports/{rid}").json()["status"] == "ready"
+
+
 def test_model_clients_have_timeouts(monkeypatch):  # I2
     from app.brain import llm
     from app.config import settings

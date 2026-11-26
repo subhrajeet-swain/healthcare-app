@@ -9,6 +9,9 @@ makes the change, so a retried job never links twice or makes two reports; repli
 sent at most once. A red or held report only ever gets `COPY["red"]` (W1).
 
 A question is answered by `chat_api.converse`, the same core as the web chat (W11).
+
+`wa.notify` (W9) tells a linked patient a report is ready, a review is done or a trend is new;
+it decides at send time, from fresh state, between free text (24 hour window) and a template (W8).
 """
 
 from __future__ import annotations
@@ -16,7 +19,10 @@ from __future__ import annotations
 import json
 import logging
 import re
+from typing import Literal
 from uuid import UUID
+
+from psycopg.types.json import Jsonb
 
 from app import chat_api, db, files, visibility, whatsapp
 from app.audit import audit
@@ -27,7 +33,7 @@ from app.errors import ApiError
 from app.privacy import _active_purposes
 from app.reports import attach_file, create_report, held_for, report_detail
 from app.tenancy import TenantCtx
-from app.whatsapp import COPY, Inbound, Outbound
+from app.whatsapp import COPY, TEMPLATES, Inbound, Outbound
 
 log = logging.getLogger("app.wa_jobs")
 
@@ -217,3 +223,66 @@ def question(ctx: TenantCtx, text: str, lang: str, models: dict | None = None) -
             raise
         return [COPY[_REFUSED[e.error]][lang]]
     return whatsapp.split([reply.text])
+
+
+def queue_notify(
+    c, tenant_id: UUID, user_id: UUID,
+    event: Literal["report_ready", "review_complete", "trend_alert"],
+    report_id: UUID | None = None,
+) -> None:
+    """Queue a `wa.notify` (ids only) when the user has a WhatsApp link; else nothing."""
+    payload = {"user_id": str(user_id), "event": event}
+    if report_id:
+        payload["report_id"] = str(report_id)
+    c.execute(
+        "INSERT INTO jobs (tenant_id, kind, payload) SELECT %s, 'wa.notify', %s "
+        "WHERE EXISTS (SELECT 1 FROM wa_links WHERE user_id = %s)",
+        (tenant_id, Jsonb(payload), user_id),
+    )
+
+
+def notify(job: dict, models: dict | None, saver) -> None:
+    tid, p = job["tenant_id"], job["payload"]
+    event = p["event"]
+    with _tx(tid) as c:
+        link = c.execute(
+            "SELECT *, last_inbound_at > now() - interval '24 hours' AS open "
+            "FROM wa_links WHERE user_id = %s",
+            (p["user_id"],),
+        ).fetchone()
+        if link is None:
+            return
+        ctx, lang = TenantCtx(tid, link["user_id"], "patient"), link["lang"]
+        if "whatsapp" not in _active_purposes(c, ctx):
+            return  # opted out (W6)
+        detail = None
+        if p.get("report_id"):
+            r = c.execute("SELECT id FROM reports WHERE id = %s", (p["report_id"],)).fetchone()
+            if r is None:
+                return  # deleted
+            detail = report_detail(c, r)  # the patient view
+            audit(c, ctx, "read", "report", r["id"])
+            # held_for reads last: a hold committed after the detail was read still wins
+            if detail["status"] == visibility.UNDER_REVIEW or held_for(c, ctx, r["id"]):
+                return  # its release queues review_complete (W9)
+        red = detail is not None and detail.get("triage") == "red"
+        tenant = c.execute(
+            "SELECT name, wa_phone_number_id FROM tenants WHERE id = %s", (tid,)
+        ).fetchone()
+        to = cipher_for(c, tid).decrypt(link["wa_enc"])
+    pn, lab = tenant["wa_phone_number_id"], tenant["name"]
+    if not pn:
+        log.warning("whatsapp notify dropped: the lab has no business number now")
+        return
+    if not link["open"]:  # outside the window: a template, never a value (W8)
+        template = "report_ready_red" if red else event
+        whatsapp.send(Outbound(pn, to, template=template, lang=lang, lab=lab))
+        return
+    if red:
+        out = [COPY["red"][lang]]  # W1
+    elif event == "report_ready":
+        out = [*whatsapp.split(whatsapp.report_paragraphs(detail, lang)), COPY["ask_more"][lang]]
+    else:
+        out = [TEMPLATES[event][lang].format(lab=lab)]
+    for text in out:
+        whatsapp.send(Outbound(pn, to, text=text))

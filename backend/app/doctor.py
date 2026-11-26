@@ -124,8 +124,8 @@ def decide(item_id: UUID, body: DecisionIn, ctx: Ctx) -> dict:
             if status == "edited":  # the doctor's line joins the conversation
                 c.execute(
                     "INSERT INTO chat_messages (tenant_id, report_id, user_id, role, text_enc, "
-                    "tier) SELECT tenant_id, report_id, user_id, 'assistant', %s, 'doctor' "
-                    "FROM chat_messages WHERE id = %s",
+                    "tier, channel) SELECT tenant_id, report_id, user_id, 'assistant', %s, "
+                    "'doctor', channel FROM chat_messages WHERE id = %s",
                     (cipher_for(c, ctx.tenant_id).encrypt(NOTE_TEXT[body.option]["en"]),
                      item["chat_message_id"]),
                 )

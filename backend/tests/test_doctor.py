@@ -47,14 +47,15 @@ def _trend_item(s, test_id="cbc.hemoglobin"):
                                   trend_id=trend)
 
 
-def _chat_item(s, question="Is 5 dangerous?", reply="I can't say; please ask your doctor."):
+def _chat_item(s, question="Is 5 dangerous?", reply="I can't say; please ask your doctor.",
+               channel="web"):
     with _own(s.tid) as c:
         cipher = crypto.cipher_for(c, s.tid)
         ids = [
             c.execute(
-                "INSERT INTO chat_messages (tenant_id, report_id, user_id, role, text_enc, tier) "
-                "VALUES (%s, %s, %s, %s, %s, 'refusal') RETURNING id",
-                (s.tid, s.rid, s.uid, role, cipher.encrypt(text)),
+                "INSERT INTO chat_messages (tenant_id, report_id, user_id, role, text_enc, tier, "
+                "channel) VALUES (%s, %s, %s, %s, %s, 'refusal', %s) RETURNING id",
+                (s.tid, s.rid, s.uid, role, cipher.encrypt(text), channel),
             ).fetchone()["id"]
             for role, text in (("user", question), ("assistant", reply))
         ]
@@ -288,6 +289,11 @@ def test_chat_edit_adds_the_doctors_line_for_the_patient(client, pending_red):
     msgs = _chat_texts(s)
     assert len(msgs) == 3
     assert msgs[-1] == ("assistant", "doctor", NOTE_TEXT["see_doctor_soon"]["en"])
+    _decide(client, _chat_item(s, channel="whatsapp"), "edit", "repeat_test")
+    with _own(s.tid) as c:
+        rows = c.execute("SELECT channel FROM chat_messages WHERE tier = 'doctor' "
+                         "ORDER BY created_at").fetchall()
+    assert [r["channel"] for r in rows] == ["web", "whatsapp"]  # the gated message's channel
     assert _item_jobs(iid) == {"report.resume": 0, "review.timeout": 0, "alert.email": 0}
     assert _row(s.tid, iid)["note_option"] == "see_doctor_soon"
 
