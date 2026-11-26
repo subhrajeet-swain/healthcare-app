@@ -4,7 +4,7 @@ The URL is /s/{slug}/{token}. The token is 32 random bytes and only its SHA-256 
 a database leak leaks no link. The slug gives the tenant without a session; every public view
 is audited with no actor. What the link shows is decided at view time, not at creation: each
 report is read through `reports.report_detail` (the one shaping every door uses), so a report
-that turned held, lost its triage or was deleted since is left out.
+that lost its triage or was deleted since is left out.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from app import db, reports, visibility
+from app import db, reports
 from app.audit import audit
 from app.auth import Ctx, _sha256, _tenant_by_slug
 from app.config import settings
@@ -48,15 +48,13 @@ class ShareIn(BaseModel):
 
 def _why_not(detail: dict) -> str | None:
     """Why a report may not go in a link yet: the error code, or None when it may."""
-    if detail["status"] == visibility.UNDER_REVIEW:
-        return visibility.UNDER_REVIEW  # held: a red report a doctor has not decided
     if detail["triage"] is None:
         return "report_not_ready"  # still processing, or failed
     return None
 
 
 def _shareable(c, report_id: UUID) -> dict | None:
-    """The report as the link shows it, or None (deleted, held, not triaged)."""
+    """The report as the link shows it, or None (deleted, not triaged)."""
     try:
         detail = reports.report_detail(c, {"id": report_id})
     except ApiError:  # deleted since the id was listed

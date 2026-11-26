@@ -51,7 +51,7 @@ export function ChatPage() {
         ) : (
           <section className="strip" aria-label={t("navChat")}>
             <div className="strip__body strip__body--first">
-              <p>{t(reports?.some((r) => r.status === "under_review") ? "chatHeld" : "chatNone")}</p>
+              <p>{t("chatNone")}</p>
             </div>
           </section>
         )}

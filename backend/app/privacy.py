@@ -7,7 +7,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from app import db, files, visibility
+from app import db, files
 from app.audit import audit
 from app.auth import COOKIE, Ctx, Own
 from app.brain import factsheet
@@ -96,19 +96,14 @@ def export(ctx: Own) -> JSONResponse:
             (ctx.user_id,),
         ):
             by_report.setdefault(r.pop("report_id"), []).append(r)
-        # Last, and in one statement: whether a report is held is read after its results. A
-        # report stored in between shows no results here, never results under a stale status.
         reports = []
         for r in c.execute(
-            "SELECT r.id, r.status, r.source, r.triage, r.next_step, r.collected_on, "
-            "r.created_at, EXISTS (SELECT 1 FROM review_items i WHERE i.report_id = r.id "
-            "AND i.kind = 'report' AND i.status = 'pending') AS pending "
-            "FROM reports r WHERE r.user_id = %s ORDER BY r.created_at",
+            "SELECT id, status, source, triage, next_step, collected_on, created_at "
+            "FROM reports WHERE user_id = %s ORDER BY created_at",
             (ctx.user_id,),
         ).fetchall():
-            pending = r.pop("pending")
             r["results"] = by_report.get(r["id"], [])
-            reports.append(visibility.patient_view(r, visibility.held(r, pending)))
+            reports.append(r)
         audit(c, ctx, "export", "user", ctx.user_id)
     data = {
         "user": {

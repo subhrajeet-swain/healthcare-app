@@ -142,14 +142,14 @@ def test_queue_survives_a_patient_without_phone_or_name(client, pending_red):
     assert client.get(f"/api/doctor/reviews/{iid}").json()["patient_name"] is None
 
 
-def test_item_has_the_staff_report_view(client, pending_red):
+def test_item_has_the_report_view(client, pending_red):
     s = pending_red
     r = client.get(f"/api/doctor/reviews/{s.iid}")
     assert r.status_code == 200
     d = r.json()
     assert (d["id"], d["kind"], d["status"], d["patient_name"]) == (
         str(s.iid), "report", "pending", "Asha Rao")
-    rep = d["report"]  # the full view: the patient's own view of this red report is held
+    rep = d["report"]  # the same view the patient has
     assert (rep["id"], rep["triage"], rep["review_pending"]) == (str(s.rid), "red", True)
     assert [x["test_id"] for x in rep["results"]] == ["cbc.hemoglobin"]
 
@@ -203,14 +203,14 @@ def test_escalate_queues_resume_and_the_worker_sends_one_alert(client, pending_r
     assert _status(s.tid, s.rid) == "ready"
 
 
-def test_approve_releases_the_report_end_to_end(client, pending_red, login):
+def test_approve_finishes_the_report_end_to_end(client, pending_red, login):
     s = pending_red
     _decide(client, s.iid, "approve")
     _drain()
     assert _status(s.tid, s.rid) == "ready"
     with TestClient(client.app) as pc:
         login(s.slug, PATIENT_PHONE, c=pc)
-        assert pc.get(f"/api/reports/{s.rid}").json()["triage"] == "red"  # no longer held
+        assert pc.get(f"/api/reports/{s.rid}").json()["triage"] == "red"
 
 
 def test_second_decision_is_409(client, pending_red):

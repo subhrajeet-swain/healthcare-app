@@ -6,6 +6,7 @@ import re
 import pytest
 
 from app import files, whatsapp
+from app.brain.nextstep import URGENT_EN, URGENT_HI
 from app.config import settings
 from app.errors import ApiError
 from app.whatsapp import (
@@ -115,12 +116,9 @@ def test_templates_and_copy_carry_no_numbers():
 def test_copy_and_template_keys_and_red_lines():
     assert set(COPY) == {
         "linked", "link_from_app", "bad_code", "stopped", "started", "consent_needed",
-        "no_report", "reading", "bad_file", "red", "not_ready", "too_many", "ask_more",
+        "no_report", "reading", "bad_file", "not_ready", "too_many", "ask_more",
     }
     assert set(TEMPLATES) == {"report_ready", "trend_alert", "review_complete", "report_ready_red"}
-    assert COPY["red"]["en"] == (
-        "Your report needs a doctor's attention. Please open the app or call your lab."
-    )
     assert TEMPLATES["report_ready_red"]["en"] == (
         "Your report from {lab} is ready and needs a doctor's attention. "
         "Please open the app or call your lab."
@@ -141,12 +139,18 @@ def _detail(**kw):
     return d
 
 
-def test_report_paragraphs_refuses_red_and_held():
-    with pytest.raises(ValueError):
-        report_paragraphs(_detail(triage="red"), "en")
-    held = {"status": "under_review"}  # patient_view drops triage and explanations
-    with pytest.raises(ValueError):
-        report_paragraphs(held, "en")
+def _said(*texts):
+    return {"en": {"source": "model", "statements": [{"text": t} for t in texts]}}
+
+
+def test_report_paragraphs_red_urgent_first_once():  # ruling T2
+    framed = _detail(triage="red", explanations=_said(URGENT_EN, "Your Hemoglobin is 6 g/dL."))
+    assert report_paragraphs(framed, "en")[0] == URGENT_EN
+    assert report_paragraphs(framed, "en").count(URGENT_EN) == 1
+    assert report_paragraphs(_detail(triage="red", explanations={}), "en")[0] == URGENT_EN
+    hi = report_paragraphs(framed, "hi")  # no Hindi text: the English one, under a Hindi line
+    assert hi[0] == URGENT_HI and URGENT_EN not in hi
+    assert URGENT_EN not in report_paragraphs(_detail(), "en")
 
 
 def test_report_paragraphs_order():

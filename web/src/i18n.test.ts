@@ -30,9 +30,7 @@ describe("chat errors", () => {
     expect(messageFor(new ApiError(429, "too_many_messages"), "en")).toContain("30");
     expect(messageFor(new ApiError(409, "report_not_ready"), "hi")).toMatch(/[\u0900-\u097F]/);
   });
-  it("say a held report is with the doctor, in both languages", () => {
-    expect(messageFor(new ApiError(409, "under_review"), "en")).toContain("reviewing");
-    expect(messageFor(new ApiError(409, "under_review"), "hi")).toMatch(/[\u0900-\u097F]/);
+  it("say a decided item is already decided", () => {
     expect(messageFor(new ApiError(409, "already_decided"), "en")).toContain("already decided");
   });
 });

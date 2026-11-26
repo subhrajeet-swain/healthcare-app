@@ -1,12 +1,12 @@
 """The `wa.inbound` worker job: LINK, STOP, START, REPORT, unlinked senders and media."""
 
-import re
 import uuid
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app import auth, chat_api, db, wa_jobs, whatsapp, worker
+from app.brain.nextstep import URGENT_EN
 from app.brain.router import REPLIES
 from app.config import settings
 from app.crypto import cipher_for
@@ -15,7 +15,7 @@ from app.tenancy import TenantCtx
 from app.whatsapp import COPY
 from tests.conftest import pdf_bytes
 from tests.test_chat_api import GOOD, _ask, model  # noqa: F401
-from tests.test_review_flow import RED, _decide, _drain
+from tests.test_review_flow import RED, _drain
 from tests.test_review_flow import _models as _red_models
 from tests.test_visibility import UNSAFE, _chat_items
 from tests.test_wa_webhook import SECRET, _mid, _payload, signed
@@ -206,28 +206,20 @@ def test_report_command_sends_explanation(client, patient, wa_lab, sent):
         ).fetchone()
 
 
-def _assert_red_only(sent):
-    assert texts(sent) == [COPY["red"]["en"]]
-    assert not re.search(r"\d", " ".join(texts(sent)))
-
-
-def test_report_command_red_sends_red_line(client, patient, wa_lab, sent):
-    _, tid, _ = patient
+def _parked_red(client):
     rid = _upload(client)
-    assert worker.run_once(_red_models(RED)) is True  # red, held for a doctor
-    _drain()  # its alert.email, so the next job is the message's
+    assert worker.run_once(_red_models(RED)) is True  # red, parked for a doctor
+    _drain()  # its alert.email and notify, so the next job is the message's
+    return rid
+
+
+def test_report_command_red_sends_urgent_first(client, patient, wa_lab, sent):  # ruling T1
+    _parked_red(client)
     _linked(client, wa_lab, sent)
     deliver(client, wa_lab, text="REPORT")
-    _assert_red_only(sent)
-    sent.clear()
-    with _owner(tid) as c:
-        item = c.execute("SELECT id FROM review_items WHERE report_id = %s", (rid,)).fetchone()
-    _decide(tid, item["id"], "approved")  # released, still red
-    _drain()
-    _assert_red_only(sent)  # its review_complete notify
-    sent.clear()
-    deliver(client, wa_lab, text="REPORT")
-    _assert_red_only(sent)
+    out = texts(sent)
+    assert out[0].startswith(URGENT_EN) and " ".join(out).count(URGENT_EN) == 1
+    assert out[-1] == COPY["ask_more"]["en"]
 
 
 def _ready(client):
@@ -278,26 +270,16 @@ def test_conversation_continues_across_channels(client, patient, wa_lab, sent, m
         ("user", "web"), ("assistant", "web"), ("user", "whatsapp"), ("assistant", "whatsapp")]
 
 
-def test_question_on_red_report_refused(client, patient, wa_lab, sent, model):  # noqa: F811
+def test_question_on_red_report_answered(client, patient, wa_lab, sent, model):  # noqa: F811
     _, tid, _ = patient
-    rid = _upload(client)
-    assert worker.run_once(_red_models(RED)) is True  # red, held for a doctor
-    _drain()
+    _parked_red(client)
     _linked(client, wa_lab, sent)
+    model.replies.append(GOOD)
     _ask_wa(client, wa_lab, model)
-    _assert_red_only(sent)
-    sent.clear()
+    assert len(model.calls) == 1 and len(texts(sent)) == 1  # the model was asked; a reply went
     with _owner(tid) as c:
-        item = c.execute("SELECT id FROM review_items WHERE report_id = %s", (rid,)).fetchone()
-    _decide(tid, item["id"], "approved")  # released, still red
-    _drain()
-    _assert_red_only(sent)  # its review_complete notify
-    sent.clear()
-    _ask_wa(client, wa_lab, model)
-    _assert_red_only(sent)
-    with _owner(tid) as c:
-        assert c.execute("SELECT 1 FROM chat_messages").fetchall() == []
-    assert model.calls == []
+        rows = c.execute("SELECT channel FROM chat_messages").fetchall()
+    assert [r["channel"] for r in rows] == ["whatsapp", "whatsapp"]
 
 
 def test_hourly_limit_counts_both_channels(client, patient, wa_lab, sent, model):  # noqa: F811
@@ -344,8 +326,7 @@ def test_long_whatsapp_question_cut_to_web_limit(client, patient, wa_lab, sent, 
 
 
 @pytest.mark.parametrize("status, error, key", [
-    (409, "report_not_ready", "not_ready"), (409, "under_review", "red"),
-    (409, "red_result", "red"), (429, "too_many_messages", "too_many"),
+    (409, "report_not_ready", "not_ready"), (429, "too_many_messages", "too_many"),
     (404, "not_found", "no_report"),
 ])
 def test_refused_question_gets_its_copy(client, patient, wa_lab, sent, monkeypatch,

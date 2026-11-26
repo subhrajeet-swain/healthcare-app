@@ -11,7 +11,7 @@ export function stepStates(status: Status, source: ReportDetail["source"]): [Sta
   if (status === "failed") {
     return steps.map((s, i) => (i === steps.length - 1 ? ["failed", "stopped"] : [s, "done"]));
   }
-  const finished = status === "ready" || status === "needs_review" || status === "under_review";
+  const finished = status === "ready" || status === "needs_review";
   const current = finished ? steps.length : steps.indexOf(status);
   return steps.map((s, i) => [s, i < current ? "done" : i === current ? "now" : "later"]);
 }

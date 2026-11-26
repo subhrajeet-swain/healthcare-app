@@ -148,27 +148,15 @@ def test_wrong_slug_with_valid_token_is_404(client, patient, lp):
     assert _view(url).status_code == 200
 
 
-def test_share_excludes_pending_red(client, patient, lp):  # Review Focus 1
+def test_parked_red_report_is_shareable_and_shown(client, patient, lp):  # ruling T1
     ok = _store(lp, glucose=90)
     red = _store(lp, glucose=140)
-    assert _hold(lp, red)
+    assert _hold(lp, red)  # a doctor still has to look at it
     r = _share(client, [ok, red])
-    assert r.status_code == 409 and r.json() == {"error": "under_review"}
-    assert _rows(patient[1], "SELECT 1 FROM share_links") == []
-
-    # not held yet when shared; it turns held later: the view leaves it out, whole
-    later = _store(lp, glucose=145)
-    url = _share(client, [ok, later]).json()["url"]
-    assert [x["id"] for x in _view(url).json()["reports"]] == [str(ok), str(later)]
-    assert _hold(lp, later)
-    body = _view(url)
-    assert [x["id"] for x in body.json()["reports"]] == [str(ok)]
-    assert str(later) not in body.text and "critical" not in body.text
-
-    # a doctor's decision releases it again
-    with _own(patient[1]) as c:
-        c.execute("UPDATE review_items SET status = 'approved' WHERE report_id = %s", (later,))
-    assert [x["id"] for x in _view(url).json()["reports"]] == [str(ok), str(later)]
+    assert r.status_code == 201
+    body = _view(r.json()["url"])
+    assert [x["id"] for x in body.json()["reports"]] == [str(ok), str(red)]
+    assert body.json()["reports"][1]["results"]
 
 
 def test_report_without_triage_is_neither_shared_nor_shown(client, patient, lp):

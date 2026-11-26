@@ -6,7 +6,7 @@ Commands (W5): `LINK <code>`, `STOP`, `START`, `REPORT`. A sender with no link m
 Each message is decided in a short worker-role transaction, and replies go out after it commits:
 never a transaction across a Graph or model call. The body is cleared in the transaction that
 makes the change, so a retried job never links twice or makes two reports; replies are therefore
-sent at most once. A red or held report only ever gets `COPY["red"]` (W1).
+sent at most once. A red report is sent like any other, urgent line first (ruling T1).
 
 A question is answered by `chat_api.converse`, the same core as the web chat (W11).
 
@@ -24,14 +24,14 @@ from uuid import UUID
 
 from psycopg.types.json import Jsonb
 
-from app import chat_api, db, files, visibility, whatsapp
+from app import chat_api, db, files, whatsapp
 from app.audit import audit
 from app.auth import _code_hash
 from app.config import settings
 from app.crypto import TenantCipher, cipher_for
 from app.errors import ApiError
 from app.privacy import _active_purposes
-from app.reports import attach_file, create_report, held_for, report_detail
+from app.reports import attach_file, create_report, report_detail
 from app.tenancy import TenantCtx
 from app.whatsapp import COPY, TEMPLATES, Inbound, Outbound
 
@@ -42,8 +42,7 @@ WA_CONSENT_VERSION = "wa-2026-11-v1"
 _LINK = re.compile(r"link\s*(\d{6})", re.IGNORECASE)
 # converse's refusals, and the line each one gets on WhatsApp
 _REFUSED = {
-    "under_review": "red", "red_result": "red", "report_not_ready": "not_ready",
-    "too_many_messages": "too_many", "not_found": "no_report",
+    "report_not_ready": "not_ready", "too_many_messages": "too_many", "not_found": "no_report",
 }
 
 
@@ -175,16 +174,8 @@ def _report(c, ctx: TenantCtx, lang: str) -> list[str]:
     r = _latest(c, ctx)
     if r is None:
         return [COPY["no_report"][lang]]
-    detail = report_detail(c, r)  # the patient view
+    detail = report_detail(c, r)
     audit(c, ctx, "read", "report", r["id"])
-    # W1: no value of a red or held report on WhatsApp. held_for reads last: a hold committed
-    # after the detail was read still wins.
-    if (
-        detail.get("triage") == "red"
-        or detail["status"] == visibility.UNDER_REVIEW
-        or held_for(c, ctx, r["id"])
-    ):
-        return [COPY["red"][lang]]
     return [*whatsapp.split(whatsapp.report_paragraphs(detail, lang)), COPY["ask_more"][lang]]
 
 
@@ -207,7 +198,7 @@ def _media(tid: UUID, mid: str, media_id: str, ctx: TenantCtx, lang: str) -> lis
 def question(ctx: TenantCtx, text: str, lang: str, models: dict | None = None) -> list[str]:
     """Free text from a linked, consented patient. Runs after commit, so a model call fits here.
 
-    The report is the latest chat-ready one, as for REPORT. Red or held never reaches the model.
+    The report is the latest chat-ready one, as for REPORT.
     """
     with _tx(ctx.tenant_id) as c:
         r = _latest(c, ctx)
@@ -216,7 +207,7 @@ def question(ctx: TenantCtx, text: str, lang: str, models: dict | None = None) -
     try:
         reply = chat_api.converse(
             lambda: _tx(ctx.tenant_id), ctx, r["id"], text.strip()[: chat_api.MAX_QUESTION], lang,
-            models.get("chat") if models else None, "whatsapp", allow_red=False,
+            models.get("chat") if models else None, "whatsapp",
         )
     except ApiError as e:
         if e.error not in _REFUSED:
@@ -260,11 +251,8 @@ def notify(job: dict, models: dict | None, saver) -> None:
             r = c.execute("SELECT id FROM reports WHERE id = %s", (p["report_id"],)).fetchone()
             if r is None:
                 return  # deleted
-            detail = report_detail(c, r)  # the patient view
+            detail = report_detail(c, r)
             audit(c, ctx, "read", "report", r["id"])
-            # held_for reads last: a hold committed after the detail was read still wins
-            if detail["status"] == visibility.UNDER_REVIEW or held_for(c, ctx, r["id"]):
-                return  # its release queues review_complete (W9)
         red = detail is not None and detail.get("triage") == "red"
         tenant = c.execute(
             "SELECT name, wa_phone_number_id FROM tenants WHERE id = %s", (tid,)
@@ -278,9 +266,7 @@ def notify(job: dict, models: dict | None, saver) -> None:
         template = "report_ready_red" if red else event
         whatsapp.send(Outbound(pn, to, template=template, lang=lang, lab=lab))
         return
-    if red:
-        out = [COPY["red"][lang]]  # W1
-    elif event == "report_ready":
+    if event == "report_ready":  # red too: its urgent line comes first (ruling T1)
         out = [*whatsapp.split(whatsapp.report_paragraphs(detail, lang)), COPY["ask_more"][lang]]
     else:
         out = [TEMPLATES[event][lang].format(lab=lab)]

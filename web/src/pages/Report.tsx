@@ -8,8 +8,9 @@ import { Nav } from "../Nav";
 import { Share } from "../Share";
 import { StatusSteps } from "../StatusSteps";
 import { isStalled } from "../steps";
+import { explanationLines } from "../summary";
 import { type T, useLang } from "../i18n";
-import { FLAG, NEXT, STATUS, TRIAGE, fmt, shortDate } from "../words";
+import { FLAG, NEXT, TRIAGE, fmt, shortDate } from "../words";
 
 type Props = { id: string; nav?: boolean };
 
@@ -117,15 +118,27 @@ export function ResultRow({ r }: { r: Result }) {
 
 type Body = SharedReport & { has_file?: boolean };
 
+/** First on a red report and on the home summary: act today. `phone`, when the lab has one, is a call button. */
+export function UrgentBanner({ phone }: { phone?: string | null }) {
+  const { t } = useLang();
+  return (
+    <div className="strip triage triage--red urgent-banner" role="note">
+      <p className="next">{t("urgentBanner")}</p>
+      {phone && (
+        <div className="strip__body">
+          <a className="btn" href={`tel:${phone}`}>{phone}</a>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** What a finished, visible report says: the verdict, a doctor's note, the results, the explanation.
  * `shared`: a doctor reads it through a link, so the patient-facing "a doctor is checking" line is left out. */
 export function ReportBody({ report, shared = false }: { report: Body; shared?: boolean }) {
   const { lang, t } = useLang();
-  const explanation = report.explanations?.[lang] ?? report.explanations?.en;
-  // the closing advice is the NEXT tag above; don't print it twice
-  const lines = (explanation?.statements ?? []).filter(
-    (s, i, all) => !(report.next_step !== "no_action" && s.source === "system" && i === all.length - 1 && i > 0),
-  );
+  const banner = report.triage === "red" && !shared;
+  const lines = explanationLines(report, lang, banner);
   const RANK = { red: 0, amber: 1, green: 2 } as const;
   const results = [...(report.results ?? [])].sort((a, b) => RANK[a.triage] - RANK[b.triage]);
   const uid = useId(); // several reports on one page (a share link) need their own heading ids
@@ -133,6 +146,7 @@ export function ReportBody({ report, shared = false }: { report: Body; shared?: 
 
   return (
     <>
+      {banner && <UrgentBanner />}
       <section className={`strip triage triage--${report.triage}`} aria-labelledby={`${uid}-triage`}>
         <div className="strip__head">
           <h2 className="strip__title" id={`${uid}-triage`}>
@@ -186,7 +200,7 @@ export function ReportBody({ report, shared = false }: { report: Body; shared?: 
         </div>
         <ul className="perf-list" lang={lang}>
           {lines.map((s, i) => (
-            <li key={i} className={i === 0 && report.urgent ? "perf-list__urgent" : undefined}>
+            <li key={i} className={i === 0 && report.urgent && !banner ? "perf-list__urgent" : undefined}>
               {s.text}
             </li>
           ))}
@@ -245,7 +259,6 @@ export function Report({ id, nav = false }: Props) {
   }
 
   const finished = report.status === "ready" || report.status === "needs_review";
-  const held = report.status === "under_review"; // the server sends no results for it
 
   return (
     <div className="shell">
@@ -265,24 +278,7 @@ export function Report({ id, nav = false }: Props) {
           </p>
         </div>
 
-        {held && (
-          <section className="strip triage triage--hold" aria-labelledby="hold-title">
-            <div className="strip__head">
-              <h2 className="strip__title" id="hold-title">
-                {STATUS.under_review[lang]}
-              </h2>
-            </div>
-            <p className="next">{t("heldLine")}</p>
-            <div className="strip__body">
-              <p>{t("heldBody")}</p>
-              <button className="btn btn--quiet" onClick={() => reload()}>
-                {t("checkAgain")}
-              </button>
-            </div>
-          </section>
-        )}
-
-        {!finished && !held && (
+        {!finished && (
           <section className="strip" aria-labelledby="progress-title" aria-live="polite">
             <div className="strip__head">
               <h2 className="strip__title" id="progress-title">

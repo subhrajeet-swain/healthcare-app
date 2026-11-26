@@ -1,5 +1,6 @@
 """The `wa.notify` job: report ready, review complete and trend alerts, inside and outside the
-24 hour window. A red or held report never sends a value (W1, W8, W9)."""
+24 hour window. A red report is sent at once, urgent line first; a template never carries a value
+(ruling T1, W8, W9)."""
 
 import json
 import re
@@ -7,6 +8,7 @@ import re
 import pytest
 
 from app import db, wa_jobs, worker
+from app.brain.nextstep import URGENT_EN
 from app.config import settings
 from app.whatsapp import COPY, TEMPLATES
 from tests.test_review_flow import MISMATCH, RED, _decide, _drain, _item, _status, _thread_exists
@@ -91,28 +93,40 @@ def test_ready_outside_window_sends_template(client, patient, wa_lab, sent):  # 
     _template(sent, "report_ready")
 
 
-def test_notify_held_sends_nothing(client, patient, wa_lab, sent):  # noqa: F811
+def test_notify_parked_red_sends_now(client, patient, wa_lab, sent):  # noqa: F811
     _, tid, _ = patient
     _linked(client, wa_lab, sent)
     _upload(client)
     assert worker.run_once(_red_models(RED)) is True  # red: parked for a doctor
-    _drain()  # its alert.email and wa.notify
+    _drain()  # its alert.email and wa.notify, with no wait for the doctor
     assert len(_notify_jobs(tid, "report_ready")) == 1
-    assert sent == []
+    out = texts(sent)
+    assert out[0].startswith(URGENT_EN) and out[-1] == COPY["ask_more"]["en"]
 
 
-def test_notify_released_red_has_no_values(client, patient, wa_lab, sent):  # noqa: F811
+def test_notify_red_outside_window_template_only(client, patient, wa_lab, sent):  # noqa: F811
+    _, tid, _ = patient
+    _linked(client, wa_lab, sent)
+    _out_of_window(tid)
+    _upload(client)
+    assert worker.run_once(_red_models(RED)) is True
+    _drain()
+    _template(sent, "report_ready_red")
+
+
+def test_notify_released_red_says_review_complete(client, patient, wa_lab, sent):  # noqa: F811
     _, tid, uid = patient
     _linked(client, wa_lab, sent)
     rid = _upload(client)
     assert worker.run_once(_red_models(RED)) is True
     _drain()
+    assert texts(sent)[0].startswith(URGENT_EN)  # report_ready, sent at once
+    sent.clear()
     _decide(tid, _item(tid, rid)["id"], "escalated")
     _drain()  # the resume queues review_complete
     assert _status(tid, rid) == "ready"
     assert len(_notify_jobs(tid, "review_complete")) == 1
-    assert texts(sent) == [COPY["red"]["en"]]
-    _no_digits(sent)
+    assert texts(sent) == [TEMPLATES["review_complete"]["en"].format(lab=LAB)]
     sent.clear()
     _out_of_window(tid)
     for event in ("review_complete", "report_ready"):

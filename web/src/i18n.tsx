@@ -107,13 +107,10 @@ export const STRINGS = {
   progressLede: { en: "This usually takes under a minute. The page updates by itself.", hi: "इसमें आमतौर पर एक मिनट से कम लगता है। यह पेज अपने-आप अपडेट होता है।" },
   progressSlow: { en: "Taking longer than usual. Your report is safe and will be read automatically.", hi: "सामान्य से ज़्यादा समय लग रहा है। आपकी रिपोर्ट सुरक्षित है और अपने-आप पढ़ी जाएगी।" },
 
-  // report held for a doctor, review pending, doctor's note
-  heldLine: { en: "Your lab's doctor is reviewing this report", hi: "आपकी लैब के डॉक्टर यह रिपोर्ट देख रहे हैं" },
-  heldBody: { en: "Your results will show here once the doctor has looked at them. If you feel unwell in the meantime, call your lab or a doctor.", hi: "डॉक्टर के देख लेने के बाद आपके परिणाम यहाँ दिखेंगे। इस बीच तबीयत ठीक न लगे तो अपनी लैब या किसी डॉक्टर को फ़ोन करें।" },
-  checkAgain: { en: "Check again", hi: "फिर से देखें" },
+  // red report banner, review pending, doctor's note
+  urgentBanner: { en: "One or more results need attention today. Please call your lab or a doctor.", hi: "एक या ज़्यादा परिणामों पर आज ही ध्यान देना ज़रूरी है। कृपया अपनी लैब या किसी डॉक्टर को फ़ोन करें।" },
   reviewPending: { en: "A doctor is also checking this report. If they add a note, it will show here.", hi: "एक डॉक्टर यह रिपोर्ट भी जांच रहे हैं। वे कोई नोट जोड़ेंगे तो वह यहाँ दिखेगा।" },
   doctorNote: { en: "A note from your lab's doctor", hi: "आपकी लैब के डॉक्टर का नोट" },
-  chatHeld: { en: "You can ask questions once your lab's doctor has looked at your latest report.", hi: "आपकी लैब के डॉक्टर के ताज़ा रिपोर्ट देख लेने के बाद आप सवाल पूछ सकते हैं।" },
 
   // share with a doctor (a link, no sign-in) and the page the doctor opens
   shareTitle: { en: "Share with a doctor", hi: "डॉक्टर के साथ साझा करें" },
@@ -165,6 +162,7 @@ export const STRINGS = {
   trendsFailed: { en: "We couldn't load your trends. Refresh the page to try again.", hi: "आपके रुझान लोड नहीं हो सके। फिर से कोशिश करने के लिए पेज रीफ़्रेश करें।" },
   trendsEmpty: { en: "Your charts appear here once a report has been read. Each test gets its own chart.", hi: "रिपोर्ट पढ़ी जाने के बाद आपके चार्ट यहाँ दिखेंगे। हर जांच का अपना चार्ट होगा।" },
   trendRising: { en: "Rising", hi: "बढ़ रहा है" },
+  trendInReview: { en: "Under review", hi: "डॉक्टर देख रहे हैं" },
   trendFalling: { en: "Falling", hi: "घट रहा है" },
   chartSeries: { en: "Results over time", hi: "समय के साथ परिणाम" },
   excludedOne: { en: "One result (in {units}) can't be compared with the others, so it's left out.", hi: "एक परिणाम ({units} में) बाकी परिणामों से मिलाया नहीं जा सकता, इसलिए उसे छोड़ दिया गया है।" },

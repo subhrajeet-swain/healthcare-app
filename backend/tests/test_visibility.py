@@ -1,19 +1,14 @@
-"""A red result is hidden from the patient until a doctor decides (Q6); gated chat is queued."""
+"""A red result shows to the patient at once, while a doctor reviews it (ruling T1); gated chat
+is queued."""
 
 import json
-import threading
-import time
-from contextlib import contextmanager
-from uuid import UUID
 
 from fastapi.testclient import TestClient
 
-from app import db, reports, review, worker
 from app.brain import templates
 from app.brain.nextstep import URGENT_EN
 from app.brain.router import REPLIES
 from app.main import app
-from app.tenancy import TenantCtx
 from tests.conftest import CONSENT
 from tests.test_chat_api import GOOD, _ask, _ready_report, model  # noqa: F401
 from tests.test_report_events import _events, _upload
@@ -23,7 +18,6 @@ from tests.test_review_flow import (
     _drain,
     _due_now,
     _item,
-    _models,
     _own,
     _park,
 )
@@ -32,7 +26,6 @@ from tests.test_worker import no_stray_jobs  # noqa: F401
 
 UNSAFE = json.dumps(
     {"statements": [{"text": "You have diabetes.", "test_ids": ["cbc.hemoglobin"]}]})
-SECRETS = ("critical", "Hemoglobin")
 
 
 def _detail(client, rid):
@@ -58,29 +51,6 @@ def _chat_items(tid):
         ).fetchall()
 
 
-def test_held_needs_red_and_a_pending_review():
-    from app import visibility
-
-    assert visibility.held({"triage": "red"}, True) is True
-    assert visibility.held({"triage": "red"}, False) is False
-    assert visibility.held({"triage": "amber"}, True) is False
-    assert visibility.held({"triage": None}, True) is False
-
-
-def test_patient_view_strips_a_held_detail_only():
-    from app import visibility
-
-    detail = {"id": "x", "status": "needs_review", "triage": "red", "next_step": "d",
-              "urgent": True, "results": [1], "explanations": {"en": {}}, "has_file": True,
-              "steps": [{"status": "received"}, {"status": "needs_review"}]}
-    assert visibility.patient_view(detail, False) is detail
-    out = visibility.patient_view(detail, True)
-    assert out["status"] == "under_review" and out["id"] == "x"
-    assert not {"triage", "next_step", "urgent", "results", "explanations"} & set(out)
-    assert [s["status"] for s in out["steps"]] == ["received", "under_review"]
-    assert detail["status"] == "needs_review"  # the caller's dict is untouched
-
-
 def test_note_options_are_fixed_and_written_in_both_languages():
     assert templates.NOTE_OPTIONS == [
         "repeat_test", "see_doctor_soon", "no_action_needed", "call_lab"]
@@ -90,55 +60,22 @@ def test_note_options_are_fixed_and_written_in_both_languages():
     assert "call your lab today" in templates.CALL_LAB["en"].lower()
 
 
-def test_red_pending_hidden_everywhere(client, patient):  # Review Focus 1
+def test_red_pending_shown_everywhere(client, patient):  # Review Focus 3
     tid, rid, item = _park(client, patient)
-    assert item["status"] == "pending" and item["reason"] == "red"
-    detail = _detail(client, rid)
-    assert detail["status"] == "under_review"
-    assert not {"triage", "next_step", "urgent", "results", "explanations"} & set(detail)
-    assert "needs_review" not in [s["status"] for s in detail["steps"]]
-    assert "critical" not in json.dumps(detail, default=str)
-
+    assert (item["status"], item["reason"]) == ("pending", "red")  # the doctor still gets it
+    d = _detail(client, rid)
+    assert (d["status"], d["triage"], d["review_pending"]) == ("needs_review", "red", True)
+    assert d["results"][0]["flag"] == "critical"
+    assert d["explanations"]["en"]["statements"][0]["text"] == URGENT_EN
     row = _listed(client, rid)
-    assert (row["status"], row["triage"], row["tests"]) == ("under_review", None, None)
-
-    events = _events(client, rid)
-    assert [e["status"] for e in events] == ["under_review"]
-    assert "needs_review" not in json.dumps(events, default=str)
-
-    r = client.post(f"/api/reports/{rid}/chat", json={"question": "what is my hemoglobin"})
-    assert r.status_code == 409 and r.json() == {"error": "under_review"}
-    r = client.get(f"/api/reports/{rid}/chat")
-    assert r.status_code == 409 and r.json() == {"error": "under_review"}
-    assert client.get(f"/api/reports/{rid}/file").status_code == 200  # their own upload
-
-    data, entry = _exported(client, rid)
-    assert entry["status"] == "under_review"
-    assert not {"results", "triage", "next_step"} & set(entry)
-    dumped = json.dumps(data)
-    assert not any(s in dumped for s in SECRETS), dumped
-
-
-def test_sse_later_events_say_under_review(client, patient):
-    _, tid, uid = patient
-    rid = _upload(client)
-
-    def later():
-        time.sleep(0.5)
-        with _own(tid) as c:
-            reports.set_status(c, tid, UUID(rid), "extracting")
-        time.sleep(0.2)
-        with _own(tid) as c:  # what the worker's save does, in one transaction
-            c.execute("UPDATE reports SET triage = 'red' WHERE id = %s", (rid,))
-            review.open_review(c, tid, kind="report", reason="red", user_id=uid,
-                               report_id=UUID(rid))
-            reports.set_status(c, tid, UUID(rid), "needs_review")
-
-    threading.Thread(target=later).start()
-    started = time.monotonic()
-    events = _events(client, rid)
-    assert time.monotonic() - started < 3
-    assert [e["status"] for e in events] == ["received", "extracting", "under_review"]
+    assert row["triage"] == "red" and row["tests"]
+    assert [e["status"] for e in _events(client, rid)] == ["needs_review"]
+    assert _ask(client, rid, "Do I have cancer?").status_code == 200
+    assert client.get(f"/api/reports/{rid}/chat").status_code == 200
+    assert _exported(client, rid)[1]["results"]
+    assert client.post("/api/share", json={"report_ids": [rid]}).status_code == 201
+    assert any(p["report_id"] == rid for s in client.get("/api/timeline").json()
+               for p in s["points"])
 
 
 def test_other_patients_pending_item_hides_nothing_of_mine(client, patient, login):
@@ -265,71 +202,18 @@ def _lab_source(tid, rid):
         c.execute("UPDATE reports SET source = 'lab' WHERE id = %s", (rid,))
 
 
-def test_lab_file_waits_for_triage_and_release(client, patient):  # controller ruling
-    tid, rid, item = _park(client, patient)  # red, held
+def test_lab_file_waits_for_triage_only(client, patient):  # controller ruling
+    tid, rid, _ = _park(client, patient)  # red, parked for a doctor
     _lab_source(tid, rid)
-    r = client.get(f"/api/reports/{rid}/file")
-    assert r.status_code == 409 and r.json() == {"error": "under_review"}
-    _decide(tid, item["id"], "approved")
-    _drain()
-    assert client.get(f"/api/reports/{rid}/file").status_code == 200  # released
+    assert client.get(f"/api/reports/{rid}/file").status_code == 200
 
     early = _upload(client)  # a lab report still `received`: no triage yet
     _lab_source(tid, early)
     r = client.get(f"/api/reports/{early}/file")
-    assert r.status_code == 409 and r.json() == {"error": "under_review"}
+    assert r.status_code == 409 and r.json() == {"error": "report_not_ready"}
 
 
-def test_lab_file_of_a_not_held_pending_report_is_served(client, patient):
-    tid, rid, _ = _park(client, patient, MISMATCH)  # warnings only: needs_review, not held
+def test_lab_file_of_a_warnings_pending_report_is_served(client, patient):
+    tid, rid, _ = _park(client, patient, MISMATCH)  # warnings only: needs_review
     _lab_source(tid, rid)
     assert client.get(f"/api/reports/{rid}/file").status_code == 200
-
-
-def test_detail_read_mid_pipeline_does_not_leak(client, patient):  # reviewer's race
-    _, tid, uid = patient
-    rid = _upload(client)
-    ctx = TenantCtx(tid, uid, "patient")
-    with db.tenant_tx(ctx) as c:
-        stale = reports.visible_report(c, ctx, UUID(rid))  # statement 1 of the request
-        assert stale["triage"] is None
-        assert worker.run_once(_models()) is True  # the pipeline commits red + pending item
-        detail = reports.report_detail(c, stale)  # the rest of the same request
-    assert detail["status"] == "under_review"
-    assert not {"triage", "results", "explanations", "urgent", "next_step"} & set(detail)
-    assert "critical" not in json.dumps(detail, default=str)
-
-
-class _RunsWorkerOnce:
-    """A connection that lets the pipeline commit right after the first read of reports/results."""
-
-    def __init__(self, c):
-        self._c, self.fired = c, False
-
-    def execute(self, sql, *args, **kw):
-        out = self._c.execute(sql, *args, **kw)
-        if not self.fired and ("FROM reports" in sql or "FROM results" in sql):
-            self.fired = True
-            assert worker.run_once(_models()) is True
-        return out
-
-    def __getattr__(self, name):
-        return getattr(self._c, name)
-
-
-def test_export_read_mid_pipeline_does_not_leak(client, patient, monkeypatch):
-    _upload(client)
-    real = db.tenant_tx
-
-    @contextmanager
-    def racing(ctx):
-        with real(ctx) as c:
-            yield _RunsWorkerOnce(c)
-
-    monkeypatch.setattr(db, "tenant_tx", racing)
-    data = client.get("/api/me/export").json()
-    monkeypatch.undo()
-    dumped = json.dumps(data)
-    assert not any(s in dumped for s in SECRETS), dumped
-    (entry,) = data["reports"]
-    assert entry["status"] in ("received", "under_review") and not entry.get("results")

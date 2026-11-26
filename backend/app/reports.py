@@ -14,7 +14,7 @@ from fastapi import APIRouter, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from psycopg.types.json import Jsonb
 
-from app import db, files, review, visibility
+from app import db, files, review
 from app.audit import audit
 from app.auth import Ctx
 from app.brain.templates import NOTE_TEXT
@@ -26,7 +26,7 @@ from app.tenancy import TenantCtx
 router = APIRouter(prefix="/api/reports")
 
 STAFF_ROLES = {"lab_staff", "doctor", "lab_admin"}
-TERMINAL = {"ready", "needs_review", visibility.UNDER_REVIEW, "failed"}
+TERMINAL = {"ready", "needs_review", "failed"}
 
 
 def require_consent(c, ctx: TenantCtx) -> None:
@@ -153,12 +153,7 @@ def visible_report(c, ctx: TenantCtx, report_id: UUID) -> dict:
 
 
 def latest_state(c, report_id: UUID) -> dict:
-    """The report row with its latest report review item (`item_status`, `note_option`).
-
-    One statement, so one snapshot, and it must be read LAST: after the content the hold
-    decides on. Under READ COMMITTED every statement sees its own snapshot, so a hold decided
-    from a row read before the results can miss a red report the worker committed in between.
-    """
+    """The report row with its latest report review item (`item_status`, `note_option`)."""
     row = c.execute(
         "SELECT r.*, i.status AS item_status, i.note_option FROM reports r "
         "LEFT JOIN LATERAL (SELECT status, note_option FROM review_items "
@@ -172,15 +167,6 @@ def latest_state(c, report_id: UUID) -> dict:
     return row
 
 
-def _held(state: dict) -> bool:
-    return visibility.held(state, state["item_status"] == "pending")
-
-
-def held_for(c, ctx: TenantCtx, report_id: UUID) -> bool:
-    """True when this user may not see the report's values yet (staff always may)."""
-    return ctx.role not in STAFF_ROLES and _held(latest_state(c, report_id))
-
-
 def doctor_note(state: dict) -> dict | None:
     """The line a decided review adds to the report: the doctor's pick, or call-the-lab."""
     if state["item_status"] not in ("edited", "escalated"):
@@ -189,11 +175,11 @@ def doctor_note(state: dict) -> dict | None:
     return {"option": option, "text": NOTE_TEXT[option]} if option in NOTE_TEXT else None
 
 
-def report_detail(c, report: dict, staff: bool = False) -> dict:
-    """The report as one user may see it: staff in full, a patient through `visibility`.
+def report_detail(c, report: dict) -> dict:
+    """The report, the same for every role (ruling T1: nothing is held from the patient).
 
-    Only `report["id"]` is used: every field and the hold come from `latest_state`, read after
-    the content, never from the row the caller read earlier.
+    Only `report["id"]` is used: every field comes from `latest_state`, never from the row the
+    caller read earlier.
     """
     rid = report["id"]
     steps = c.execute(
@@ -228,7 +214,7 @@ def report_detail(c, report: dict, staff: bool = False) -> dict:
     }
     if note := doctor_note(now):
         detail["doctor_note"] = note
-    return detail if staff else visibility.patient_view(detail, _held(now))
+    return detail
 
 
 @router.post("", status_code=201)
@@ -252,20 +238,14 @@ def list_reports(ctx: Ctx) -> list[dict]:
             "ORDER BY coalesce(r.collected_on, r.created_at::date) DESC, r.created_at DESC",
             (ctx.user_id,),
         ).fetchall()
-        pending = review.pending_report_ids(c, ctx.user_id)
         audit(c, ctx, "list", "report", ctx.user_id)
-    # the test names would hint at what is held back
-    return [
-        r | {"status": visibility.UNDER_REVIEW, "triage": None, "tests": None}
-        if visibility.held(r, r["id"] in pending) else r
-        for r in rows
-    ]
+    return rows
 
 
 @router.get("/{report_id}")
 def get_report(report_id: UUID, ctx: Ctx) -> dict:
     with db.tenant_tx(ctx) as c:
-        detail = report_detail(c, visible_report(c, ctx, report_id), ctx.role in STAFF_ROLES)
+        detail = report_detail(c, visible_report(c, ctx, report_id))
         audit(c, ctx, "read", "report", report_id)
     return detail
 
@@ -288,9 +268,8 @@ def _snapshot(ctx: TenantCtx, report_id: UUID) -> dict:
         steps = c.execute(
             "SELECT status, at FROM report_steps WHERE report_id = %s ORDER BY id", (report_id,)
         ).fetchall()
-        now = latest_state(c, report_id)  # last: the status and the hold read as one
-        snap = {"status": now["status"], "steps": steps}
-        return snap if ctx.role in STAFF_ROLES else visibility.patient_view(snap, _held(now))
+        now = latest_state(c, report_id)
+        return {"status": now["status"], "steps": steps}
 
 
 def _stream(ctx: TenantCtx, report_id: UUID, first: dict) -> Iterator[str]:
@@ -327,8 +306,6 @@ def _stream_body(ctx: TenantCtx, report_id: UUID, first: dict) -> Iterator[str]:
                 rid, _, status = n.payload.partition(":")
                 if rid != str(report_id):
                     continue
-                if status == "needs_review":  # a held report must not say so: ask again
-                    status = _snapshot(ctx, report_id)["status"]
                 if status == last:
                     continue
                 last = status
@@ -361,10 +338,9 @@ def get_file(report_id: UUID, ctx: Ctx) -> Response:
         if report["file_mime"] is None:
             raise not_found()
         if ctx.role not in STAFF_ROLES and report["source"] == "lab":
-            # the lab's file shows what the detail hides: not before triage, never while held
-            now = latest_state(c, report_id)
-            if now["triage"] is None or _held(now):
-                raise ApiError(409, visibility.UNDER_REVIEW)
+            # the lab's file shows the values: not before the pipeline has triaged them
+            if latest_state(c, report_id)["triage"] is None:
+                raise ApiError(409, "report_not_ready")
         data = files.load(cipher_for(c, ctx.tenant_id), ctx.tenant_id, report_id)
         audit(c, ctx, "read", "report_file", report_id)
     return Response(

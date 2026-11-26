@@ -92,7 +92,7 @@ def get_review(item_id: UUID, ctx: Ctx) -> dict:
         out["report"] = None
         audit(c, ctx, "read", "review_item", item_id)
         if row["report_id"]:
-            out["report"] = reports.report_detail(c, {"id": row["report_id"]}, staff=True)
+            out["report"] = reports.report_detail(c, {"id": row["report_id"]})
             audit(c, ctx, "read", "report", row["report_id"])
     return out
 

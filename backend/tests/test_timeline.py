@@ -1,6 +1,5 @@
-"""The timeline: one series per test in canonical units; a held report is not in it at all."""
+"""The timeline: one series per test in canonical units; a parked red report is in it too."""
 
-import json
 import uuid
 
 import psycopg
@@ -93,45 +92,31 @@ def test_a_test_with_no_comparable_point_is_not_listed(client, patient):
     assert _timeline(client) == []
 
 
-def test_timeline_skips_pending_red(client, patient):  # Review Focus 1
+def test_parked_red_report_is_a_point(client, patient):  # ruling T1
     _, tid, uid = patient
     lp = (tid, uid)
-    _store(lp, hba1c=6.1)
-    _store(lp, hba1c=6.5)
-    _store(lp, hba1c=7.0)  # a visible HbA1c trend, untouched by the held report below
     _store(lp, wbc=7000)
-    # one report, held: a red glucose, plus a WBC in a unit that is excluded
+    # one report, parked for a doctor: a red glucose, plus a WBC in a unit that is excluded
     red = _store(lp, glucose=140, wbc=(9.0, "thou/cumm"))
     assert _hold(lp, red)
-    series = _timeline(client)
-    assert [s["test_id"] for s in series] == ["hba1c.hba1c", "cbc.wbc"]  # by test name
-    wbc = _by_test(series)["cbc.wbc"]
-    assert wbc["excluded"] == [] and len(wbc["points"]) == 1  # no excluded entry for it either
-    assert _by_test(series)["hba1c.hba1c"]["trend"]["direction"] == "rising"
-    dumped = json.dumps(series)
-    assert str(red) not in dumped and "glucose" not in dumped and "140" not in dumped
-    # the doctor decides: now it is theirs to see
-    _decide(lp, "approved", kind="report")
-    after = _by_test(_timeline(client))
-    assert [p["report_id"] for p in after["glucose.fasting"]["points"]] == [str(red)]
-    assert after["cbc.wbc"]["excluded"][0]["report_id"] == str(red)
+    series = _by_test(_timeline(client))
+    assert [p["report_id"] for p in series["glucose.fasting"]["points"]] == [str(red)]
+    assert series["cbc.wbc"]["excluded"][0]["report_id"] == str(red)
 
 
-def test_no_trend_built_on_a_held_report(client, patient):
+def test_parked_red_report_trend_shows(client, patient):
     _, tid, uid = patient
     lp = (tid, uid)
     _store(lp, glucose=(5.6, "mmol/L"))
     _store(lp, glucose=110)
-    red = _store(lp, glucose=140)  # the third point makes the trend, and is held
+    red = _store(lp, glucose=140)  # the third point makes the trend, and is parked
     with _own(tid) as c:
         trend = c.execute("SELECT last_report_id FROM trends").fetchone()
     assert trend["last_report_id"] == red
     assert _hold(lp, red)
     (s,) = _timeline(client)
-    assert [round(p["value"]) for p in s["points"]] == [101, 110]
-    assert s["trend"] is None
-    # a trend for a held report must not leak through the series that still shows
-    assert "rising" not in json.dumps(s)
+    assert [round(p["value"]) for p in s["points"]] == [101, 110, 140]
+    assert s["trend"]["direction"] == "rising"
 
 
 def test_old_trend_is_not_shown_once_a_later_report_ends_it(client, three_glucose):
@@ -179,10 +164,10 @@ def test_timeline_is_one_query(client, three_glucose, monkeypatch):
     monkeypatch.undo()
     reads = [q for q in seen if "FROM results" in q]
     assert len(reads) == 1 and reads[0].lstrip().upper().startswith("SELECT")
-    # the series itself, the trend lookup, and the pending set read last: three, however many tests
+    # the series itself and the trend lookup: two, however many tests
     data = [q for q in seen if q.lstrip().upper().startswith("SELECT") and any(
         t in q for t in ("FROM results", "FROM trends", "FROM review_items"))]
-    assert len(data) == 3 and "review_items" in data[-1] and "FROM results" in data[0]
+    assert len(data) == 2 and "FROM results" in data[0]
 
 
 def test_timeline_audited(client, three_glucose):

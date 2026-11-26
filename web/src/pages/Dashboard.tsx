@@ -9,6 +9,7 @@ import { Nav } from "../Nav";
 import { stateCounts, summarize } from "../summary";
 import { Upload } from "../Upload";
 import { Queue } from "./Doctor";
+import { UrgentBanner } from "./Report";
 import { Staff } from "./Staff";
 import { NEXT, STATUS, TRIAGE, shortDate } from "../words";
 
@@ -80,10 +81,11 @@ function PatientHome() {
   const latestRead = (latest.status === "ready" || latest.status === "needs_review") && s.latestTests > 0;
   const latestHref = `/reports/${latest.id}`;
   const fresh = detail?.id === latest.id ? detail : null;
-  const counts = stateCounts(fresh?.results ?? []); // a held report has no results key
+  const counts = stateCounts(fresh?.results ?? []);
   const next = fresh?.next_step;
   return (
     <>
+      {latest.triage === "red" && <UrgentBanner />}
       <section className="strip summary" aria-labelledby="summary-title">
         <h2 className="summary__number" id="summary-title">
           {latestRead
@@ -103,7 +105,6 @@ function PatientHome() {
           </div>
         )}
         {latestRead && next && next !== "no_action" && <p className="summary__next">{NEXT[next][lang]}</p>}
-        {latest.status === "under_review" && <p className="summary__next">{t("heldLine")}</p>}
         <a className="btn btn--block" href={latestHref} onClick={open(latestHref)}>
           {t("openReport")}
           {ARROW}

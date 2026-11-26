@@ -69,16 +69,6 @@ def refresh_trends(c, tenant_id: UUID, user_id: UUID) -> list[UUID]:
     return new
 
 
-def pending_report_ids(c, user_id: UUID) -> set[UUID]:
-    """The user's reports that wait for a doctor (a pending `report` item)."""
-    rows = c.execute(
-        "SELECT report_id FROM review_items "
-        "WHERE user_id = %s AND kind = 'report' AND status = 'pending'",
-        (user_id,),
-    )
-    return {r["report_id"] for r in rows}
-
-
 def open_review(
     c, tenant_id: UUID, *, kind: str, reason: str, user_id: UUID, report_id: UUID | None = None,
     trend_id: UUID | None = None, chat_message_id: UUID | None = None, thread_id: str | None = None,

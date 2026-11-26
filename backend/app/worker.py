@@ -127,7 +127,7 @@ def _save(tid: UUID, rid: UUID, res: PipelineResult) -> None:
         if report is None:
             raise ReportGone
         reports.store_result(c, tid, rid, res)
-        wa_jobs.queue_notify(c, tid, report["user_id"], "report_ready", rid)  # it checks the hold
+        wa_jobs.queue_notify(c, tid, report["user_id"], "report_ready", rid)
         if res.pending:
             review.open_review(
                 c, tid, kind="report", reason="red" if res.triage == "red" else "warnings",

@@ -19,8 +19,8 @@ describe("stepStates", () => {
       ["ready", "later"],
     ]);
   });
-  it("marks every step done when ready or in review (held or not)", () => {
-    for (const s of ["ready", "needs_review", "under_review"] as const) {
+  it("marks every step done when ready or in review", () => {
+    for (const s of ["ready", "needs_review"] as const) {
       expect(stepStates(s, "patient").every(([, st]) => st === "done")).toBe(true);
     }
   });

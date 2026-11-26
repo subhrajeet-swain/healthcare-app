@@ -15,9 +15,9 @@ from typing import Literal
 
 import httpx
 
-from app import files, visibility
+from app import files
 from app.brain.models import NextStep
-from app.brain.nextstep import closing_message
+from app.brain.nextstep import URGENT_EN, URGENT_HI, closing_message, urgent_message
 from app.config import settings
 from app.crypto import normalise_phone
 from app.errors import ApiError
@@ -80,10 +80,6 @@ COPY: dict[str, dict[str, str]] = {
         "Please send a clear PDF, JPEG or PNG of your lab report.",
         "hi": "हम यह फ़ाइल नहीं पढ़ सके। "
         "कृपया अपनी लैब रिपोर्ट की साफ़ PDF, JPEG या PNG फ़ाइल भेजें।",
-    },
-    "red": {
-        "en": "Your report needs a doctor's attention. Please open the app or call your lab.",
-        "hi": "आपकी रिपोर्ट पर डॉक्टर का ध्यान ज़रूरी है। कृपया ऐप खोलें या अपनी लैब को फ़ोन करें।",
     },
     "not_ready": {
         "en": "Your report is not ready yet. We will message you when it is.",
@@ -204,18 +200,19 @@ def split(paragraphs: list[str], limit: int = CHUNK) -> list[str]:
 
 
 def report_paragraphs(detail: dict, lang: str) -> list[str]:
-    """What a patient-view report says: explanation, doctor's note, closing line, in that order.
+    """What a report says: explanation, doctor's note, closing line, in that order.
 
-    Callers send `COPY["red"]` for a red or held report; this refuses rather than leak values.
+    A red report starts with the urgent line, exactly once (ruling T2): the pipeline stores it
+    as statement 0, and it is added here only when missing (no explanation in `lang` or `en`).
     """
-    if detail.get("triage") == "red" or detail["status"] == visibility.UNDER_REVIEW:
-        raise ValueError("red or held report has no WhatsApp text")
     expl = detail["explanations"].get(lang) or detail["explanations"].get("en") or {}
     stmts = expl.get("statements", [])
     line = closing_message(NextStep(detail["next_step"]), lang) if detail.get("next_step") else None
     if line and stmts and stmts[-1].get("source") == "system":
         stmts = stmts[:-1]  # the pipeline stores the closing line last; it is sent once, below
     out = [s["text"] for s in stmts]
+    if detail.get("triage") == "red":  # an English fallback carries the English line
+        out = [urgent_message(lang)] + [t for t in out if t not in (URGENT_EN, URGENT_HI)]
     if note := detail.get("doctor_note"):
         out.append(note["text"].get(lang) or note["text"]["en"])
     if line:

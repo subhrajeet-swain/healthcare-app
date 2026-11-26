@@ -18,7 +18,7 @@ from app.brain.chat import HISTORY_TURNS, ChatReply, answer
 from app.brain.factsheet import get_fact_sheet
 from app.crypto import cipher_for
 from app.errors import ApiError
-from app.reports import held_for, visible_report
+from app.reports import visible_report
 from app.tenancy import TenantCtx
 
 router = APIRouter(prefix="/api/reports")
@@ -49,20 +49,12 @@ def converse(
     lang: str,
     model: BaseChatModel | None,
     channel: Literal["web", "whatsapp"],
-    allow_red: bool = True,
 ) -> ChatReply:
-    """One chat turn, for every channel. `tx` opens a transaction in the caller's role.
-
-    `allow_red=False` refuses a red report before any model call (W1: not on WhatsApp).
-    """
+    """One chat turn, for every channel. `tx` opens a transaction in the caller's role."""
     with tx() as c:
         report = visible_report(c, ctx, report_id)
-        if held_for(c, ctx, report_id):
-            raise ApiError(409, "under_review")
         if report["status"] not in CHAT_STATUSES:
             raise ApiError(409, "report_not_ready")
-        if not allow_red and report["triage"] == "red":
-            raise ApiError(409, "red_result")
         sent = c.execute(
             "SELECT count(*) AS n FROM chat_messages WHERE report_id = %s AND user_id = %s "
             "AND role = 'user' AND created_at > now() - interval '1 hour'",  # both channels
@@ -112,8 +104,6 @@ def chat(report_id: UUID, body: ChatIn, ctx: Ctx, model: Model) -> dict:
 def history(report_id: UUID, ctx: Ctx) -> list[dict]:
     with db.tenant_tx(ctx) as c:
         visible_report(c, ctx, report_id)
-        if held_for(c, ctx, report_id):
-            raise ApiError(409, "under_review")
         cipher = cipher_for(c, ctx.tenant_id)
         rows = c.execute(
             "SELECT role, text_enc, tier, channel, created_at FROM chat_messages "

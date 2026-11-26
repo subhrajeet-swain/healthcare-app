@@ -4,7 +4,7 @@ import { Band } from "../Band";
 import { PAD, scale, shown } from "../chart";
 import { type T, useLang } from "../i18n";
 import { Nav } from "../Nav";
-import { STATUS, shortDate } from "../words";
+import { shortDate } from "../words";
 
 const W = 320; // the chart's own units: the SVG scales to its card, never past 30rem
 const H = 190;
@@ -84,7 +84,7 @@ function Chart({ test }: { test: TimelineTest }) {
 }
 
 function TestCard({ test }: { test: TimelineTest }) {
-  const { lang, t } = useLang();
+  const { t } = useLang();
   const { trend, excluded } = test;
   const units = [...new Set(excluded.map((e) => e.unit))].join(", ");
   return (
@@ -96,7 +96,7 @@ function TestCard({ test }: { test: TimelineTest }) {
         {trend && (
           <div className="chart__pills">
             <span className="pill pill--amber">{t(trend.direction === "rising" ? "trendRising" : "trendFalling")}</span>
-            {trend.review_status === "pending" && <span className="pill">{STATUS.under_review[lang]}</span>}
+            {trend.review_status === "pending" && <span className="pill">{t("trendInReview")}</span>}
           </div>
         )}
         <Chart test={test} />

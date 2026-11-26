@@ -218,35 +218,37 @@ def _patient_detail(spec_id: str, res) -> dict:
     }
 
 
-def _leaks(view: dict, res) -> list[str]:
-    """What a held patient payload must not carry: flag, triage, status, any result value."""
-    text = json.dumps(view, default=str)
-    found = [w for w in ('"critical"', '"red"', '"needs_review"') if w in text]
-    for r in res.report.results:
-        token = re.escape(json.dumps(r.value))  # as it would be written in the payload
-        if re.search(rf"(?<![\w.\-]){token}(?![\w.])", text):
-            found.append(f"value {r.value} ({r.test_id})")
-    return found
+def _urgent_first(detail: dict) -> list[str]:
+    """The languages in which the WhatsApp text does not start with the urgent line exactly once."""
+    from app.brain.nextstep import urgent_message
+    from app.whatsapp import report_paragraphs
+
+    bad = []
+    for lang in ("en", "hi"):
+        paras = report_paragraphs(detail, lang)
+        if paras[:1] != [urgent_message(lang)] or paras.count(urgent_message(lang)) != 1:
+            bad.append(lang)
+    return bad
 
 
-def run_held() -> list[tuple[str, bool, str]]:
-    from app import visibility
+def run_red() -> list[tuple[str, bool, str]]:
+    """Ruling T1: every report shows its values; a red one says the urgent line first, once."""
+    from app.brain.nextstep import URGENT_EN, URGENT_HI
     from app.brain.pipeline import template_result
+    from app.whatsapp import report_paragraphs
 
     out = []
     for spec_path in sorted((DATA / "specs").glob("report_*.json")):
         res = template_result(_report_from_spec(json.loads(spec_path.read_text("utf-8"))))
         detail = _patient_detail(spec_path.stem, res)
-        if not visibility.held(detail, True):  # not red: shown as it is
-            out.append((spec_path.stem, visibility.patient_view(detail, False) is detail,
-                        f"{res.triage}, not held"))
+        shown = len(detail["results"]) == len(res.report.results) > 0
+        if res.triage == "red":
+            bad = _urgent_first(detail)
+            out.append((spec_path.stem, shown and not bad, f"red: urgent first fails {bad}"))
             continue
-        view = visibility.patient_view(detail, True)
-        leaks = _leaks(view, res)
-        ok = (not leaks and view["status"] == visibility.UNDER_REVIEW
-              and not set(visibility.HIDDEN) & set(view)
-              and bool(_leaks(detail, res)))  # the check must see the leak in the full detail
-        out.append((spec_path.stem, ok, f"red, held: leaks={leaks}"))
+        said = [p for lang in ("en", "hi") for p in report_paragraphs(detail, lang)]
+        urgent = any(u in said for u in (URGENT_EN, URGENT_HI))
+        out.append((spec_path.stem, shown and not urgent, f"{res.triage}: urgent={urgent}"))
     return out
 
 
@@ -254,31 +256,15 @@ def run_held() -> list[tuple[str, bool, str]]:
 
 
 def _whatsapp_spec(spec_path: Path) -> tuple[str, bool, str]:
-    """One fixture spec: a red one sends no text (and no value in its two fixed lines); any other
-    one carries the web detail's explanation and closing line, once, in chunks of at most CHUNK."""
-    from app import visibility
+    """One fixture spec: the web detail's explanation and closing line, once, in chunks of at
+    most CHUNK; a red one also starts with the urgent line, once (ruling T2)."""
     from app.brain.nextstep import closing_message
     from app.brain.pipeline import template_result
-    from app.whatsapp import COPY, TEMPLATES, report_paragraphs, split
+    from app.whatsapp import report_paragraphs, split
 
     res = template_result(_report_from_spec(json.loads(spec_path.read_text("utf-8"))))
     detail = _patient_detail(spec_path.stem, res)
-    if res.triage == "red":
-        def raises(d: dict, lang: str) -> bool:
-            try:
-                report_paragraphs(d, lang)
-            except ValueError:
-                return True
-            return False
-
-        held = visibility.patient_view(detail, True)
-        fixed = [COPY["red"][lang] for lang in ("en", "hi")]
-        fixed += [TEMPLATES["report_ready_red"][lang] for lang in ("en", "hi")]
-        values = {v for r in res.report.results for v in (str(r.value), f"{r.value:g}")}
-        ok = (all(raises(d, lang) for d in (detail, held) for lang in ("en", "hi"))
-              and not any(v in t for v in values for t in fixed))
-        return spec_path.stem, ok, "red: no text, and no value in the red copy or template"
-    bad = []
+    bad = _urgent_first(detail) if res.triage == "red" else []
     for lang in ("en", "hi"):
         paras = report_paragraphs(detail, lang)
         chunks = split(paras)
@@ -362,7 +348,7 @@ SUITES: dict[str, Callable[[], list[tuple[str, bool, str]]]] = {
     "fixtures": run_fixtures,
     "chat": run_chat,
     "trends": run_trends,
-    "held": run_held,
+    "red": run_red,
     "whatsapp": run_whatsapp,
     "reports": run_reports,
 }

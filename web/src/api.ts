@@ -84,7 +84,6 @@ export type Status =
   | "extracting"
   | "explaining"
   | "needs_review"
-  | "under_review" // a patient's report held for the lab's doctor: nothing else leaves the server
   | "ready"
   | "failed";
 export type Triage = "red" | "amber" | "green";
@@ -117,12 +116,11 @@ export type ReportDetail = ReportSummary & {
   failure_message: string | null;
   has_file: boolean;
   steps: Step[];
-  // a report held for review (status "under_review") has none of these four: the keys are absent
   next_step?: "follow_up_package" | "doctor_consult" | "no_action" | null;
   urgent?: boolean;
   results?: Result[];
   explanations?: Partial<Record<Lang, { source: "model" | "template"; statements: Statement[] }>>;
-  review_pending?: boolean; // a doctor still has to look at it (a warnings-only report shows as it is)
+  review_pending?: boolean; // a doctor still has to look at it; the report shows as it is
   doctor_note?: DoctorNote; // once a doctor edited or escalated
 };
 /** A report as a doctor sees it through a share link: no file, no chat, no pipeline steps. */
@@ -154,9 +152,9 @@ export type StaffReport = {
   phone_masked: string | null;
   name: string | null;
 };
-export const TERMINAL: Status[] = ["ready", "needs_review", "under_review", "failed"];
+export const TERMINAL: Status[] = ["ready", "needs_review", "failed"];
 
-/** One test across the patient's reports, in the canonical unit; a held report is never in it. */
+/** One test across the patient's reports, in the canonical unit. */
 export type TimelinePoint = {
   report_id: string;
   observed_on: string;
@@ -311,10 +309,6 @@ const MESSAGES: Record<string, { en: string; hi: string }> = {
   not_a_patient: {
     en: "This number belongs to lab staff, not a patient.",
     hi: "यह नंबर लैब स्टाफ़ का है, मरीज़ का नहीं।",
-  },
-  under_review: {
-    en: "Your lab's doctor is still reviewing this report. You can ask questions once they have.",
-    hi: "आपकी लैब के डॉक्टर अभी यह रिपोर्ट देख रहे हैं। उनके देख लेने के बाद आप सवाल पूछ सकते हैं।",
   },
   already_decided: {
     en: "This item was already decided, by another doctor or by the timeout. Go back to the queue.",
