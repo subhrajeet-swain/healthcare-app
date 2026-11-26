@@ -8,6 +8,7 @@ import { type Role, go } from "../routes";
 import { Nav } from "../Nav";
 import { stateCounts, summarize } from "../summary";
 import { Upload } from "../Upload";
+import { Queue } from "./Doctor";
 import { Staff } from "./Staff";
 import { NEXT, STATUS, TRIAGE, shortDate } from "../words";
 
@@ -79,7 +80,7 @@ function PatientHome() {
   const latestRead = (latest.status === "ready" || latest.status === "needs_review") && s.latestTests > 0;
   const latestHref = `/reports/${latest.id}`;
   const fresh = detail?.id === latest.id ? detail : null;
-  const counts = fresh ? stateCounts(fresh.results) : [];
+  const counts = stateCounts(fresh?.results ?? []); // a held report has no results key
   const next = fresh?.next_step;
   return (
     <>
@@ -102,6 +103,7 @@ function PatientHome() {
           </div>
         )}
         {latestRead && next && next !== "no_action" && <p className="summary__next">{NEXT[next][lang]}</p>}
+        {latest.status === "under_review" && <p className="summary__next">{t("heldLine")}</p>}
         <a className="btn btn--block" href={latestHref} onClick={open(latestHref)}>
           {t("openReport")}
           {ARROW}
@@ -173,6 +175,8 @@ export function Dashboard({ me, onSignOut, onDeleted }: Props) {
           <PatientHome />
         ) : me.role === "lab_staff" || me.role === "lab_admin" ? (
           <Staff />
+        ) : me.role === "doctor" ? (
+          <Queue />
         ) : (
           <section className="strip" aria-label="Status">
             <div className="strip__body strip__body--first">

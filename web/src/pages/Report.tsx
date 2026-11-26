@@ -8,7 +8,7 @@ import { Nav } from "../Nav";
 import { StatusSteps } from "../StatusSteps";
 import { isStalled } from "../steps";
 import { type T, useLang } from "../i18n";
-import { FLAG, NEXT, TRIAGE, fmt, shortDate } from "../words";
+import { FLAG, NEXT, STATUS, TRIAGE, fmt, shortDate } from "../words";
 
 type Props = { id: string; nav?: boolean };
 
@@ -89,7 +89,7 @@ function rangeText(r: Result, t: T): string {
   return t("notPrinted");
 }
 
-function ResultRow({ r }: { r: Result }) {
+export function ResultRow({ r }: { r: Result }) {
   const { lang, t } = useLang();
   const pos = rangePosition(r.value, r.ref_low, r.ref_high);
   return (
@@ -163,13 +163,14 @@ export function Report({ id, nav = false }: Props) {
   }
 
   const finished = report.status === "ready" || report.status === "needs_review";
-  const explanation = report.explanations[lang] ?? report.explanations.en;
+  const held = report.status === "under_review"; // the server sends no results for it
+  const explanation = report.explanations?.[lang] ?? report.explanations?.en;
   // the closing advice is the NEXT tag above; don't print it twice
   const lines = (explanation?.statements ?? []).filter(
     (s, i, all) => !(report.next_step !== "no_action" && s.source === "system" && i === all.length - 1 && i > 0),
   );
   const RANK = { red: 0, amber: 1, green: 2 } as const;
-  const results = [...report.results].sort((a, b) => RANK[a.triage] - RANK[b.triage]);
+  const results = [...(report.results ?? [])].sort((a, b) => RANK[a.triage] - RANK[b.triage]);
 
   return (
     <div className="shell">
@@ -189,7 +190,24 @@ export function Report({ id, nav = false }: Props) {
           </p>
         </div>
 
-        {!finished && (
+        {held && (
+          <section className="strip triage triage--hold" aria-labelledby="hold-title">
+            <div className="strip__head">
+              <h2 className="strip__title" id="hold-title">
+                {STATUS.under_review[lang]}
+              </h2>
+            </div>
+            <p className="next">{t("heldLine")}</p>
+            <div className="strip__body">
+              <p>{t("heldBody")}</p>
+              <button className="btn btn--quiet" onClick={() => reload()}>
+                {t("checkAgain")}
+              </button>
+            </div>
+          </section>
+        )}
+
+        {!finished && !held && (
           <section className="strip" aria-labelledby="progress-title" aria-live="polite">
             <div className="strip__head">
               <h2 className="strip__title" id="progress-title">
@@ -222,12 +240,25 @@ export function Report({ id, nav = false }: Props) {
                 </h2>
               </div>
               {report.next_step && <p className="next">{NEXT[report.next_step][lang]}</p>}
-              {report.status === "needs_review" && (
+              {(report.review_pending || (report.status === "needs_review" && !report.doctor_note)) && (
                 <div className="strip__body">
-                  <p>{t("doctorTold")}</p>
+                  <p>{t(report.review_pending ? "reviewPending" : "doctorTold")}</p>
                 </div>
               )}
             </section>
+
+            {report.doctor_note && (
+              <section className="strip" aria-labelledby="note-title">
+                <div className="strip__head">
+                  <h2 className="strip__title" id="note-title">
+                    {t("doctorNote")}
+                  </h2>
+                </div>
+                <p className="next" lang={lang}>
+                  {report.doctor_note.text[lang]}
+                </p>
+              </section>
+            )}
 
             <section className="tiles" aria-labelledby="results-title">
               <div className="strip__head">

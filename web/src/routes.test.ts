@@ -34,6 +34,16 @@ describe("report route", () => {
   });
 });
 
+describe("review route", () => {
+  it("reads the review item id", () => {
+    expect(parseRoute("/reviews/3f2a-9c")).toEqual({ name: "review", id: "3f2a-9c" });
+    expect(parseRoute("/reviews/3f2a/")).toEqual({ name: "review", id: "3f2a" });
+  });
+  it("rejects ids with odd characters", () => {
+    expect(parseRoute("/reviews/../x")).toEqual({ name: "home" });
+  });
+});
+
 describe("nav routes", () => {
   it("reads chat and profile", () => {
     expect(parseRoute("/chat")).toEqual({ name: "chat" });

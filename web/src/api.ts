@@ -42,6 +42,7 @@ export type Status =
   | "extracting"
   | "explaining"
   | "needs_review"
+  | "under_review" // a patient's report held for the lab's doctor: nothing else leaves the server
   | "ready"
   | "failed";
 export type Triage = "red" | "amber" | "green";
@@ -68,14 +69,19 @@ export type Result = {
   triage: Triage;
 };
 export type Statement = { text: string; test_ids: string[]; source: "model" | "system" };
+/** The doctor's one line on a released report, in both languages (the server writes it). */
+export type DoctorNote = { option: string; text: Record<Lang, string> };
 export type ReportDetail = ReportSummary & {
-  next_step: "follow_up_package" | "doctor_consult" | "no_action" | null;
-  urgent: boolean;
   failure_message: string | null;
   has_file: boolean;
   steps: Step[];
-  results: Result[];
-  explanations: Partial<Record<Lang, { source: "model" | "template"; statements: Statement[] }>>;
+  // a report held for review (status "under_review") has none of these four: the keys are absent
+  next_step?: "follow_up_package" | "doctor_consult" | "no_action" | null;
+  urgent?: boolean;
+  results?: Result[];
+  explanations?: Partial<Record<Lang, { source: "model" | "template"; statements: Statement[] }>>;
+  review_pending?: boolean; // a doctor still has to look at it (a warnings-only report shows as it is)
+  doctor_note?: DoctorNote; // once a doctor edited or escalated
 };
 export type ChatMessage = { role: "user" | "assistant"; text: string; tier: string; created_at: string };
 export type StaffReport = {
@@ -87,7 +93,35 @@ export type StaffReport = {
   phone_masked: string;
   name: string | null;
 };
-export const TERMINAL: Status[] = ["ready", "needs_review", "failed"];
+export const TERMINAL: Status[] = ["ready", "needs_review", "under_review", "failed"];
+
+export type ReviewKind = "report" | "trend" | "chat";
+export type ReviewReason = "red" | "warnings" | "trend" | "gated_answer";
+export type Decision = "approve" | "edit" | "escalate";
+export type NoteOption = "repeat_test" | "see_doctor_soon" | "no_action_needed" | "call_lab";
+export type Trend = {
+  test_id: string;
+  direction: "rising" | "falling";
+  toward: "out_of_range" | "critical";
+  first_value: number;
+  last_value: number;
+  unit_c: string;
+  points: number;
+};
+export type ReviewItem = {
+  id: string;
+  kind: ReviewKind;
+  reason: ReviewReason;
+  status: "pending" | "approved" | "edited" | "escalated";
+  note_option: NoteOption | null;
+  created_at: string;
+  due_at: string;
+  patient_name: string | null;
+  report_id: string | null;
+  trend: Trend | null;
+  chat: { question: string | null; reply: string | null } | null;
+};
+export type ReviewDetail = ReviewItem & { report: ReportDetail | null };
 
 async function upload<T>(path: string, file: File): Promise<T> {
   const body = new FormData();
@@ -123,6 +157,10 @@ export const api = {
   order: (phone: string, name: string) =>
     req<{ id: string }>("POST", "/api/staff/orders", { phone, name: name || null }),
   markInLab: (id: string) => req<void>("POST", `/api/staff/reports/${id}/status`, { status: "in_lab" }),
+  doctorQueue: () => req<ReviewItem[]>("GET", "/api/doctor/queue"),
+  doctorReview: (id: string) => req<ReviewDetail>("GET", `/api/doctor/reviews/${id}`),
+  decide: (id: string, action: Decision, option: NoteOption | null = null) =>
+    req<{ status: ReviewItem["status"] }>("POST", `/api/doctor/reviews/${id}`, { action, option }),
   staffUpload: (id: string, file: File) => upload<{ status: Status }>(`/api/staff/reports/${id}/file`, file),
 };
 
@@ -172,6 +210,22 @@ const MESSAGES: Record<string, { en: string; hi: string }> = {
   not_a_patient: {
     en: "This number belongs to lab staff, not a patient.",
     hi: "यह नंबर लैब स्टाफ़ का है, मरीज़ का नहीं।",
+  },
+  under_review: {
+    en: "Your lab's doctor is still reviewing this report. You can ask questions once they have.",
+    hi: "आपकी लैब के डॉक्टर अभी यह रिपोर्ट देख रहे हैं। उनके देख लेने के बाद आप सवाल पूछ सकते हैं।",
+  },
+  already_decided: {
+    en: "This item was already decided, by another doctor or by the timeout. Go back to the queue.",
+    hi: "यह पहले ही तय हो चुका है, किसी दूसरे डॉक्टर ने या समय-सीमा ने। सूची पर वापस जाएं।",
+  },
+  invalid_option: {
+    en: "That note isn't one of the four allowed. Pick one again.",
+    hi: "यह नोट चार मान्य नोट में से नहीं है। फिर से चुनें।",
+  },
+  cannot_escalate_chat: {
+    en: "A chat answer can't be escalated. Approve it, or edit it with a note.",
+    hi: "चैट के जवाब को आगे नहीं भेजा जा सकता। उसे मंज़ूर करें, या नोट के साथ बदलें।",
   },
   consent_required: {
     en: "Give consent on the first screen before uploading a report.",

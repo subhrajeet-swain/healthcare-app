@@ -9,6 +9,7 @@ export const STATUS: Record<Status, Pair> = {
   received: { en: "Report received", hi: "रिपोर्ट मिली" },
   extracting: { en: "Reading the report", hi: "रिपोर्ट पढ़ी जा रही है" },
   explaining: { en: "Writing your explanation", hi: "आसान भाषा में लिखा जा रहा है" },
+  under_review: { en: "Under review", hi: "डॉक्टर देख रहे हैं" },
   ready: { en: "Ready", hi: "तैयार" },
   needs_review: { en: "Ready", hi: "तैयार" },
   failed: { en: "Could not read", hi: "पढ़ा नहीं जा सका" },

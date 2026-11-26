@@ -3,6 +3,7 @@ import { ApiError, type Me, api, messageFor } from "./api";
 import { Band } from "./Band";
 import { Consent } from "./pages/Consent";
 import { Dashboard } from "./pages/Dashboard";
+import { Review } from "./pages/Doctor";
 import { ChatPage } from "./pages/ChatPage";
 import { Login } from "./pages/Login";
 import { Profile } from "./pages/Profile";
@@ -141,6 +142,7 @@ export default function App() {
   }
   const patient = me.role === "patient";
   if (route.name === "report") return <Report id={route.id} nav={patient} />;
+  if (route.name === "review" && me.role === "doctor") return <Review key={route.id} id={route.id} />;
   if (patient && route.name === "chat") return <ChatPage />;
   if (patient && route.name === "profile") return <Profile me={me} onSignOut={signOut} onDeleted={signedOut} />;
   return <Dashboard me={me} onSignOut={signOut} onDeleted={signedOut} />;

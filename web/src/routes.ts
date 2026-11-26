@@ -6,6 +6,7 @@ export type Route =
   | { name: "login"; slug: string }
   | { name: "consent" }
   | { name: "report"; id: string }
+  | { name: "review"; id: string }
   | { name: "chat" }
   | { name: "profile" }
   | { name: "home" };
@@ -30,6 +31,8 @@ export function parseRoute(path: string): Route {
   if (/^\/profile\/?$/.test(path)) return { name: "profile" };
   const report = path.match(/^\/reports\/([A-Za-z0-9-]+)\/?$/);
   if (report) return { name: "report", id: report[1] };
+  const review = path.match(/^\/reviews\/([A-Za-z0-9-]+)\/?$/);
+  if (review) return { name: "review", id: review[1] };
   return { name: "home" };
 }
 

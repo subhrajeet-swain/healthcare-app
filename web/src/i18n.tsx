@@ -107,6 +107,14 @@ export const STRINGS = {
   progressLede: { en: "This usually takes under a minute. The page updates by itself.", hi: "इसमें आमतौर पर एक मिनट से कम लगता है। यह पेज अपने-आप अपडेट होता है।" },
   progressSlow: { en: "Taking longer than usual. Your report is safe and will be read automatically.", hi: "सामान्य से ज़्यादा समय लग रहा है। आपकी रिपोर्ट सुरक्षित है और अपने-आप पढ़ी जाएगी।" },
 
+  // report held for a doctor, review pending, doctor's note
+  heldLine: { en: "Your lab's doctor is reviewing this report", hi: "आपकी लैब के डॉक्टर यह रिपोर्ट देख रहे हैं" },
+  heldBody: { en: "Your results will show here once the doctor has looked at them. If you feel unwell in the meantime, call your lab or a doctor.", hi: "डॉक्टर के देख लेने के बाद आपके परिणाम यहाँ दिखेंगे। इस बीच तबीयत ठीक न लगे तो अपनी लैब या किसी डॉक्टर को फ़ोन करें।" },
+  checkAgain: { en: "Check again", hi: "फिर से देखें" },
+  reviewPending: { en: "A doctor is also checking this report. If they add a note, it will show here.", hi: "एक डॉक्टर यह रिपोर्ट भी जांच रहे हैं। वे कोई नोट जोड़ेंगे तो वह यहाँ दिखेगा।" },
+  doctorNote: { en: "A note from your lab's doctor", hi: "आपकी लैब के डॉक्टर का नोट" },
+  chatHeld: { en: "You can ask questions once your lab's doctor has looked at your latest report.", hi: "आपकी लैब के डॉक्टर के ताज़ा रिपोर्ट देख लेने के बाद आप सवाल पूछ सकते हैं।" },
+
   // reports home summary
   latestReport: { en: "Latest report · {date}", hi: "ताज़ा रिपोर्ट · {date}" },
   testsOne: { en: "1 test", hi: "1 जांच" },
@@ -150,6 +158,33 @@ export const STRINGS = {
   noLabReports: { en: "No reports yet. Create an order when you collect a sample.", hi: "अभी कोई रिपोर्ट नहीं। सैंपल लेने पर ऑर्डर बनाएं।" },
   markInLab: { en: "Mark in lab", hi: "लैब में भेजें" },
   uploadResult: { en: "Upload result", hi: "परिणाम अपलोड करें" },
+
+  // doctor review queue
+  docWaiting: { en: "{n} waiting", hi: "{n} इंतज़ार में" },
+  docLoadFailed: { en: "We couldn't load this. Check your connection and try again.", hi: "यह लोड नहीं हो सका। अपना इंटरनेट कनेक्शन जांचें और फिर कोशिश करें।" },
+  docNoName: { en: "Name not given", hi: "नाम नहीं दिया गया" },
+  docRaised: { en: "Raised {date}", hi: "{date} को आई" },
+  docNotFound: { en: "Review item not found", hi: "जांच की मद नहीं मिली" },
+  docBack: { en: "Back to the queue", hi: "सूची पर वापस" },
+  docAsked: { en: "Patient asked", hi: "मरीज़ ने पूछा" },
+  docHeld: { en: "Reply held back", hi: "रोका गया जवाब" },
+  docNoReport: { en: "No report is attached to this item.", hi: "इस मद के साथ कोई रिपोर्ट जुड़ी नहीं है।" },
+  docDecide: { en: "Decision", hi: "फ़ैसला" },
+  docHintReport: { en: "Approve releases the report as it is. Edit adds one fixed note. Escalate asks the patient to call the lab today.", hi: "मंज़ूर करने पर रिपोर्ट जैसी है वैसी मरीज़ तक पहुँचती है। बदलने पर एक तय नोट जुड़ता है। आगे भेजने पर मरीज़ से आज ही लैब को फ़ोन करने को कहा जाता है।" },
+  docHintTrend: { en: "Your decision is recorded against this trend alert.", hi: "आपका फ़ैसला इस ट्रेंड अलर्ट के साथ दर्ज होगा।" },
+  docHintChat: { en: "Approve keeps the reply as it is. Edit adds one fixed note to the chat.", hi: "मंज़ूर करने पर जवाब जैसा है वैसा रहता है। बदलने पर चैट में एक तय नोट जुड़ता है।" },
+  docApprove: { en: "Approve", hi: "मंज़ूर करें" },
+  docEdit: { en: "Edit", hi: "बदलें" },
+  docEscalate: { en: "Escalate", hi: "आगे भेजें" },
+  docPickNote: { en: "Pick one note", hi: "एक नोट चुनें" },
+  docSend: { en: "Send note", hi: "नोट भेजें" },
+  docApproved: { en: "Approved", hi: "मंज़ूर" },
+  docEdited: { en: "Edited", hi: "बदला गया" },
+  docEscalated: { en: "Escalated", hi: "आगे भेजा गया" },
+  docDoneReport: { en: "The patient can now see this report.", hi: "मरीज़ अब यह रिपोर्ट देख सकता है।" },
+  docDoneEscalated: { en: "The patient can now see this report, with a note to call the lab today.", hi: "मरीज़ अब यह रिपोर्ट देख सकता है, साथ में आज ही लैब को फ़ोन करने का नोट है।" },
+  docDoneChat: { en: "Your note was added to the patient's chat.", hi: "आपका नोट मरीज़ की चैट में जोड़ दिया गया।" },
+  docDoneOther: { en: "Your decision is recorded.", hi: "आपका फ़ैसला दर्ज हो गया।" },
 } satisfies Record<string, Pair>;
 
 export type Key = keyof typeof STRINGS;
