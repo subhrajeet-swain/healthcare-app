@@ -218,6 +218,7 @@ export const STRINGS = {
   famRemove: { en: "Remove", hi: "हटाएं" },
   famYesRemove: { en: "Yes, remove", hi: "हाँ, हटाएं" },
   famKeep: { en: "Keep", hi: "रहने दें" },
+  famRemoveChildWarn: { en: "Their reports are deleted too, unless someone else also manages them. This cannot be undone.", hi: "उनकी रिपोर्ट भी डिलीट हो जाएंगी, जब तक कोई और भी उन्हें नहीं संभालता। इसे वापस नहीं किया जा सकता।" },
   famAdd: { en: "Add someone", hi: "किसी को जोड़ें" },
   famWho: { en: "Who is it?", hi: "यह कौन है?" },
   famName: { en: "Their name", hi: "उनका नाम" },

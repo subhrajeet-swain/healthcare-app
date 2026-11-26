@@ -312,6 +312,10 @@ const MESSAGES: Record<string, { en: string; hi: string }> = {
     hi: "यह व्यक्ति पहले से आपकी परिवार सूची में है।",
   },
   invalid_name: { en: "Enter a name.", hi: "नाम डालें।" },
+  too_many_invites: {
+    en: "Too many invites are waiting. Wait for some to be accepted, or remove them.",
+    hi: "बहुत सारे न्योते इंतज़ार में हैं। कुछ के मंज़ूर होने तक रुकें, या उन्हें हटा दें।",
+  },
 };
 const FALLBACK = {
   en: "Something went wrong on our side. Try again in a minute.",

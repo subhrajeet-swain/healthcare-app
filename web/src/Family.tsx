@@ -131,7 +131,7 @@ function Row({ who, sub, children }: { who: string; sub: string; children: React
 }
 
 /** Remove asks once: for a child it ends the only way to their reports. */
-function RemoveButton({ label, onRemove, busy }: { label: Key; onRemove: () => void; busy: boolean }) {
+function RemoveButton({ label, onRemove, busy, warn }: { label: Key; onRemove: () => void; busy: boolean; warn?: Key }) {
   const { t } = useLang();
   const [sure, setSure] = useState(false);
   if (!sure)
@@ -142,6 +142,7 @@ function RemoveButton({ label, onRemove, busy }: { label: Key; onRemove: () => v
     );
   return (
     <>
+      {warn && <p role="alert">{t(warn)}</p>}
       <button className="btn btn--danger btn--small" onClick={onRemove} disabled={busy} aria-busy={busy}>
         {t("famYesRemove")}
       </button>
@@ -241,7 +242,12 @@ export function FamilySection() {
               who={m.name ?? t(RELATION[m.relation])}
               sub={`${t(RELATION[m.relation])} · ${t(m.status === "active" ? "famActive" : "famWaiting")}`}
             >
-              <RemoveButton label="famRemove" busy={busy} onRemove={() => act(() => api.revokeLink(m.link_id))} />
+              <RemoveButton
+                label="famRemove"
+                busy={busy}
+                warn={m.relation === "child" ? "famRemoveChildWarn" : undefined}
+                onRemove={() => act(() => api.revokeLink(m.link_id))}
+              />
             </Row>
           ))}
           {invites.map((i) => (

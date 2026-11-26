@@ -251,3 +251,73 @@ def test_staff_list_shows_child_report_without_phone(client, manager, login):
         login(manager[0], "+919100000997", c=sc)
         row = next(x for x in sc.get("/api/staff/reports").json() if x["id"] == rid)
     assert row["phone_masked"] is None and row["name"] == "Mira"
+
+
+def test_pending_invite_never_reveals_the_members_stored_name(client, manager):
+    make_user(manager[1], "9866666666", "patient", name="Lab Entered Name")
+    r = _invite(client, phone="9866666666")
+    assert r.status_code == 201
+    body = client.get("/api/family").text
+    assert "Lab Entered Name" not in body
+    members = client.get("/api/family").json()["members"]
+    assert [m["name"] for m in members] == ["Papa"]  # the manager's own label
+
+
+def test_label_stays_after_accept(client, manager, adult):
+    ac, aid = adult
+    with _owner(manager[1]) as c:
+        from app import crypto
+        cipher = crypto.cipher_for(c, manager[1])
+        c.execute("UPDATE users SET name_enc = %s WHERE id = %s",
+                  (cipher.encrypt("Real Name"), aid))
+    ac.post(f"/api/family/{_invite(client).json()['link_id']}/accept")
+    assert [m["name"] for m in client.get("/api/family").json()["members"]] == ["Papa"]
+
+
+def test_invited_unknown_phone_gets_no_name(client, manager):
+    mid = _invite(client, phone="9877777777").json()["member_id"]
+    with _owner(manager[1]) as c:
+        u = c.execute("SELECT name_enc FROM users WHERE id = %s", (mid,)).fetchone()
+    assert u["name_enc"] is None
+
+
+def test_existing_users_name_is_never_touched(client, manager):
+    uid = make_user(manager[1], "9866666667", "patient")
+    _invite(client, phone="9866666667")
+    with _owner(manager[1]) as c:
+        assert c.execute("SELECT name_enc FROM users WHERE id = %s",
+                         (uid,)).fetchone()["name_enc"] is None
+
+
+def test_removing_a_child_deletes_the_child(client, manager):
+    child = _add_child(client)
+    rid = client.post("/api/reports", files=PDF, headers=_as(child["member_id"])).json()["id"]
+    assert client.delete(f"/api/family/{child['link_id']}").status_code == 204
+    with _owner(manager[1]) as c:
+        assert c.execute("SELECT 1 FROM users WHERE id = %s",
+                         (child["member_id"],)).fetchone() is None
+        assert c.execute("SELECT 1 FROM reports WHERE id = %s", (rid,)).fetchone() is None
+    assert client.get("/api/family").json()["members"] == []
+
+
+def test_removing_a_child_with_another_manager_keeps_it(client, manager, login):
+    child = _add_child(client)
+    with TestClient(client.app) as oc:
+        login(manager[0], "9855555556", c=oc)
+        oid = uuid.UUID(oc.get("/api/me").json()["id"])
+        with _owner(manager[1]) as c:
+            c.execute("INSERT INTO family_links (tenant_id, manager_id, member_id, relation, "
+                      "status) VALUES (%s, %s, %s, 'child', 'active')",
+                      (manager[1], oid, child["member_id"]))
+        assert client.delete(f"/api/family/{child['link_id']}").status_code == 204
+        assert oc.get("/api/me", headers=_as(child["member_id"])).status_code == 200
+    with _owner(manager[1]) as c:
+        assert c.execute("SELECT 1 FROM users WHERE id = %s",
+                         (child["member_id"],)).fetchone() is not None
+
+
+def test_pending_invites_are_capped(client, manager):
+    for i in range(10):
+        assert _invite(client, phone=f"98880000{i:02d}").status_code == 201
+    r = _invite(client, phone="9888000099")
+    assert r.status_code == 429 and r.json() == {"error": "too_many_invites"}
