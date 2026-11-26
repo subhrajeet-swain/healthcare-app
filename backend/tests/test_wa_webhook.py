@@ -19,14 +19,10 @@ SENDER = "+919876543210"
 
 
 @pytest.fixture
-def wa_lab(lab, monkeypatch):
-    """A lab with its own business number (never `dev-alpha`) and the app secret set."""
-    _, tid = lab
-    pn = f"pn-{uuid.uuid4().hex[:8]}"
-    with db.owner_tx(settings.owner_database_url) as c:
-        c.execute("UPDATE tenants SET wa_phone_number_id = %s WHERE id = %s", (pn, tid))
+def wa_lab(wa_lab, monkeypatch):
+    """The shared `wa_lab` (conftest) with the app secret set."""
     monkeypatch.setattr(settings, "wa_app_secret", SECRET)
-    return tid, pn
+    return wa_lab
 
 
 def _payload(pn, *messages):

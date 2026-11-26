@@ -82,6 +82,7 @@ def login(client, caplog):
 
 
 CONSENT = {"purpose": "core", "version": "2026-11-v1"}
+WA_DISPLAY = "+15551234567"
 
 
 def pdf_bytes(pages: int = 1) -> bytes:
@@ -105,3 +106,20 @@ def patient(client, lab, login):
     assert login(slug, "9876543210").status_code == 200
     assert client.post("/api/consents", json=CONSENT).status_code == 201
     return slug, tid, uuid.UUID(client.get("/api/me").json()["id"])
+
+
+@pytest.fixture
+def wa_lab(lab):
+    """A lab with its own business number (never `dev-alpha`, which the seed owns).
+
+    Returns (tenant_id, phone_number_id); the display number is `WA_DISPLAY`."""
+    from app import db
+
+    _, tid = lab
+    pn = f"pn-{uuid.uuid4().hex[:8]}"
+    with db.owner_tx(settings.owner_database_url) as c:
+        c.execute(
+            "UPDATE tenants SET wa_phone_number_id = %s, wa_display_phone = %s WHERE id = %s",
+            (pn, WA_DISPLAY, tid),
+        )
+    return tid, pn
