@@ -104,14 +104,14 @@ def list_reports(ctx: Ctx) -> list[dict]:
         audit(c, ctx, "list", "report", ctx.tenant_id)
     out = []
     for r in rows:
-        phone = cipher.decrypt(r["phone_enc"])
+        phone = cipher.decrypt(r["phone_enc"]) if r["phone_enc"] else None  # a child has none
         out.append({
             "id": str(r["id"]),
             "status": r["status"],
             "triage": r["triage"],
             "source": r["source"],
             "created_at": r["created_at"],
-            "phone_masked": phone[:3] + "******" + phone[-4:],
+            "phone_masked": phone[:3] + "******" + phone[-4:] if phone else None,
             "name": cipher.decrypt(r["name_enc"]) if r["name_enc"] else None,
         })
     return out

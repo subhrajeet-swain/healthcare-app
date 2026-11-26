@@ -162,9 +162,7 @@ def _pipeline(job: dict, models: dict | None, saver) -> None:
             raise WaitingConsent  # a lab upload; granting consent re-queues it
         cipher = cipher_for(c, tid)
     # identifiers are only used to redact the text layer; never logged or put in graph state
-    known = [cipher.decrypt(user["phone_enc"])]
-    if user["name_enc"]:
-        known.append(cipher.decrypt(user["name_enc"]))
+    known = [cipher.decrypt(user[k]) for k in ("phone_enc", "name_enc") if user[k]]
     mime = report["file_mime"]
 
     def load_file() -> tuple[bytes, str]:

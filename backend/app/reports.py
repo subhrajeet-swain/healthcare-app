@@ -54,7 +54,7 @@ def create_report(c, ctx: TenantCtx, user_id: UUID, source: str, status: str) ->
     rid = c.execute(
         "INSERT INTO reports (tenant_id, user_id, uploaded_by, source, status) "
         "VALUES (%s, %s, %s, %s, %s) RETURNING id",
-        (ctx.tenant_id, user_id, ctx.user_id, source, status),
+        (ctx.tenant_id, user_id, ctx.actor_id or ctx.user_id, source, status),
     ).fetchone()["id"]
     c.execute(
         "INSERT INTO report_steps (tenant_id, report_id, status) VALUES (%s, %s, %s)",

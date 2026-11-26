@@ -3,7 +3,19 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Response
 
-from app import auth, chat_api, db, doctor, errors, privacy, reports, staff, timeline, tracing
+from app import (
+    auth,
+    chat_api,
+    db,
+    doctor,
+    errors,
+    family,
+    privacy,
+    reports,
+    staff,
+    timeline,
+    tracing,
+)
 from app.config import settings
 
 # App logs (incl. the dev OTP) go to the console; uvicorn only configures its own loggers.
@@ -32,6 +44,7 @@ app.include_router(staff.router)
 app.include_router(chat_api.router)
 app.include_router(doctor.router)
 app.include_router(timeline.router)
+app.include_router(family.router)
 
 
 # One serial worker: a bulk upload (10 reports at ~30-90 s) can queue for minutes with
