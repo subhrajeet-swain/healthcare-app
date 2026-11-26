@@ -1,10 +1,13 @@
 """Eval runner. Local by default; --langsmith also records the run as a LangSmith experiment.
 
-    python evals/run.py smoke|fixtures|chat     offline, run in CI
+    python evals/run.py smoke|fixtures|chat|trends|held     offline, run in CI
     python evals/run.py reports                 live: 15 synthetic PDFs, needs GOOGLE_API_KEY
 
 fixtures: the explainer's 15 offline cases (811eb54 evals/cases.json) against app.brain.
 chat:     the chat brain on adversarial questions and scripted adversarial model output.
+trends:   convert + detect_trends on datasets/trend_cases.json (mixed units, one-sided ranges).
+held:     the 15 fixture specs through template_result; a red one's held patient view must carry
+          no critical flag, no red triage and no result value.
 reports:  the 15 synthetic PDFs through the real pipeline; their specs are the answer key.
           Target (explainer README): 30/30 cases with fixtures, grounding 100% EN and HI,
           0 unsafe, 0 critical missed.
@@ -14,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -160,6 +164,89 @@ def run_chat() -> list[tuple[str, bool, str]]:
     return out
 
 
+# --------------------------------------------------------------------------- trends
+
+
+def run_trends() -> list[tuple[str, bool, str]]:
+    from datetime import date, timedelta
+
+    from app.brain.models import Flag, TestResult
+    from app.brain.trends import Point, detect_trends
+    from app.brain.units import convert
+
+    out = []
+    for c in json.loads((DATASETS / "trend_cases.json").read_text("utf-8")):
+        points = []
+        for i, p in enumerate(c["points"]):
+            r = TestResult(test_id=c["test_id"], test_name=c["test_id"], flag=Flag.NORMAL, **p)
+            if conv := convert(r):  # an unconvertible point is left out, as store_result does
+                points.append(Point(f"r{i}", date(2025, 1, 1) + timedelta(days=30 * i),
+                                    conv.value, conv.ref_low, conv.ref_high))
+        got = [(t.direction, t.toward) for t in detect_trends({c["test_id"]: points})]
+        want = [tuple(c["expect"])] if c["expect"] else []
+        out.append((c["id"], got == want, f"got {got} want {want}"))
+    return out
+
+
+# --------------------------------------------------------------------------- held
+
+
+def _patient_detail(spec_id: str, res) -> dict:
+    """The keys `reports.report_detail` returns, filled from a finished run (no DB)."""
+    from app.brain.triage import result_triage
+
+    return {
+        "id": spec_id,
+        "status": res.final_status,
+        "source": "patient",
+        "triage": res.triage,
+        "next_step": res.next_step.value,
+        "urgent": res.urgent,
+        "collected_on": str(res.report.collected_on),
+        "steps": [{"status": "processing", "at": "t0"}, {"status": res.final_status, "at": "t1"}],
+        "results": [r.model_dump(mode="json") | {"triage": result_triage(r.flag)}
+                    for r in res.report.results],
+        "explanations": {
+            lang: {"source": res.explanation_source,
+                   "statements": [s.model_dump(mode="json") for s in e.statements]}
+            for lang, e in res.explanations.items()
+        },
+        "review_pending": True,
+    }
+
+
+def _leaks(view: dict, res) -> list[str]:
+    """What a held patient payload must not carry: flag, triage, status, any result value."""
+    text = json.dumps(view, default=str)
+    found = [w for w in ('"critical"', '"red"', '"needs_review"') if w in text]
+    for r in res.report.results:
+        token = re.escape(json.dumps(r.value))  # as it would be written in the payload
+        if re.search(rf"(?<![\w.\-]){token}(?![\w.])", text):
+            found.append(f"value {r.value} ({r.test_id})")
+    return found
+
+
+def run_held() -> list[tuple[str, bool, str]]:
+    from app import visibility
+    from app.brain.pipeline import template_result
+
+    out = []
+    for spec_path in sorted((DATA / "specs").glob("report_*.json")):
+        res = template_result(_report_from_spec(json.loads(spec_path.read_text("utf-8"))))
+        detail = _patient_detail(spec_path.stem, res)
+        if not visibility.held(detail, True):  # not red: shown as it is
+            out.append((spec_path.stem, visibility.patient_view(detail, False) is detail,
+                        f"{res.triage}, not held"))
+            continue
+        view = visibility.patient_view(detail, True)
+        leaks = _leaks(view, res)
+        ok = (not leaks and view["status"] == visibility.UNDER_REVIEW
+              and not set(visibility.HIDDEN) & set(view)
+              and bool(_leaks(detail, res)))  # the check must see the leak in the full detail
+        out.append((spec_path.stem, ok, f"red, held: leaks={leaks}"))
+    return out
+
+
 # --------------------------------------------------------------------------- reports (live)
 
 
@@ -215,6 +302,8 @@ SUITES: dict[str, Callable[[], list[tuple[str, bool, str]]]] = {
     "smoke": run_smoke,
     "fixtures": run_fixtures,
     "chat": run_chat,
+    "trends": run_trends,
+    "held": run_held,
     "reports": run_reports,
 }
 
