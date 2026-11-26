@@ -24,12 +24,12 @@ Status: not started. Depends on: phases 1 and 2. **Start Meta onboarding during 
 - Message length and formatting: WhatsApp allows simple markdown. Explanations are split into short messages.
 
 **Done when**
-- [ ] The same PDF sent on WhatsApp and on the web gives the same explanation, colour and next step.
-- [ ] A conversation started on WhatsApp can be continued in the web chat, and the other way round.
-- [ ] A forged webhook (bad signature) is rejected, and a duplicate delivery is processed once.
-- [ ] Red-result values never appear in a template message.
-- [ ] Opt-out stops all outbound messages.
-- [ ] `security-review` is clean: webhook, media download, number linking.
+- [ ] The same PDF sent on WhatsApp and on the web gives the same explanation, colour and next step. (explanation and next step proven by `evals whatsapp` 32/32: the WhatsApp text carries every statement of the web detail and its closing line once; a WhatsApp upload runs the same `report.pipeline` job: `test_media_creates_whatsapp_report`; the same PDF through both channels, and the colour, which WhatsApp does not show as text: manual check pending, needs `WA_APP_SECRET` in `.env`)
+- [x] A conversation started on WhatsApp can be continued in the web chat, and the other way round. (`test_conversation_continues_across_channels` (web turn, then WhatsApp turn, one history), `test_question_on_whatsapp_stored_with_channel`, `test_web_history_has_channel`)
+- [x] A forged webhook (bad signature) is rejected, and a duplicate delivery is processed once. (`test_forged_signature_401_and_no_rows`, `test_unconfigured_secret_is_503`, `test_signature_ok_and_forged`; `test_duplicate_delivery_one_job`)
+- [x] Red-result values never appear in a template message. (`evals whatsapp` 32/32: no red fixture sends text, and the red copy and `report_ready_red` hold no value; every template has no digit; `test_templates_and_copy_carry_no_numbers`, `test_notify_released_red_has_no_values`, `test_report_command_red_sends_red_line`)
+- [x] Opt-out stops all outbound messages. (`test_stop_and_start`, `test_withdrawn_sender_gets_no_reply`, `test_notify_after_stop_sends_nothing`, `test_unlink_deletes_and_withdraws`)
+- [ ] `security-review` is clean: webhook, media download, number linking. (not run yet; the user is asked first)
 
 **Risks**
 - **Meta business verification** needs a business identity. As an individual this may stall. Start in test mode: Meta allows a test number that messages a few verified recipients. *Unverified in detail; check Meta's docs at the start.*

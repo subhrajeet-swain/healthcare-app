@@ -160,6 +160,17 @@ def test_report_paragraphs_order():
     assert hi[:2] == ["H1", "H-repeat."] and len(hi) == 3
 
 
+def test_report_paragraphs_closing_line_once_when_stored_as_a_statement():
+    """The pipeline stores the closing line as the last (system) statement; it is not sent twice."""
+    line = "Ask your lab or your doctor about a follow-up test for the results above."
+    d = _detail()
+    d["explanations"]["en"]["statements"].append({"text": line, "source": "system"})
+    assert report_paragraphs(d, "en") == ["S1", "S2", line]
+    only = _detail()  # nothing but the closing line: still sent once
+    only["explanations"]["en"]["statements"] = [{"text": line, "source": "system"}]
+    assert report_paragraphs(only, "en") == [line]
+
+
 def test_report_paragraphs_falls_back_to_english_and_skips_missing_parts():
     d = _detail(next_step="no_action")
     del d["explanations"]["hi"]

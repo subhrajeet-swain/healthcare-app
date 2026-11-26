@@ -39,6 +39,7 @@ jobs:
           uv run python ../evals/run.py chat
           uv run python ../evals/run.py trends
           uv run python ../evals/run.py held
+          uv run python ../evals/run.py whatsapp
 
   web:
     runs-on: ubuntu-latest

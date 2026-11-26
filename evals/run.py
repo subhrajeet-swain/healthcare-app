@@ -1,6 +1,6 @@
 """Eval runner. Local by default; --langsmith also records the run as a LangSmith experiment.
 
-    python evals/run.py smoke|fixtures|chat|trends|held     offline, run in CI
+    python evals/run.py smoke|fixtures|chat|trends|held|whatsapp     offline, run in CI
     python evals/run.py reports                 live: 15 synthetic PDFs, needs GOOGLE_API_KEY
 
 fixtures: the explainer's 15 offline cases (811eb54 evals/cases.json) against app.brain.
@@ -8,6 +8,9 @@ chat:     the chat brain on adversarial questions and scripted adversarial model
 trends:   convert + detect_trends on datasets/trend_cases.json (mixed units, one-sided ranges).
 held:     the 15 fixture specs through template_result; a red one's held patient view must carry
           no critical flag, no red triage and no result value.
+whatsapp: the 15 fixture specs as WhatsApp text: a non-red one has the web explanation and closing
+          line once, in chunks of at most 700; a red one raises and its fixed lines hold no value;
+          every COPY/TEMPLATES text has no digit and no placeholder but {lab}.
 reports:  the 15 synthetic PDFs through the real pipeline; their specs are the answer key.
           Target (explainer README): 30/30 cases with fixtures, grounding 100% EN and HI,
           0 unsafe, 0 critical missed.
@@ -247,6 +250,62 @@ def run_held() -> list[tuple[str, bool, str]]:
     return out
 
 
+# --------------------------------------------------------------------------- whatsapp
+
+
+def _whatsapp_spec(spec_path: Path) -> tuple[str, bool, str]:
+    """One fixture spec: a red one sends no text (and no value in its two fixed lines); any other
+    one carries the web detail's explanation and closing line, once, in chunks of at most CHUNK."""
+    from app import visibility
+    from app.brain.nextstep import closing_message
+    from app.brain.pipeline import template_result
+    from app.whatsapp import COPY, TEMPLATES, report_paragraphs, split
+
+    res = template_result(_report_from_spec(json.loads(spec_path.read_text("utf-8"))))
+    detail = _patient_detail(spec_path.stem, res)
+    if res.triage == "red":
+        def raises(d: dict, lang: str) -> bool:
+            try:
+                report_paragraphs(d, lang)
+            except ValueError:
+                return True
+            return False
+
+        held = visibility.patient_view(detail, True)
+        fixed = [COPY["red"][lang] for lang in ("en", "hi")]
+        fixed += [TEMPLATES["report_ready_red"][lang] for lang in ("en", "hi")]
+        values = {v for r in res.report.results for v in (str(r.value), f"{r.value:g}")}
+        ok = (all(raises(d, lang) for d in (detail, held) for lang in ("en", "hi"))
+              and not any(v in t for v in values for t in fixed))
+        return spec_path.stem, ok, "red: no text, and no value in the red copy or template"
+    bad = []
+    for lang in ("en", "hi"):
+        paras = report_paragraphs(detail, lang)
+        chunks = split(paras)
+        statements = [s["text"] for s in detail["explanations"][lang]["statements"]]
+        closing = closing_message(res.next_step, lang)
+        if (any(len(c) > 700 for c in chunks) or "\n\n".join(chunks) != "\n\n".join(paras)
+                or any(s not in paras for s in statements)
+                or paras.count(closing) != (1 if closing else 0)
+                or len(paras) != len(statements)):  # the closing line is a statement already
+            bad.append(lang)
+    return spec_path.stem, not bad, f"{res.triage}: {'fails ' + ','.join(bad) if bad else 'ok'}"
+
+
+def run_whatsapp() -> list[tuple[str, bool, str]]:
+    from app.whatsapp import COPY, TEMPLATES
+
+    out = [_whatsapp_spec(p) for p in sorted((DATA / "specs").glob("report_*.json"))]
+    for table, name in ((COPY, "copy"), (TEMPLATES, "template")):
+        for key, langs in table.items():
+            texts = list(langs.values())
+            holes = [m for t in texts for m in re.findall(r"\{[^}]*\}", t) if m != "{lab}"]
+            digits = [t for t in texts if re.search(r"\d", t)]
+            out.append((f"{name}.{key}", len(texts) == 2 and not holes and not digits,
+                        f"placeholders={holes} digits={len(digits)}"))
+    return out
+
+
 # --------------------------------------------------------------------------- reports (live)
 
 
@@ -304,6 +363,7 @@ SUITES: dict[str, Callable[[], list[tuple[str, bool, str]]]] = {
     "chat": run_chat,
     "trends": run_trends,
     "held": run_held,
+    "whatsapp": run_whatsapp,
     "reports": run_reports,
 }
 

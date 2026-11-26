@@ -211,10 +211,14 @@ def report_paragraphs(detail: dict, lang: str) -> list[str]:
     if detail.get("triage") == "red" or detail["status"] == visibility.UNDER_REVIEW:
         raise ValueError("red or held report has no WhatsApp text")
     expl = detail["explanations"].get(lang) or detail["explanations"].get("en") or {}
-    out = [s["text"] for s in expl.get("statements", [])]
+    stmts = expl.get("statements", [])
+    line = closing_message(NextStep(detail["next_step"]), lang) if detail.get("next_step") else None
+    if line and stmts and stmts[-1].get("source") == "system":
+        stmts = stmts[:-1]  # the pipeline stores the closing line last; it is sent once, below
+    out = [s["text"] for s in stmts]
     if note := detail.get("doctor_note"):
         out.append(note["text"].get(lang) or note["text"]["en"])
-    if detail.get("next_step") and (line := closing_message(NextStep(detail["next_step"]), lang)):
+    if line:
         out.append(line)
     return out
 
