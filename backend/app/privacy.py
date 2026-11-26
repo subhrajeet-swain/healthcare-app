@@ -7,7 +7,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from app import db, files
+from app import db, files, review, visibility
 from app.audit import audit
 from app.auth import COOKIE, Ctx
 from app.brain import factsheet
@@ -99,6 +99,11 @@ def export(ctx: Ctx) -> JSONResponse:
                 "FROM results WHERE report_id = %s ORDER BY test_id",
                 (r["id"],),
             ).fetchall()
+        pending = review.pending_report_ids(c, ctx.user_id)
+        # a held report is listed by status only
+        reports = [
+            visibility.patient_view(r, visibility.held(r, r["id"] in pending)) for r in reports
+        ]
         audit(c, ctx, "export", "user", ctx.user_id)
     data = {
         "user": {

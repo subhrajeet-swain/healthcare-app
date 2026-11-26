@@ -14,9 +14,10 @@ from fastapi import APIRouter, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from psycopg.types.json import Jsonb
 
-from app import db, files, review
+from app import db, files, review, visibility
 from app.audit import audit
 from app.auth import Ctx
+from app.brain.templates import NOTE_TEXT
 from app.config import settings
 from app.crypto import cipher_for
 from app.errors import ApiError, not_found
@@ -25,7 +26,7 @@ from app.tenancy import TenantCtx
 router = APIRouter(prefix="/api/reports")
 
 STAFF_ROLES = {"lab_staff", "doctor", "lab_admin"}
-TERMINAL = {"ready", "needs_review", "failed"}
+TERMINAL = {"ready", "needs_review", visibility.UNDER_REVIEW, "failed"}
 
 
 def require_consent(c, ctx: TenantCtx) -> None:
@@ -152,7 +153,23 @@ def visible_report(c, ctx: TenantCtx, report_id: UUID) -> dict:
     return row
 
 
-def report_detail(c, report: dict) -> dict:
+def held_for(c, ctx: TenantCtx, report: dict) -> bool:
+    """True when this user may not see the report's values yet (staff always may)."""
+    return ctx.role not in STAFF_ROLES and visibility.held(
+        report, report["id"] in review.pending_report_ids(c, report["user_id"])
+    )
+
+
+def doctor_note(item: dict | None) -> dict | None:
+    """The line a decided review adds to the report: the doctor's pick, or call-the-lab."""
+    if item is None or item["status"] not in ("edited", "escalated"):
+        return None
+    option = "call_lab" if item["status"] == "escalated" else item["note_option"]
+    return {"option": option, "text": NOTE_TEXT[option]} if option in NOTE_TEXT else None
+
+
+def report_detail(c, report: dict, staff: bool = False) -> dict:
+    """The report as one user may see it: staff in full, a patient through `visibility`."""
     rid = report["id"]
     steps = c.execute(
         "SELECT status, at FROM report_steps WHERE report_id = %s ORDER BY id", (rid,)
@@ -165,7 +182,13 @@ def report_detail(c, report: dict) -> dict:
     expl = c.execute(
         "SELECT language, source, statements FROM explanations WHERE report_id = %s", (rid,)
     ).fetchall()
-    return {
+    item = c.execute(  # the open item, else the latest decided one
+        "SELECT status, note_option FROM review_items WHERE report_id = %s AND kind = 'report' "
+        "ORDER BY (status = 'pending') DESC, created_at DESC LIMIT 1",
+        (rid,),
+    ).fetchone()
+    pending = item is not None and item["status"] == "pending"
+    detail = {
         "id": str(rid),
         "status": report["status"],
         "source": report["source"],
@@ -181,7 +204,11 @@ def report_detail(c, report: dict) -> dict:
         "explanations": {
             e["language"]: {"source": e["source"], "statements": e["statements"]} for e in expl
         },
+        "review_pending": pending,
     }
+    if note := doctor_note(item):
+        detail["doctor_note"] = note
+    return detail if staff else visibility.patient_view(detail, visibility.held(report, pending))
 
 
 @router.post("", status_code=201)
@@ -205,14 +232,20 @@ def list_reports(ctx: Ctx) -> list[dict]:
             "ORDER BY coalesce(r.collected_on, r.created_at::date) DESC, r.created_at DESC",
             (ctx.user_id,),
         ).fetchall()
+        pending = review.pending_report_ids(c, ctx.user_id)
         audit(c, ctx, "list", "report", ctx.user_id)
-    return rows
+    # the test names would hint at what is held back
+    return [
+        r | {"status": visibility.UNDER_REVIEW, "triage": None, "tests": None}
+        if visibility.held(r, r["id"] in pending) else r
+        for r in rows
+    ]
 
 
 @router.get("/{report_id}")
 def get_report(report_id: UUID, ctx: Ctx) -> dict:
     with db.tenant_tx(ctx) as c:
-        detail = report_detail(c, visible_report(c, ctx, report_id))
+        detail = report_detail(c, visible_report(c, ctx, report_id), ctx.role in STAFF_ROLES)
         audit(c, ctx, "read", "report", report_id)
     return detail
 
@@ -235,7 +268,8 @@ def _snapshot(ctx: TenantCtx, report_id: UUID) -> dict:
         steps = c.execute(
             "SELECT status, at FROM report_steps WHERE report_id = %s ORDER BY id", (report_id,)
         ).fetchall()
-    return {"status": report["status"], "steps": steps}
+        snap = {"status": report["status"], "steps": steps}
+        return visibility.patient_view(snap, held_for(c, ctx, report))
 
 
 def _stream(ctx: TenantCtx, report_id: UUID, first: dict) -> Iterator[str]:
@@ -270,7 +304,11 @@ def _stream_body(ctx: TenantCtx, report_id: UUID, first: dict) -> Iterator[str]:
             for n in conn.notifies(timeout=KEEPALIVE_S, stop_after=1):
                 got = True
                 rid, _, status = n.payload.partition(":")
-                if rid != str(report_id) or status == last:
+                if rid != str(report_id):
+                    continue
+                if status == "needs_review":  # a held report must not say so: ask again
+                    status = _snapshot(ctx, report_id)["status"]
+                if status == last:
                     continue
                 last = status
                 yield _sse({"status": status})
@@ -301,6 +339,8 @@ def get_file(report_id: UUID, ctx: Ctx) -> Response:
         report = visible_report(c, ctx, report_id)
         if report["file_mime"] is None:
             raise not_found()
+        if held_for(c, ctx, report):  # the original would show what the detail hides
+            raise ApiError(409, visibility.UNDER_REVIEW)
         data = files.load(cipher_for(c, ctx.tenant_id), ctx.tenant_id, report_id)
         audit(c, ctx, "read", "report_file", report_id)
     return Response(

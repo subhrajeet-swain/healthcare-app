@@ -9,14 +9,14 @@ from fastapi import APIRouter, Depends
 from langchain_core.language_models.chat_models import BaseChatModel
 from pydantic import BaseModel, Field
 
-from app import db
+from app import db, review
 from app.audit import audit
 from app.auth import Ctx
 from app.brain.chat import HISTORY_TURNS, answer
 from app.brain.factsheet import get_fact_sheet
 from app.crypto import cipher_for
 from app.errors import ApiError
-from app.reports import visible_report
+from app.reports import held_for, visible_report
 
 router = APIRouter(prefix="/api/reports")
 
@@ -40,7 +40,10 @@ Model = Annotated[BaseChatModel | None, Depends(chat_model_dep)]
 @router.post("/{report_id}/chat")
 def chat(report_id: UUID, body: ChatIn, ctx: Ctx, model: Model) -> dict:
     with db.tenant_tx(ctx) as c:
-        if visible_report(c, ctx, report_id)["status"] not in CHAT_STATUSES:
+        report = visible_report(c, ctx, report_id)
+        if held_for(c, ctx, report):
+            raise ApiError(409, "under_review")
+        if report["status"] not in CHAT_STATUSES:
             raise ApiError(409, "report_not_ready")
         sent = c.execute(
             "SELECT count(*) AS n FROM chat_messages WHERE report_id = %s AND user_id = %s "
@@ -64,10 +67,15 @@ def chat(report_id: UUID, body: ChatIn, ctx: Ctx, model: Model) -> dict:
     with db.tenant_tx(ctx) as c:
         visible_report(c, ctx, report_id)  # deleted meanwhile: 404, nothing stored
         for role, text in (("user", body.question), ("assistant", reply.text)):
-            c.execute(
+            message_id = c.execute(
                 "INSERT INTO chat_messages (tenant_id, report_id, user_id, role, text_enc, tier) "
-                "VALUES (%s, %s, %s, %s, %s, %s)",
+                "VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
                 (ctx.tenant_id, report_id, ctx.user_id, role, cipher.encrypt(text), reply.tier),
+            ).fetchone()["id"]
+        if reply.gated:  # the gate replaced the model's answer: a doctor looks at it (Q14)
+            review.open_review(
+                c, ctx.tenant_id, kind="chat", reason="gated_answer", user_id=ctx.user_id,
+                chat_message_id=message_id,  # the assistant's, inserted last
             )
         audit(c, ctx, "chat", "report", report_id)
     return {"reply": reply.text, "tier": reply.tier}
@@ -76,7 +84,8 @@ def chat(report_id: UUID, body: ChatIn, ctx: Ctx, model: Model) -> dict:
 @router.get("/{report_id}/chat")
 def history(report_id: UUID, ctx: Ctx) -> list[dict]:
     with db.tenant_tx(ctx) as c:
-        visible_report(c, ctx, report_id)
+        if held_for(c, ctx, visible_report(c, ctx, report_id)):
+            raise ApiError(409, "under_review")
         cipher = cipher_for(c, ctx.tenant_id)
         rows = c.execute(
             "SELECT role, text_enc, tier, created_at FROM chat_messages "
