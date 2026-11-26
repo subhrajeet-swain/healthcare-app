@@ -39,15 +39,9 @@ def require_consent(c, ctx: TenantCtx) -> None:
 
 
 def read_upload(upload: UploadFile) -> tuple[bytes, str]:
-    """Size, type by content, PDF sanity, scan. Raises ApiError; never trusts the client."""
+    """Read at most one byte over the limit, then `files.check_bytes`. Raises ApiError."""
     data = upload.file.read(files.MAX_BYTES + 1)
-    if len(data) > files.MAX_BYTES:
-        raise ApiError(413, "file_too_large")
-    mime = files.sniff(data)
-    if mime == "application/pdf":
-        files.check_pdf(data)
-    files.scan(data)
-    return data, mime
+    return data, files.check_bytes(data)
 
 
 def create_report(c, ctx: TenantCtx, user_id: UUID, source: str, status: str) -> UUID:

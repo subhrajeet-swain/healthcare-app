@@ -46,6 +46,17 @@ def scan(data: bytes) -> None:
     return None
 
 
+def check_bytes(data: bytes) -> str:
+    """Size, type by content, PDF sanity, scan. Returns the mime; never trusts the sender."""
+    if len(data) > MAX_BYTES:
+        raise ApiError(413, "file_too_large")
+    mime = sniff(data)
+    if mime == "application/pdf":
+        check_pdf(data)
+    scan(data)
+    return mime
+
+
 def _path(tenant_id: UUID, report_id: UUID) -> Path:
     return settings.storage_dir / str(UUID(str(tenant_id))) / str(UUID(str(report_id)))
 
