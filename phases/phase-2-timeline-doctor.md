@@ -25,11 +25,11 @@ Status: not started. Depends on: phase 1. See [PLAN.md](../PLAN.md).
 - Timeline reads are a single indexed query per patient (`results` by patient, test code and date). No new store.
 
 **Done when**
-- [ ] Three synthetic HbA1c reports (6.1, then 6.5, then 7.0) produce a "rising" trend, an amber colour, and a review item.
-- [ ] A mixed-unit series (glucose in mg/dL and mmol/L) trends correctly, and a series that cannot be converted is excluded with a reason shown.
-- [ ] A red result is hidden from the patient until a doctor acts or a timeout escalates it (the timeout is set per lab).
-- [ ] A family member's data is visible only after consent; canary tests cover family links.
-- [ ] `security-review` is clean: share links, family access.
+- [ ] Three synthetic HbA1c reports (6.1, then 6.5, then 7.0) produce a "rising" trend, an amber colour, and a review item. (trend and review item proven by `test_three_hba1c_reports_make_one_amber_trend_and_review`; the amber pill in the browser: manual check pending)
+- [ ] A mixed-unit series (glucose in mg/dL and mmol/L) trends correctly, and a series that cannot be converted is excluded with a reason shown. (trend and exclusion proven by `evals trends` 30/30 and `test_trends_store`/`test_timeline`, which return the reason; the reason line in the browser: manual check pending)
+- [x] A red result is hidden from the patient until a doctor acts or a timeout escalates it (the timeout is set per lab). (`test_visibility`, `test_review_flow::test_timeout_escalates`, `test_review_timeout_comes_from_tenant_settings`, `evals held` 15/15)
+- [x] A family member's data is visible only after consent; canary tests cover family links. (`test_family`: pending invite 404 until accepted, no upload without the member's consent, revoked link 404; `test_canary` covers `family_links`)
+- [ ] `security-review` is clean: share links, family access. (deferred by the user; not run)
 
 **Risks**
 - Name and unit mapping is the real work. Keep the synonym table small and grow it from real reports.
