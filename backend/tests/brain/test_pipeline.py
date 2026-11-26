@@ -5,7 +5,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from app.brain.extract import ExtractionFailed
 from app.brain.nextstep import URGENT_EN
-from app.brain.pipeline import PipelineDeps, build_graph, run, thread_id
+from app.brain.pipeline import PipelineDeps, build_graph, resume, run, thread_id
 from tests.brain.fakes import RaisingModel, ScriptedModel, pdf_with_text
 
 NAME, PHONE = "Asha Rao", "+919876543210"
@@ -235,3 +235,60 @@ def test_nan_value_is_rejected():  # minor 1, re-graded: fails open
            '"unit": "g/dL", "ref_low": 13, "ref_high": 17}]}'
     with pytest.raises(ExtractionFailed):
         _run(rows, ScriptedModel(replies=[]))
+
+
+# --- phase 2: doctor review through interrupt() ------------------------------------
+
+def _graph(extract_reply, saver=None):
+    extract = ScriptedModel(replies=[extract_reply])
+    explain = ScriptedModel(replies=[_explained(("Hemoglobin is low.", ["cbc.hemoglobin"]))])
+    return build_graph(_deps(extract, explain), saver or InMemorySaver()), extract, explain
+
+
+def test_red_report_interrupts_at_review():
+    g, _, _ = _graph(CRITICAL)
+    res = run(g, "r1")
+    assert res.pending and res.final_status == "needs_review" and res.decision is None
+    assert g.get_state({"configurable": {"thread_id": "r1"}}).next == ("review",)
+
+
+def test_warnings_report_interrupts_at_review():
+    g, _, _ = _graph(MISMATCH)
+    assert run(g, "r2").pending
+
+
+def test_green_report_does_not_interrupt():
+    g, _, _ = _graph(NORMAL)
+    res = run(g, "r3")
+    assert (res.pending, res.final_status, res.decision) == (False, "ready", None)
+
+
+def test_resume_approve_finishes_ready_without_model_calls():
+    g, extract, explain = _graph(CRITICAL)
+    run(g, "r4")
+    res = resume(g, "r4", {"action": "approve", "option": None, "by": "doc"})
+    assert (res.pending, res.final_status) == (False, "ready")
+    assert res.decision == {"action": "approve", "option": None, "by": "doc"}
+    assert (len(extract.calls), len(explain.calls)) == (1, 1)  # extract + explain, once
+
+
+def test_resume_edit_carries_the_option():
+    g, _, _ = _graph(CRITICAL)
+    run(g, "r5")
+    res = resume(g, "r5", {"action": "edit", "option": "repeat_test", "by": "doc"})
+    assert res.decision["option"] == "repeat_test" and res.final_status == "ready"
+
+
+def test_parked_thread_rerun_stays_pending_without_model_calls():
+    g, extract, explain = _graph(CRITICAL)
+    run(g, "r6")
+    again = run(g, "r6")  # the save failed and the pipeline job is retried
+    assert again.pending and (len(extract.calls), len(explain.calls)) == (1, 1)
+
+
+def test_resume_twice_reuses_the_first_decision():
+    g, _, _ = _graph(CRITICAL)
+    run(g, "r7")
+    resume(g, "r7", {"action": "escalate", "option": None, "by": None})
+    again = resume(g, "r7", {"action": "approve", "option": None, "by": "doc"})  # a retried job
+    assert again.decision["action"] == "escalate" and again.final_status == "ready"

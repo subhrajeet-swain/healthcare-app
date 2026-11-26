@@ -1,4 +1,8 @@
-"""Background worker: claims jobs with SKIP LOCKED and runs the report pipeline.
+"""Background worker: claims jobs with SKIP LOCKED and runs them by kind (`HANDLERS`).
+
+`report.pipeline` runs the report graph; a red or warnings report parks its thread at
+`review` for a doctor. `report.resume` (a doctor decided) and `review.timeout` (nobody did)
+resume it; `alert.email` tells the lab's doctor inbox.
 
 Runs as hc_worker, which can see every tenant's jobs (one policy, 003) but is
 tenant-scoped like hc_app everywhere else. Each job's work runs in a transaction with
@@ -11,15 +15,25 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable
 from datetime import timedelta
+from typing import Any
 from uuid import UUID
 
 import psycopg
 from psycopg.rows import dict_row
 
-from app import db, files, reports, tracing
+from app import alerts, db, files, reports, review, tracing
 from app.brain.extract import ExtractionFailed
-from app.brain.pipeline import PipelineDeps, PipelineResult, build_graph, run, thread_id
+from app.brain.pipeline import (
+    Decision,
+    PipelineDeps,
+    PipelineResult,
+    build_graph,
+    resume,
+    run,
+    thread_id,
+)
 from app.config import settings
 from app.crypto import cipher_for
 
@@ -40,6 +54,10 @@ class WaitingConsent(Exception):
 
 class ReportGone(Exception):
     """The report was deleted (delete-my-data) while its job was in flight."""
+
+
+class Parked(Exception):
+    """The run waits at `review` for a doctor: results saved, the thread must stay."""
 
 
 def claim(conn: psycopg.Connection) -> dict | None:
@@ -71,7 +89,8 @@ def _sweep_dead() -> None:
             (STALE_AFTER, MAX_ATTEMPTS),
         ).fetchall()
     for d in dead:
-        _try_status(d["tenant_id"], UUID(d["payload"]["report_id"]), "failed", GIVE_UP)
+        if "report_id" in d["payload"]:  # report.pipeline; other kinds have no report to fail
+            _try_status(d["tenant_id"], UUID(d["payload"]["report_id"]), "failed", GIVE_UP)
 
 
 def _tx(tenant_id: UUID | None = None):
@@ -102,9 +121,19 @@ def _set_status(tid: UUID, rid: UUID, status: str, message: str | None = None) -
 
 def _save(tid: UUID, rid: UUID, res: PipelineResult) -> None:
     with _tx(tid) as c:
-        if c.execute("SELECT 1 FROM reports WHERE id = %s FOR UPDATE", (rid,)).fetchone() is None:
+        report = c.execute(
+            "SELECT user_id FROM reports WHERE id = %s FOR UPDATE", (rid,)
+        ).fetchone()
+        if report is None:
             raise ReportGone
         reports.store_result(c, tid, rid, res)
+        if res.pending:
+            review.open_review(
+                c, tid, kind="report", reason="red" if res.triage == "red" else "warnings",
+                user_id=report["user_id"], report_id=rid, thread_id=thread_id(tid, rid),
+            )
+    if res.pending:
+        raise Parked
 
 
 def _saver_conn() -> psycopg.Connection:
@@ -155,6 +184,72 @@ def _pipeline(job: dict, models: dict | None, saver) -> None:
     _save(tid, rid, run(build_graph(deps, saver), thread_id(tid, rid)))
 
 
+def _no_file() -> tuple[bytes, str]:
+    raise AssertionError("a resume runs only `review`; it never reads the file")
+
+
+# a resume runs only the `review` node: no file, no identifiers, no model
+_RESUME_DEPS = PipelineDeps(load_file=_no_file, known=[], on_status=lambda s: None)
+ACTIONS = {"approved": "approve", "edited": "edit", "escalated": "escalate"}
+
+
+def _review_job(job: dict, saver, timeout: bool) -> None:
+    """Resume a parked thread with the item's decision; a timeout first escalates a pending item.
+
+    The item stays locked (FOR UPDATE) until the result is stored, so a doctor's decision
+    and the timeout never both resume one thread (Review Focus 2). An item that is gone
+    (delete-my-data), undecided (resume) or already decided (timeout), or whose thread is
+    gone, ends the job without a resume.
+    """
+    tid = job["tenant_id"]
+    graph = build_graph(_RESUME_DEPS, saver)
+    with _tx(tid) as c:
+        item = c.execute(
+            "SELECT * FROM review_items WHERE id = %s AND kind = 'report' FOR UPDATE",
+            (job["payload"]["review_item_id"],),
+        ).fetchone()
+        if item is None or (item["status"] == "pending") != timeout:
+            return
+        thread = item["thread_id"]
+        if not graph.get_state({"configurable": {"thread_id": thread}}).values:
+            log.warning("review item %s: thread is gone", item["id"])
+            return
+        if timeout:
+            item = c.execute(
+                "UPDATE review_items SET status = 'escalated', decided_at = now(), "
+                "decided_by = NULL WHERE id = %s RETURNING *",
+                (item["id"],),
+            ).fetchone()
+        action = ACTIONS[item["status"]]
+        decision: Decision = {
+            "action": action,
+            "option": item["note_option"] if action == "edit" else None,
+            "by": str(item["decided_by"]) if item["decided_by"] else None,
+        }
+        reports.store_result(c, tid, item["report_id"], resume(graph, thread, decision))
+        if action == "escalate":
+            review.queue_job(c, tid, "alert.email", item["id"])
+    saver.delete_thread(thread)  # after commit: a failed save keeps the thread for the retry
+
+
+def _alert(job: dict, models: dict | None, saver) -> None:
+    with _tx(job["tenant_id"]) as c:
+        item = c.execute(
+            "SELECT 1 FROM review_items WHERE id = %s", (job["payload"]["review_item_id"],)
+        ).fetchone()
+        to = db.tenant_setting(c, "doctor_email", None)
+    if item is not None and to:  # no doctor_email: the in-app queue is the only signal
+        alerts.send_review_alert(to, settings.app_base_url)
+
+
+HANDLERS: dict[str, Callable[[dict, dict | None, Any], None]] = {
+    "report.pipeline": _pipeline,
+    "report.resume": lambda job, models, saver: _review_job(job, saver, timeout=False),
+    "review.timeout": lambda job, models, saver: _review_job(job, saver, timeout=True),
+    "alert.email": _alert,
+}
+
+
 def run_once(models: dict | None = None) -> bool:
     """Process at most one job. Returns False when there was nothing to do."""
     from langgraph.checkpoint.postgres import PostgresSaver
@@ -165,9 +260,15 @@ def run_once(models: dict | None = None) -> bool:
     if job is None:
         return False
 
+    handler = HANDLERS.get(job["kind"])
+    if handler is None:
+        log.error("job %s: unknown kind %r; failed", job["id"], job["kind"])
+        _finish_job(job["id"], "failed")
+        return True
     tid = job["tenant_id"]
-    rid = UUID(job["payload"]["report_id"])
-    thread = thread_id(tid, rid)
+    # report.pipeline's thread is cleaned up here; the review jobs delete their own
+    rid = UUID(job["payload"]["report_id"]) if "report_id" in job["payload"] else None
+    thread = thread_id(tid, rid) if rid else None
     try:
         sc = _saver_conn()
     except Exception:
@@ -177,7 +278,10 @@ def run_once(models: dict | None = None) -> bool:
         saver = PostgresSaver(sc)
         ended = True
         try:
-            _pipeline(job, models, saver)
+            handler(job, models, saver)
+            _finish_job(job["id"], "done")
+        except Parked:
+            ended = False  # the thread waits for a doctor; resume or timeout deletes it
             _finish_job(job["id"], "done")
         except ReportGone:
             _finish_job(job["id"], "done")
@@ -189,15 +293,17 @@ def run_once(models: dict | None = None) -> bool:
             _try_status(tid, rid, "failed", e.message)
             _finish_job(job["id"], "done")
         except Exception:
-            log.exception("report %s: attempt %s failed", rid, job["attempts"])
+            log.exception("job %s (%s): attempt %s failed", job["id"], job["kind"],
+                          job["attempts"])
             if job["attempts"] >= MAX_ATTEMPTS:
-                _try_status(tid, rid, "failed", GIVE_UP)
+                if rid:
+                    _try_status(tid, rid, "failed", GIVE_UP)
                 _finish_job(job["id"], "failed")
             else:
                 ended = False  # keep the checkpoint: the retry resumes from it
                 _finish_job(job["id"], "queued", retry_in=RETRY_STEP * job["attempts"])
         finally:
-            if ended:
+            if ended and thread:
                 saver.delete_thread(thread)
     return True
 

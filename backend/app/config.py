@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     master_key: str
     otp_pepper: str
     langsmith_tracing: bool = False
+    # Doctor alert mail, e.g. smtp://user:app-password@smtp.gmail.com:587. Empty: logged only.
+    smtp_url: str = ""
+    app_base_url: str = "http://localhost:5173"
 
 
 settings = Settings()

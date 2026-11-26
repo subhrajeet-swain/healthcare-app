@@ -2,12 +2,35 @@
 
 from __future__ import annotations
 
+import logging
 from uuid import UUID
+
+from psycopg.types.json import Jsonb
 
 from app import db
 from app.brain.trends import Point, detect_trends
 
 REVIEW_TIMEOUT_DEFAULT_MIN = 240
+log = logging.getLogger("app.review")
+
+
+def timeout_minutes(c) -> int:
+    """The lab's `review_timeout_minutes`, at least 1. A bad value must never fail a save."""
+    raw = db.tenant_setting(c, "review_timeout_minutes", REVIEW_TIMEOUT_DEFAULT_MIN)
+    try:
+        minutes = int(float(raw))
+    except (TypeError, ValueError):
+        log.warning("bad review_timeout_minutes %r; using %s", raw, REVIEW_TIMEOUT_DEFAULT_MIN)
+        minutes = REVIEW_TIMEOUT_DEFAULT_MIN
+    return max(1, minutes)
+
+
+def queue_job(c, tenant_id: UUID, kind: str, item_id: UUID, run_after=None) -> None:
+    c.execute(
+        "INSERT INTO jobs (tenant_id, kind, payload, run_after) "
+        "VALUES (%s, %s, %s, coalesce(%s, now()))",
+        (tenant_id, kind, Jsonb({"review_item_id": str(item_id)}), run_after),
+    )
 
 
 def refresh_trends(c, tenant_id: UUID, user_id: UUID) -> list[UUID]:
@@ -53,16 +76,22 @@ def open_review(
     """Queue one item for the lab's doctors; None if an equal item already exists.
 
     "Equal" is whatever the table's unique keys say: one per trend, one per chat message,
-    one pending per report. This only writes the row; the timeout and the email jobs are
-    queued with the worker handlers.
+    one pending per report. A report item also queues its `review.timeout` (at `due_at`) and,
+    when red, an `alert.email`; trend and chat items wait in the in-app queue only.
     """
-    minutes = int(db.tenant_setting(c, "review_timeout_minutes", REVIEW_TIMEOUT_DEFAULT_MIN))
+    minutes = timeout_minutes(c)
     row = c.execute(
         "INSERT INTO review_items (tenant_id, kind, reason, user_id, report_id, trend_id, "
         "chat_message_id, thread_id, due_at) "
         "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, now() + make_interval(mins => %s)) "
-        "ON CONFLICT DO NOTHING RETURNING id",
+        "ON CONFLICT DO NOTHING RETURNING id, due_at",
         (tenant_id, kind, reason, user_id, report_id, trend_id, chat_message_id, thread_id,
          minutes),
     ).fetchone()
-    return row["id"] if row else None
+    if row is None:
+        return None
+    if kind == "report":
+        queue_job(c, tenant_id, "review.timeout", row["id"], row["due_at"])
+        if reason == "red":
+            queue_job(c, tenant_id, "alert.email", row["id"])
+    return row["id"]
