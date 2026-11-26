@@ -9,6 +9,7 @@ import { ChatPage } from "./pages/ChatPage";
 import { Login } from "./pages/Login";
 import { Profile } from "./pages/Profile";
 import { Report } from "./pages/Report";
+import { Shared } from "./pages/Shared";
 import { Timeline } from "./pages/Timeline";
 import { useLang } from "./i18n";
 import { go, parseRoute } from "./routes";
@@ -60,6 +61,7 @@ export default function App() {
   }, []);
 
   const loadMe = useCallback(async () => {
+    if (parseRoute(location.pathname).name === "shared") return; // a doctor's link: no session to load
     setLoadError(null);
     try {
       const m = await api.me();
@@ -97,6 +99,7 @@ export default function App() {
     rememberSlug(route.slug);
     return <Login slug={route.slug} onSignedIn={loadMe} />;
   }
+  if (route.name === "shared") return <Shared slug={route.slug} token={route.token} />;
   if (loadError) {
     return (
       <div className="shell">

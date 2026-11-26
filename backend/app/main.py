@@ -12,6 +12,7 @@ from app import (
     family,
     privacy,
     reports,
+    share,
     staff,
     timeline,
     tracing,
@@ -45,6 +46,7 @@ app.include_router(chat_api.router)
 app.include_router(doctor.router)
 app.include_router(timeline.router)
 app.include_router(family.router)
+app.include_router(share.router)
 
 
 # One serial worker: a bulk upload (10 reports at ~30-90 s) can queue for minutes with

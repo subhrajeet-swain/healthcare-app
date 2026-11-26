@@ -125,6 +125,10 @@ export type ReportDetail = ReportSummary & {
   review_pending?: boolean; // a doctor still has to look at it (a warnings-only report shows as it is)
   doctor_note?: DoctorNote; // once a doctor edited or escalated
 };
+/** A report as a doctor sees it through a share link: no file, no chat, no pipeline steps. */
+export type SharedReport = Omit<ReportDetail, "steps" | "has_file" | "failure_message">;
+export type SharedView = { expires_at: string; reports: SharedReport[] };
+export type ShareLink = { id: string; report_ids: string[]; expires_at: string; created_at: string };
 export type ChatMessage = { role: "user" | "assistant"; text: string; tier: string; created_at: string };
 export type StaffReport = {
   id: string;
@@ -225,6 +229,13 @@ export const api = {
   chatHistory: (id: string) => req<ChatMessage[]>("GET", `/api/reports/${id}/chat`),
   ask: (id: string, question: string, language: Lang) =>
     req<{ reply: string; tier: string }>("POST", `/api/reports/${id}/chat`, { question, language }),
+  share: (reportIds: string[], hours: number) =>
+    req<{ url: string; expires_at: string }>("POST", "/api/share", { report_ids: reportIds, hours }),
+  shares: () => req<ShareLink[]>("GET", "/api/share"),
+  unshare: (id: string) => req<void>("DELETE", `/api/share/${id}`),
+  // the doctor's door: no session, so no profile header either
+  shared: (slug: string, token: string) =>
+    req<SharedView>("GET", `/api/share/${encodeURIComponent(slug)}/${encodeURIComponent(token)}`, undefined, true),
   staffReports: () => req<StaffReport[]>("GET", "/api/staff/reports"),
   order: (phone: string, name: string) =>
     req<{ id: string }>("POST", "/api/staff/orders", { phone, name: name || null }),

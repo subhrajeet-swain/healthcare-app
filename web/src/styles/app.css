@@ -212,6 +212,7 @@ section.strip[aria-labelledby="chat-title"]::before { content: ""; display: bloc
 .toggle--profiles { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
 .toggle--profiles .toggle__btn { flex: none; white-space: nowrap; padding-inline: var(--space-4); }
 .toggle--flat { display: grid; grid-template-columns: 1fr 1fr; box-shadow: none; background: var(--sunk); border-radius: 28px; }
+.toggle--three { grid-template-columns: repeat(3, 1fr); }
 .actions.family__actions .btn { flex: none; }
 .family__sub { margin: 0 0 var(--space-4); font-size: var(--step-0); font-weight: 700; }
 .family__label { font-weight: 600; }

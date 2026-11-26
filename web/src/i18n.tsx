@@ -115,6 +115,28 @@ export const STRINGS = {
   doctorNote: { en: "A note from your lab's doctor", hi: "आपकी लैब के डॉक्टर का नोट" },
   chatHeld: { en: "You can ask questions once your lab's doctor has looked at your latest report.", hi: "आपकी लैब के डॉक्टर के ताज़ा रिपोर्ट देख लेने के बाद आप सवाल पूछ सकते हैं।" },
 
+  // share with a doctor (a link, no sign-in) and the page the doctor opens
+  shareTitle: { en: "Share with a doctor", hi: "डॉक्टर के साथ साझा करें" },
+  shareLede: { en: "Make a link your doctor can open without signing in. It shows this report's results and explanation, not the original file or your questions. You can stop sharing at any time.", hi: "ऐसा लिंक बनाएं जिसे आपके डॉक्टर साइन इन किए बिना खोल सकें। इसमें इस रिपोर्ट के परिणाम और व्याख्या दिखती है, मूल फ़ाइल या आपके सवाल नहीं। आप कभी भी साझा करना बंद कर सकते हैं।" },
+  shareFor: { en: "The link works for", hi: "लिंक इतने समय तक चलेगा" },
+  shareH1: { en: "1 hour", hi: "1 घंटा" },
+  shareH24: { en: "24 hours", hi: "24 घंटे" },
+  shareD7: { en: "7 days", hi: "7 दिन" },
+  shareMake: { en: "Create link", hi: "लिंक बनाएं" },
+  shareMaking: { en: "Creating…", hi: "बनाया जा रहा है…" },
+  shareLink: { en: "Link to share", hi: "साझा करने का लिंक" },
+  shareCopy: { en: "Copy link", hi: "लिंक कॉपी करें" },
+  shareCopied: { en: "Link copied. Send it to your doctor.", hi: "लिंक कॉपी हो गया। इसे अपने डॉक्टर को भेजें।" },
+  shareSelect: { en: "Select the link above and copy it.", hi: "ऊपर का लिंक चुनकर कॉपी करें।" },
+  shareExpires: { en: "Expires {when}", hi: "{when} को समाप्त" },
+  shareOpen: { en: "Links that are open", hi: "खुले हुए लिंक" },
+  shareStop: { en: "Stop sharing", hi: "साझा करना बंद करें" },
+  sharedTitle: { en: "A lab report shared with you", hi: "आपके साथ साझा की गई लैब रिपोर्ट" },
+  sharedBy: { en: "Shared by the patient, expires {when}", hi: "मरीज़ ने साझा किया, {when} को समाप्त" },
+  sharedGone: { en: "This link no longer works", hi: "यह लिंक अब काम नहीं करता" },
+  sharedGoneBody: { en: "It has expired, or the patient stopped sharing it. Ask the patient for a new link.", hi: "यह समाप्त हो चुका है, या मरीज़ ने साझा करना बंद कर दिया है। मरीज़ से नया लिंक माँगें।" },
+  sharedEmpty: { en: "None of the shared reports can be shown right now.", hi: "साझा की गई कोई भी रिपोर्ट अभी दिखाई नहीं जा सकती।" },
+
   // reports home summary
   latestReport: { en: "Latest report · {date}", hi: "ताज़ा रिपोर्ट · {date}" },
   testsOne: { en: "1 test", hi: "1 जांच" },

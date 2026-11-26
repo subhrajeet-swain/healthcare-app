@@ -61,7 +61,9 @@ def test_every_api_route_rejects_cross_tenant_cookie(seeded, client, login):
     checked = 0
     # openapi paths: public and flat (app.routes nests included routers in this FastAPI)
     for path, ops in app.openapi()["paths"].items():
-        if not path.startswith("/api/") or path.startswith("/api/auth/{slug}"):
+        # the two public doors take no cookie: login by slug, and a share link by slug + token
+        public = ("/api/auth/{slug}", "/api/share/{slug}")
+        if not path.startswith("/api/") or path.startswith(public):
             continue
         url = path.replace("{purpose}", "core").replace("{report_id}", str(uuid.uuid4()))
         for method in (m.upper() for m in ops):

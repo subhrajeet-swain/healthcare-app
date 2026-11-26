@@ -10,6 +10,7 @@ export type Route =
   | { name: "chat" }
   | { name: "timeline" }
   | { name: "profile" }
+  | { name: "shared"; slug: string; token: string } // a doctor's link: no session
   | { name: "home" };
 
 const DASHBOARDS: Record<Role, string> = {
@@ -31,6 +32,8 @@ export function parseRoute(path: string): Route {
   if (/^\/chat\/?$/.test(path)) return { name: "chat" };
   if (/^\/timeline\/?$/.test(path)) return { name: "timeline" };
   if (/^\/profile\/?$/.test(path)) return { name: "profile" };
+  const shared = path.match(/^\/s\/([a-z0-9-]+)\/([A-Za-z0-9_-]+)\/?$/);
+  if (shared) return { name: "shared", slug: shared[1], token: shared[2] };
   const report = path.match(/^\/reports\/([A-Za-z0-9-]+)\/?$/);
   if (report) return { name: "report", id: report[1] };
   const review = path.match(/^\/reviews\/([A-Za-z0-9-]+)\/?$/);

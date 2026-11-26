@@ -56,6 +56,18 @@ describe("nav routes", () => {
   });
 });
 
+describe("share route", () => {
+  it("reads the lab slug and the token", () => {
+    expect(parseRoute("/s/lab-alpha/Ab-9_xYz")).toEqual({ name: "shared", slug: "lab-alpha", token: "Ab-9_xYz" });
+    expect(parseRoute("/s/lab-alpha/Ab-9_xYz/")).toEqual({ name: "shared", slug: "lab-alpha", token: "Ab-9_xYz" });
+  });
+  it("rejects a missing token or odd characters", () => {
+    expect(parseRoute("/s/lab-alpha")).toEqual({ name: "home" });
+    expect(parseRoute("/s/lab-alpha/../x")).toEqual({ name: "home" });
+    expect(parseRoute("/s/Lab/abc")).toEqual({ name: "home" });
+  });
+});
+
 describe("latestReady", () => {
   const r = (id: string, status: string, created_at: string) => ({ id, status, created_at }) as never;
   it("picks the first report chat accepts, in list order (newest report date first)", () => {
