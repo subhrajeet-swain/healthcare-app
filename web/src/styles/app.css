@@ -225,6 +225,29 @@ section.strip[aria-labelledby="chat-title"]::before { content: ""; display: bloc
 .nav__item:hover { background: var(--sunk); color: var(--ink); }
 .nav__item[aria-current="page"] { background: var(--ink); color: #fff; }
 
+/* trends: one chart per test, drawn in ink; the normal range is a green band with its word under the chart */
+.chart { padding: var(--space-2) var(--space-5) var(--space-5); display: grid; gap: var(--space-3); }
+.chart__pills { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.chart__svg { display: block; width: 100%; max-width: 30rem; height: auto; overflow: visible; }
+.chart__band { fill: var(--state-normal); fill-opacity: 0.25; }
+.chart__grid { stroke: var(--divider); stroke-width: 1; }
+.chart__tick, .chart__date { fill: var(--ink-soft); font-size: 14px; }
+.chart__line { fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; animation: chart-draw 800ms var(--ease) both; }
+@keyframes chart-draw { from { stroke-dashoffset: 1; } }
+.chart__dot { fill: var(--card); stroke: var(--ink); stroke-width: 2.5; }
+.chart__dot--last { fill: var(--ink); }
+/* the halo keeps the label readable where the line runs under it */
+.chart__last { fill: var(--ink); font-size: 17px; font-weight: 700; paint-order: stroke; stroke: var(--card); stroke-width: 5px; stroke-linejoin: round; }
+.chart__unit { fill: var(--ink-soft); font-size: 14px; font-weight: 500; }
+.chart__legend { display: flex; align-items: center; gap: var(--space-2); margin: 0; color: var(--ink-soft); }
+.chart__swatch { flex: none; width: 20px; height: 12px; border-radius: 4px; background: var(--state-normal); opacity: 0.25; }
+.chart__note { margin: 0; max-width: var(--measure); color: var(--ink-soft); }
+@media (prefers-reduced-motion: reduce) { .chart__line { animation: none; } }
+/* four tabs do not fit in a row on a phone: icon over label */
+@media (max-width: 36rem) {
+  .nav__item { flex-direction: column; justify-content: center; gap: 2px; min-width: 4rem; padding: 0 var(--space-3); }
+}
+
 /* Devanagari: Inter has none; Hindi falls to Noto Sans Devanagari. Caps and tracking break
    the headline stroke, and matras need room. */
 :lang(hi) .triage .strip__title { text-transform: none; letter-spacing: 0; }

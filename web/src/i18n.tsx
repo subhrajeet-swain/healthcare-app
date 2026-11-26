@@ -130,11 +130,23 @@ export const STRINGS = {
   // bottom nav
   navLabel: { en: "Main", hi: "मुख्य" },
   navReports: { en: "Reports", hi: "रिपोर्ट" },
+  navTrends: { en: "Trends", hi: "रुझान" },
   navChat: { en: "Chat", hi: "सवाल" },
   navProfile: { en: "Profile", hi: "प्रोफ़ाइल" },
   chatAbout: { en: "About your report from {date}.", hi: "{date} की आपकी रिपोर्ट के बारे में।" },
   openReport: { en: "Open the report", hi: "रिपोर्ट खोलें" },
   chatNone: { en: "You can ask questions once a report has been read. Upload one under Reports.", hi: "रिपोर्ट पढ़ ली जाने के बाद आप सवाल पूछ सकते हैं। रिपोर्ट में जाकर एक अपलोड करें।" },
+
+  // trends: one chart per test
+  trendsLede: { en: "How each result has moved across your reports.", hi: "आपकी रिपोर्ट में हर जांच कैसे बदली है।" },
+  loadingTrends: { en: "Loading your trends…", hi: "आपके रुझान लोड हो रहे हैं…" },
+  trendsFailed: { en: "We couldn't load your trends. Refresh the page to try again.", hi: "आपके रुझान लोड नहीं हो सके। फिर से कोशिश करने के लिए पेज रीफ़्रेश करें।" },
+  trendsEmpty: { en: "Your charts appear here once a report has been read. Each test gets its own chart.", hi: "रिपोर्ट पढ़ी जाने के बाद आपके चार्ट यहाँ दिखेंगे। हर जांच का अपना चार्ट होगा।" },
+  trendRising: { en: "Rising", hi: "बढ़ रहा है" },
+  trendFalling: { en: "Falling", hi: "घट रहा है" },
+  chartSeries: { en: "Results over time", hi: "समय के साथ परिणाम" },
+  excludedOne: { en: "One result (in {units}) can't be compared with the others, so it's left out.", hi: "एक परिणाम ({units} में) बाकी परिणामों से मिलाया नहीं जा सकता, इसलिए उसे छोड़ दिया गया है।" },
+  excludedMany: { en: "{n} results (in {units}) can't be compared with the others, so they're left out.", hi: "{n} परिणाम ({units} में) बाकी परिणामों से मिलाए नहीं जा सकते, इसलिए उन्हें छोड़ दिया गया है।" },
 
   // chat
   askTitle: { en: "Ask about this report", hi: "इस रिपोर्ट के बारे में पूछें" },

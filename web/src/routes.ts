@@ -8,6 +8,7 @@ export type Route =
   | { name: "report"; id: string }
   | { name: "review"; id: string }
   | { name: "chat" }
+  | { name: "timeline" }
   | { name: "profile" }
   | { name: "home" };
 
@@ -28,6 +29,7 @@ export function parseRoute(path: string): Route {
   if (login) return { name: "login", slug: login[1] };
   if (path === "/consent") return { name: "consent" };
   if (/^\/chat\/?$/.test(path)) return { name: "chat" };
+  if (/^\/timeline\/?$/.test(path)) return { name: "timeline" };
   if (/^\/profile\/?$/.test(path)) return { name: "profile" };
   const report = path.match(/^\/reports\/([A-Za-z0-9-]+)\/?$/);
   if (report) return { name: "report", id: report[1] };

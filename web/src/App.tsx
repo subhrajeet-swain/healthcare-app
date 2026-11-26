@@ -8,6 +8,7 @@ import { ChatPage } from "./pages/ChatPage";
 import { Login } from "./pages/Login";
 import { Profile } from "./pages/Profile";
 import { Report } from "./pages/Report";
+import { Timeline } from "./pages/Timeline";
 import { useLang } from "./i18n";
 import { go, parseRoute } from "./routes";
 
@@ -144,6 +145,7 @@ export default function App() {
   if (route.name === "report") return <Report id={route.id} nav={patient} />;
   if (route.name === "review" && me.role === "doctor") return <Review key={route.id} id={route.id} />;
   if (patient && route.name === "chat") return <ChatPage />;
+  if (patient && route.name === "timeline") return <Timeline />;
   if (patient && route.name === "profile") return <Profile me={me} onSignOut={signOut} onDeleted={signedOut} />;
   return <Dashboard me={me} onSignOut={signOut} onDeleted={signedOut} />;
 }

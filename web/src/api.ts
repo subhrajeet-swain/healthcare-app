@@ -95,6 +95,28 @@ export type StaffReport = {
 };
 export const TERMINAL: Status[] = ["ready", "needs_review", "under_review", "failed"];
 
+/** One test across the patient's reports, in the canonical unit; a held report is never in it. */
+export type TimelinePoint = {
+  report_id: string;
+  observed_on: string;
+  value: number;
+  ref_low: number | null;
+  ref_high: number | null;
+};
+export type TimelineTest = {
+  test_id: string;
+  test_name: string;
+  unit: string;
+  points: TimelinePoint[];
+  // results whose printed unit cannot be converted: listed, never drawn
+  excluded: { report_id: string; observed_on: string; unit: string; reason: string }[];
+  trend: {
+    direction: "rising" | "falling";
+    toward: "out_of_range" | "critical";
+    review_status: "pending" | "approved" | "edited" | "escalated" | null;
+  } | null;
+};
+
 export type ReviewKind = "report" | "trend" | "chat";
 export type ReviewReason = "red" | "warnings" | "trend" | "gated_answer";
 export type Decision = "approve" | "edit" | "escalate";
@@ -146,6 +168,7 @@ export const api = {
   deleteMe: () => req<void>("DELETE", "/api/me"),
   exportUrl: "/api/me/export",
   reports: () => req<ReportSummary[]>("GET", "/api/reports"),
+  timeline: () => req<TimelineTest[]>("GET", "/api/timeline"),
   report: (id: string) => req<ReportDetail>("GET", `/api/reports/${id}`),
   uploadReport: (file: File) => upload<{ id: string; status: Status }>("/api/reports", file),
   fileUrl: (id: string) => `/api/reports/${id}/file`,

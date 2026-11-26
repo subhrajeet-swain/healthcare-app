@@ -49,6 +49,11 @@ describe("nav routes", () => {
     expect(parseRoute("/chat")).toEqual({ name: "chat" });
     expect(parseRoute("/profile/")).toEqual({ name: "profile" });
   });
+  it("reads the timeline", () => {
+    expect(parseRoute("/timeline")).toEqual({ name: "timeline" });
+    expect(parseRoute("/timeline/")).toEqual({ name: "timeline" });
+    expect(parseRoute("/timeline/x")).toEqual({ name: "home" });
+  });
 });
 
 describe("latestReady", () => {
