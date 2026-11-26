@@ -153,23 +153,49 @@ def visible_report(c, ctx: TenantCtx, report_id: UUID) -> dict:
     return row
 
 
-def held_for(c, ctx: TenantCtx, report: dict) -> bool:
+def latest_state(c, report_id: UUID) -> dict:
+    """The report row with its latest report review item (`item_status`, `note_option`).
+
+    One statement, so one snapshot, and it must be read LAST: after the content the hold
+    decides on. Under READ COMMITTED every statement sees its own snapshot, so a hold decided
+    from a row read before the results can miss a red report the worker committed in between.
+    """
+    row = c.execute(
+        "SELECT r.*, i.status AS item_status, i.note_option FROM reports r "
+        "LEFT JOIN LATERAL (SELECT status, note_option FROM review_items "
+        "  WHERE report_id = r.id AND kind = 'report' "
+        "  ORDER BY (status = 'pending') DESC, created_at DESC LIMIT 1) i ON true "
+        "WHERE r.id = %s",  # the open item, else the latest decided one
+        (report_id,),
+    ).fetchone()
+    if row is None:
+        raise not_found()  # deleted meanwhile
+    return row
+
+
+def _held(state: dict) -> bool:
+    return visibility.held(state, state["item_status"] == "pending")
+
+
+def held_for(c, ctx: TenantCtx, report_id: UUID) -> bool:
     """True when this user may not see the report's values yet (staff always may)."""
-    return ctx.role not in STAFF_ROLES and visibility.held(
-        report, report["id"] in review.pending_report_ids(c, report["user_id"])
-    )
+    return ctx.role not in STAFF_ROLES and _held(latest_state(c, report_id))
 
 
-def doctor_note(item: dict | None) -> dict | None:
+def doctor_note(state: dict) -> dict | None:
     """The line a decided review adds to the report: the doctor's pick, or call-the-lab."""
-    if item is None or item["status"] not in ("edited", "escalated"):
+    if state["item_status"] not in ("edited", "escalated"):
         return None
-    option = "call_lab" if item["status"] == "escalated" else item["note_option"]
+    option = "call_lab" if state["item_status"] == "escalated" else state["note_option"]
     return {"option": option, "text": NOTE_TEXT[option]} if option in NOTE_TEXT else None
 
 
 def report_detail(c, report: dict, staff: bool = False) -> dict:
-    """The report as one user may see it: staff in full, a patient through `visibility`."""
+    """The report as one user may see it: staff in full, a patient through `visibility`.
+
+    Only `report["id"]` is used: every field and the hold come from `latest_state`, read after
+    the content, never from the row the caller read earlier.
+    """
     rid = report["id"]
     steps = c.execute(
         "SELECT status, at FROM report_steps WHERE report_id = %s ORDER BY id", (rid,)
@@ -182,33 +208,28 @@ def report_detail(c, report: dict, staff: bool = False) -> dict:
     expl = c.execute(
         "SELECT language, source, statements FROM explanations WHERE report_id = %s", (rid,)
     ).fetchall()
-    item = c.execute(  # the open item, else the latest decided one
-        "SELECT status, note_option FROM review_items WHERE report_id = %s AND kind = 'report' "
-        "ORDER BY (status = 'pending') DESC, created_at DESC LIMIT 1",
-        (rid,),
-    ).fetchone()
-    pending = item is not None and item["status"] == "pending"
+    now = latest_state(c, rid)
     detail = {
         "id": str(rid),
-        "status": report["status"],
-        "source": report["source"],
-        "triage": report["triage"],
-        "next_step": report["next_step"],
-        "urgent": report["urgent"],
-        "collected_on": report["collected_on"],
-        "failure_message": report["failure_message"],
-        "has_file": report["file_mime"] is not None,
-        "created_at": report["created_at"],
+        "status": now["status"],
+        "source": now["source"],
+        "triage": now["triage"],
+        "next_step": now["next_step"],
+        "urgent": now["urgent"],
+        "collected_on": now["collected_on"],
+        "failure_message": now["failure_message"],
+        "has_file": now["file_mime"] is not None,
+        "created_at": now["created_at"],
         "steps": steps,
         "results": results,
         "explanations": {
             e["language"]: {"source": e["source"], "statements": e["statements"]} for e in expl
         },
-        "review_pending": pending,
+        "review_pending": now["item_status"] == "pending",
     }
-    if note := doctor_note(item):
+    if note := doctor_note(now):
         detail["doctor_note"] = note
-    return detail if staff else visibility.patient_view(detail, visibility.held(report, pending))
+    return detail if staff else visibility.patient_view(detail, _held(now))
 
 
 @router.post("", status_code=201)
@@ -264,12 +285,13 @@ def _sse(data: dict) -> str:
 
 def _snapshot(ctx: TenantCtx, report_id: UUID) -> dict:
     with db.tenant_tx(ctx) as c:
-        report = visible_report(c, ctx, report_id)
+        visible_report(c, ctx, report_id)
         steps = c.execute(
             "SELECT status, at FROM report_steps WHERE report_id = %s ORDER BY id", (report_id,)
         ).fetchall()
-        snap = {"status": report["status"], "steps": steps}
-        return visibility.patient_view(snap, held_for(c, ctx, report))
+        now = latest_state(c, report_id)  # last: the status and the hold read as one
+        snap = {"status": now["status"], "steps": steps}
+        return snap if ctx.role in STAFF_ROLES else visibility.patient_view(snap, _held(now))
 
 
 def _stream(ctx: TenantCtx, report_id: UUID, first: dict) -> Iterator[str]:
@@ -339,8 +361,11 @@ def get_file(report_id: UUID, ctx: Ctx) -> Response:
         report = visible_report(c, ctx, report_id)
         if report["file_mime"] is None:
             raise not_found()
-        if held_for(c, ctx, report):  # the original would show what the detail hides
-            raise ApiError(409, visibility.UNDER_REVIEW)
+        if ctx.role not in STAFF_ROLES and report["source"] == "lab":
+            # the lab's file shows what the detail hides: not before triage, never while held
+            now = latest_state(c, report_id)
+            if now["triage"] is None or _held(now):
+                raise ApiError(409, visibility.UNDER_REVIEW)
         data = files.load(cipher_for(c, ctx.tenant_id), ctx.tenant_id, report_id)
         audit(c, ctx, "read", "report_file", report_id)
     return Response(

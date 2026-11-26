@@ -3,19 +3,30 @@
 import json
 import threading
 import time
+from contextlib import contextmanager
 from uuid import UUID
 
 from fastapi.testclient import TestClient
 
-from app import reports, review
+from app import db, reports, review, worker
 from app.brain import templates
 from app.brain.nextstep import URGENT_EN
 from app.brain.router import REPLIES
 from app.main import app
+from app.tenancy import TenantCtx
 from tests.conftest import CONSENT
 from tests.test_chat_api import GOOD, _ask, _ready_report, model  # noqa: F401
 from tests.test_report_events import _events, _upload
-from tests.test_review_flow import MISMATCH, _decide, _drain, _due_now, _item, _own, _park
+from tests.test_review_flow import (
+    MISMATCH,
+    _decide,
+    _drain,
+    _due_now,
+    _item,
+    _models,
+    _own,
+    _park,
+)
 from tests.test_staff import make_user
 from tests.test_worker import no_stray_jobs  # noqa: F401
 
@@ -99,8 +110,7 @@ def test_red_pending_hidden_everywhere(client, patient):  # Review Focus 1
     assert r.status_code == 409 and r.json() == {"error": "under_review"}
     r = client.get(f"/api/reports/{rid}/chat")
     assert r.status_code == 409 and r.json() == {"error": "under_review"}
-    r = client.get(f"/api/reports/{rid}/file")
-    assert r.status_code == 409 and r.json() == {"error": "under_review"}
+    assert client.get(f"/api/reports/{rid}/file").status_code == 200  # their own upload
 
     data, entry = _exported(client, rid)
     assert entry["status"] == "under_review"
@@ -248,3 +258,78 @@ def test_clean_chat_answers_open_no_review(client, patient, model):  # noqa: F81
     model.replies.append(GOOD)
     assert _ask(client, rid, "why is it low?").json()["tier"] == "tier2"
     assert _chat_items(tid) == []
+
+
+def _lab_source(tid, rid):
+    with _own(tid) as c:
+        c.execute("UPDATE reports SET source = 'lab' WHERE id = %s", (rid,))
+
+
+def test_lab_file_waits_for_triage_and_release(client, patient):  # controller ruling
+    tid, rid, item = _park(client, patient)  # red, held
+    _lab_source(tid, rid)
+    r = client.get(f"/api/reports/{rid}/file")
+    assert r.status_code == 409 and r.json() == {"error": "under_review"}
+    _decide(tid, item["id"], "approved")
+    _drain()
+    assert client.get(f"/api/reports/{rid}/file").status_code == 200  # released
+
+    early = _upload(client)  # a lab report still `received`: no triage yet
+    _lab_source(tid, early)
+    r = client.get(f"/api/reports/{early}/file")
+    assert r.status_code == 409 and r.json() == {"error": "under_review"}
+
+
+def test_lab_file_of_a_not_held_pending_report_is_served(client, patient):
+    tid, rid, _ = _park(client, patient, MISMATCH)  # warnings only: needs_review, not held
+    _lab_source(tid, rid)
+    assert client.get(f"/api/reports/{rid}/file").status_code == 200
+
+
+def test_detail_read_mid_pipeline_does_not_leak(client, patient):  # reviewer's race
+    _, tid, uid = patient
+    rid = _upload(client)
+    ctx = TenantCtx(tid, uid, "patient")
+    with db.tenant_tx(ctx) as c:
+        stale = reports.visible_report(c, ctx, UUID(rid))  # statement 1 of the request
+        assert stale["triage"] is None
+        assert worker.run_once(_models()) is True  # the pipeline commits red + pending item
+        detail = reports.report_detail(c, stale)  # the rest of the same request
+    assert detail["status"] == "under_review"
+    assert not {"triage", "results", "explanations", "urgent", "next_step"} & set(detail)
+    assert "critical" not in json.dumps(detail, default=str)
+
+
+class _RunsWorkerOnce:
+    """A connection that lets the pipeline commit right after the first read of reports/results."""
+
+    def __init__(self, c):
+        self._c, self.fired = c, False
+
+    def execute(self, sql, *args, **kw):
+        out = self._c.execute(sql, *args, **kw)
+        if not self.fired and ("FROM reports" in sql or "FROM results" in sql):
+            self.fired = True
+            assert worker.run_once(_models()) is True
+        return out
+
+    def __getattr__(self, name):
+        return getattr(self._c, name)
+
+
+def test_export_read_mid_pipeline_does_not_leak(client, patient, monkeypatch):
+    _upload(client)
+    real = db.tenant_tx
+
+    @contextmanager
+    def racing(ctx):
+        with real(ctx) as c:
+            yield _RunsWorkerOnce(c)
+
+    monkeypatch.setattr(db, "tenant_tx", racing)
+    data = client.get("/api/me/export").json()
+    monkeypatch.undo()
+    dumped = json.dumps(data)
+    assert not any(s in dumped for s in SECRETS), dumped
+    (entry,) = data["reports"]
+    assert entry["status"] in ("received", "under_review") and not entry.get("results")

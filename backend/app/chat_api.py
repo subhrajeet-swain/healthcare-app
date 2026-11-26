@@ -41,7 +41,7 @@ Model = Annotated[BaseChatModel | None, Depends(chat_model_dep)]
 def chat(report_id: UUID, body: ChatIn, ctx: Ctx, model: Model) -> dict:
     with db.tenant_tx(ctx) as c:
         report = visible_report(c, ctx, report_id)
-        if held_for(c, ctx, report):
+        if held_for(c, ctx, report_id):
             raise ApiError(409, "under_review")
         if report["status"] not in CHAT_STATUSES:
             raise ApiError(409, "report_not_ready")
@@ -84,7 +84,8 @@ def chat(report_id: UUID, body: ChatIn, ctx: Ctx, model: Model) -> dict:
 @router.get("/{report_id}/chat")
 def history(report_id: UUID, ctx: Ctx) -> list[dict]:
     with db.tenant_tx(ctx) as c:
-        if held_for(c, ctx, visible_report(c, ctx, report_id)):
+        visible_report(c, ctx, report_id)
+        if held_for(c, ctx, report_id):
             raise ApiError(409, "under_review")
         cipher = cipher_for(c, ctx.tenant_id)
         rows = c.execute(
