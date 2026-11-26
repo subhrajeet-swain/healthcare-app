@@ -305,12 +305,12 @@ def test_shared_view_drops_review_pending(client, patient, lp):
 def test_access_log_never_holds_a_token():
     import logging
 
-    from app.main import RedactShareTokens
+    from app.main import RedactSecrets
 
     rec = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, '%s - "%s %s HTTP/%s" %d',
                             ("1.2.3.4", "GET", "/api/share/lab-alpha/SECRET", "1.1", 200), None)
-    assert RedactShareTokens().filter(rec) and "SECRET" not in rec.getMessage()
+    assert RedactSecrets().filter(rec) and "SECRET" not in rec.getMessage()
     other = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, '%s - "%s %s HTTP/%s" %d',
                               ("1.2.3.4", "GET", "/api/share", "1.1", 200), None)
-    RedactShareTokens().filter(other)
+    RedactSecrets().filter(other)
     assert "/api/share" in other.getMessage()

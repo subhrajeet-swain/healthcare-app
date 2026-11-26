@@ -71,8 +71,9 @@ def test_every_api_route_rejects_cross_tenant_cookie(seeded, client, login):
     checked = 0
     # openapi paths: public and flat (app.routes nests included routers in this FastAPI)
     for path, ops in app.openapi()["paths"].items():
-        # the two public doors take no cookie: login by slug, and a share link by slug + token
-        public = ("/api/auth/{slug}", "/api/share/{slug}")
+        # the public doors take no cookie: login by slug, a share link by slug + token, and
+        # Meta's webhook (signature-checked); the link routes under /api/whatsapp stay covered
+        public = ("/api/auth/{slug}", "/api/share/{slug}", "/api/whatsapp/webhook")
         if not path.startswith("/api/") or path.startswith(public):
             continue
         url = path.replace("{purpose}", "core").replace("{report_id}", str(uuid.uuid4()))

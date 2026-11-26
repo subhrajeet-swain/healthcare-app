@@ -16,6 +16,7 @@ from app import (
     staff,
     timeline,
     tracing,
+    wa_api,
 )
 from app.config import settings
 
@@ -29,8 +30,9 @@ _log.setLevel(logging.INFO)
 tracing.install_defaults()
 
 
-class RedactShareTokens(logging.Filter):
-    """A share token in an access log would open a patient's reports to anyone reading logs."""
+class RedactSecrets(logging.Filter):
+    """A share token in an access log would open a patient's reports to anyone reading logs;
+    the WhatsApp verify token rides in the webhook's query string."""
 
     def filter(self, record: logging.LogRecord) -> bool:
         args = record.args
@@ -38,10 +40,12 @@ class RedactShareTokens(logging.Filter):
             parts = args[2].split("/")
             if parts[1:3] == ["api", "share"] and len(parts) > 4:
                 record.args = (*args[:2], "/".join(parts[:4]) + "/[token]", *args[3:])
+            elif args[2].startswith("/api/whatsapp/webhook?"):
+                record.args = (*args[:2], args[2].split("?", 1)[0], *args[3:])
         return True
 
 
-logging.getLogger("uvicorn.access").addFilter(RedactShareTokens())
+logging.getLogger("uvicorn.access").addFilter(RedactSecrets())
 
 
 @asynccontextmanager
@@ -62,6 +66,7 @@ app.include_router(doctor.router)
 app.include_router(timeline.router)
 app.include_router(family.router)
 app.include_router(share.router)
+app.include_router(wa_api.router)
 
 
 # One serial worker: a bulk upload (10 reports at ~30-90 s) can queue for minutes with
