@@ -53,8 +53,8 @@ def create_order(body: OrderIn, ctx: Ctx) -> dict:
         cipher = cipher_for(c, ctx.tenant_id)
         fp = cipher.fingerprint(phone)
         user = c.execute("SELECT id, role FROM users WHERE phone_fp = %s", (fp,)).fetchone()
+        name = body.name.strip() if body.name and body.name.strip() else None
         if user is None:
-            name = body.name.strip() if body.name and body.name.strip() else None
             uid = c.execute(
                 "INSERT INTO users (tenant_id, role, phone_fp, phone_enc, name_enc) "
                 "VALUES (%s, 'patient', %s, %s, %s) RETURNING id",
@@ -66,6 +66,9 @@ def create_order(body: OrderIn, ctx: Ctx) -> dict:
             raise ApiError(409, "not_a_patient")
         else:
             uid = user["id"]
+            if name:  # a family invite creates nameless users; the lab's name fills the gap only
+                c.execute("UPDATE users SET name_enc = %s WHERE id = %s AND name_enc IS NULL",
+                          (cipher.encrypt(name), uid))
         rid = reports.create_report(c, ctx, uid, "lab", "sample_collected")
     return {"id": str(rid)}
 

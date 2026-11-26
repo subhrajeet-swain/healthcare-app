@@ -175,6 +175,9 @@ def revoke(link_id: UUID, ctx: Own) -> Response:
         if row is None:
             raise not_found()
         audit(c, ctx, "revoke", "family_link", link_id)
+        # lock the member first: two co-managers revoking at once must not both see the other
+        # still active and leave the child orphaned
+        c.execute("SELECT 1 FROM users WHERE id = %s FOR UPDATE", (row["member_id"],))
         orphan = row["manager_id"] == ctx.user_id and c.execute(
             "SELECT 1 FROM users u WHERE u.id = %s AND u.phone_fp IS NULL AND NOT EXISTS ("
             "SELECT 1 FROM family_links o WHERE o.member_id = u.id AND o.status = 'active')",

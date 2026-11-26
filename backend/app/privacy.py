@@ -154,6 +154,12 @@ def delete_me(ctx: Own, response: Response) -> None:
     with db.tenant_tx(ctx) as c:
         # Phoneless children cannot sign in: with no other active manager they would be
         # orphans nobody can reach, so they go too.
+        # lock my phoneless children so a co-manager's concurrent revoke/delete serialises
+        c.execute(
+            "SELECT 1 FROM users u WHERE u.phone_fp IS NULL AND u.id IN ("
+            "SELECT member_id FROM family_links WHERE manager_id = %s) FOR UPDATE",
+            (ctx.user_id,),
+        )
         orphans = [r["member_id"] for r in c.execute(
             "SELECT l.member_id FROM family_links l JOIN users u ON u.id = l.member_id "
             "WHERE l.manager_id = %s AND u.phone_fp IS NULL AND NOT EXISTS ("
