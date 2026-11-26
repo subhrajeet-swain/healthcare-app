@@ -1,7 +1,10 @@
+import uuid
+
 import psycopg
 import pytest
 
-from app import migrate
+from app import db, migrate
+from app.config import settings
 
 
 def test_migrate_is_idempotent(db_urls):
@@ -45,3 +48,140 @@ def test_app_role_has_no_access_to_graph_schema(db_urls):
     with psycopg.connect(db_urls["app"]) as c:
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             c.execute("CREATE TABLE graph.x()")
+
+
+PHASE2 = ["trends", "review_items", "family_links", "share_links"]
+
+
+def test_phase2_tables_have_forced_rls(db_urls):
+    with psycopg.connect(db_urls["owner"]) as c:
+        for t in PHASE2:
+            row = c.execute(
+                "SELECT relrowsecurity, relforcerowsecurity, "
+                "(SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND tablename = %s) "
+                "FROM pg_class WHERE relname = %s AND relkind = 'r'",
+                (t, t),
+            ).fetchone()
+            assert row is not None and row[0] and row[1] and row[2] >= 1, t
+
+
+def _user(c, tid, role="patient", fp=True):
+    return c.execute(
+        "INSERT INTO users (tenant_id, role, phone_fp, phone_enc) VALUES (%s, %s, %s, %s) "
+        "RETURNING id",
+        (tid, role, uuid.uuid4().bytes if fp else None, b"x" if fp else None),
+    ).fetchone()["id"]
+
+
+def _report(c, tid, uid):
+    return c.execute(
+        "INSERT INTO reports (tenant_id, user_id, uploaded_by, source, status) "
+        "VALUES (%s, %s, %s, 'patient', 'received') RETURNING id",
+        (tid, uid, uid),
+    ).fetchone()["id"]
+
+
+def _review(c, tid, uid, rid, status="pending", kind="report", **ids):
+    return c.execute(
+        "INSERT INTO review_items (tenant_id, kind, reason, user_id, report_id, status, "
+        "trend_id, chat_message_id, due_at) "
+        "VALUES (%s, %s, 'red', %s, %s, %s, %s, %s, now()) RETURNING id",
+        (tid, kind, uid, rid, status, ids.get("trend_id"), ids.get("chat_message_id")),
+    ).fetchone()["id"]
+
+
+def test_one_pending_review_per_report(lab):
+    tid = lab[1]
+    with db.owner_tx(settings.owner_database_url, tid) as c:
+        uid = _user(c, tid)
+        rid = _report(c, tid, uid)
+        first = _review(c, tid, uid, rid)
+    with pytest.raises(psycopg.errors.UniqueViolation) as e:
+        with db.owner_tx(settings.owner_database_url, tid) as c:
+            _review(c, tid, uid, rid)
+    assert e.value.diag.constraint_name == "review_one_pending_report"
+    with db.owner_tx(settings.owner_database_url, tid) as c:  # decided, so a new one may open
+        c.execute("UPDATE review_items SET status = 'approved' WHERE id = %s", (first,))
+        _review(c, tid, uid, rid)
+
+
+def test_review_status_is_constrained(lab):
+    tid = lab[1]
+    with pytest.raises(psycopg.errors.CheckViolation):
+        with db.owner_tx(settings.owner_database_url, tid) as c:
+            uid = _user(c, tid)
+            _review(c, tid, uid, _report(c, tid, uid), status="done")
+
+
+def test_staff_must_have_phone(lab):
+    tid = lab[1]
+    with pytest.raises(psycopg.errors.CheckViolation):
+        with db.owner_tx(settings.owner_database_url, tid) as c:
+            _user(c, tid, role="doctor", fp=False)
+    with db.owner_tx(settings.owner_database_url, tid) as c:  # a dependant has no phone
+        _user(c, tid, role="patient", fp=False)
+
+
+def _link(c, tid, manager, member, relation="child", status="active"):
+    c.execute(
+        "INSERT INTO family_links (tenant_id, manager_id, member_id, relation, status) "
+        "VALUES (%s, %s, %s, %s, %s)",
+        (tid, manager, member, relation, status),
+    )
+
+
+@pytest.mark.parametrize("relation, status", [("sibling", "active"), ("child", "nope")])
+def test_family_link_values_are_constrained(lab, relation, status):
+    tid = lab[1]
+    with pytest.raises(psycopg.errors.CheckViolation):
+        with db.owner_tx(settings.owner_database_url, tid) as c:
+            _link(c, tid, _user(c, tid), _user(c, tid), relation, status)
+
+
+def test_family_link_to_self_is_rejected(lab):
+    tid = lab[1]
+    with pytest.raises(psycopg.errors.CheckViolation):
+        with db.owner_tx(settings.owner_database_url, tid) as c:
+            a = _user(c, tid)
+            _link(c, tid, a, a)
+
+
+def test_deleting_a_user_removes_phase2_rows(lab):
+    tid = lab[1]
+    with db.owner_tx(settings.owner_database_url, tid) as c:
+        uid, other = _user(c, tid), _user(c, tid)
+        rid = _report(c, tid, uid)
+        msg = c.execute(
+            "INSERT INTO chat_messages (tenant_id, report_id, user_id, role, text_enc, tier) "
+            "VALUES (%s, %s, %s, 'user', 'x', 'tier0') RETURNING id", (tid, rid, uid)
+        ).fetchone()["id"]
+        trend = c.execute(
+            "INSERT INTO trends (tenant_id, user_id, test_id, direction, toward, first_value, "
+            "last_value, unit_c, points, last_report_id) "
+            "VALUES (%s, %s, 'hba1c.hba1c', 'rising', 'out_of_range', 6.1, 7.0, '%%', 3, %s) "
+            "RETURNING id", (tid, uid, rid)
+        ).fetchone()["id"]
+        _review(c, tid, uid, rid)
+        _review(c, tid, uid, None, kind="trend", trend_id=trend)
+        _review(c, tid, uid, rid, kind="chat", chat_message_id=msg)
+        _link(c, tid, other, uid)
+        c.execute(
+            "INSERT INTO share_links (tenant_id, user_id, created_by, token_hash, report_ids, "
+            "expires_at) VALUES (%s, %s, %s, %s, %s, now() + interval '1 day')",
+            (tid, uid, uid, uuid.uuid4().bytes, [rid]),
+        )
+        c.execute("DELETE FROM users WHERE id = %s", (uid,))
+        left = [c.execute(f"SELECT count(*) AS n FROM {t}").fetchone()["n"] for t in PHASE2]
+    assert left == [0, 0, 0, 0]
+
+
+def test_results_need_user_and_observed_on(lab):
+    tid = lab[1]
+    with pytest.raises(psycopg.errors.NotNullViolation):
+        with db.owner_tx(settings.owner_database_url, tid) as c:
+            uid = _user(c, tid)
+            c.execute(
+                "INSERT INTO results (tenant_id, report_id, test_id, test_name, value, unit, "
+                "flag, triage) VALUES (%s, %s, 'x', 'X', 1, 'u', 'normal', 'green')",
+                (tid, _report(c, tid, uid)),
+            )

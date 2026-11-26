@@ -1,9 +1,13 @@
 import uuid
+from datetime import date
 
 import psycopg
 import pytest
 
-from app import db
+from app import db, reports
+from app.brain.flags import flag_report
+from app.brain.models import ExtractedReport
+from app.brain.pipeline import template_result
 from app.config import settings
 from app.tenancy import TenantCtx
 
@@ -88,10 +92,11 @@ def test_new_tables_usable_by_app_under_tenant(lab):
                 (tid, uid, uid),
             ).fetchone()["id"]
             c.execute(
-                "INSERT INTO results (tenant_id, report_id, test_id, test_name, value, unit, "
-                "flag, triage) "
-                "VALUES (%s, %s, 'cbc.hemoglobin', 'Hb', 11.2, 'g/dL', 'low', 'amber')",
-                (tid, rid),
+                "INSERT INTO results (tenant_id, report_id, user_id, observed_on, test_id, "
+                "test_name, value, unit, flag, triage) "
+                "VALUES (%s, %s, %s, '2026-11-01', 'cbc.hemoglobin', 'Hb', 11.2, 'g/dL', "
+                "'low', 'amber')",
+                (tid, rid, uid),
             )
             c.execute(
                 "INSERT INTO explanations (tenant_id, report_id, language, source, statements) "
@@ -128,3 +133,21 @@ def test_report_status_is_constrained(lab):
                 "VALUES (%s, %s, %s, 'patient', 'done')",
                 (tid, uid, uid),
             )
+
+
+@pytest.mark.parametrize("collected", [date(2026, 11, 2), None])
+def test_store_result_sets_user_and_observed_on(lab, collected):
+    tid = lab[1]
+    uid = _patient(tid)
+    row = {"test_id": "cbc.hemoglobin", "test_name": "Hemoglobin", "value": 11.2, "unit": "g/dL",
+           "ref_low": 13.0, "ref_high": 17.0, "printed_flag": "L"}
+    report, _ = flag_report(ExtractedReport(collected_on=collected, results=[row]))
+    with db.owner_tx(settings.owner_database_url, tid) as c:
+        rid = reports.create_report(c, TenantCtx(tid, uid, "patient"), uid, "patient", "received")
+        reports.store_result(c, tid, rid, template_result(report))
+        created = c.execute("SELECT created_at::date AS d FROM reports WHERE id = %s", (rid,))
+        created = created.fetchone()["d"]
+        rows = c.execute(
+            "SELECT user_id, observed_on, value_c FROM results WHERE report_id = %s", (rid,)
+        ).fetchall()
+    assert rows == [{"user_id": uid, "observed_on": collected or created, "value_c": None}]

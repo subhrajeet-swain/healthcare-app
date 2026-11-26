@@ -29,10 +29,11 @@ def _ready_report(client, tid, status="ready"):
     rid = rid.json()["id"]
     with db.owner_tx(settings.owner_database_url, tid) as c:
         c.execute(
-            "INSERT INTO results (tenant_id, report_id, test_id, test_name, value, unit, "
-            "ref_low, ref_high, flag, triage) VALUES "
-            "(%s, %s, 'cbc.hemoglobin', 'Hemoglobin', 11.2, 'g/dL', 13, 17, 'low', 'amber')",
-            (tid, rid),
+            "INSERT INTO results (tenant_id, report_id, user_id, observed_on, test_id, test_name, "
+            "value, unit, ref_low, ref_high, flag, triage) VALUES "
+            "(%s, %s, (SELECT user_id FROM reports WHERE id = %s), '2026-11-01', "
+            "'cbc.hemoglobin', 'Hemoglobin', 11.2, 'g/dL', 13, 17, 'low', 'amber')",
+            (tid, rid, rid),
         )
         c.execute("UPDATE reports SET triage = 'amber', next_step = 'follow_up_package' "
                   "WHERE id = %s", (rid,))

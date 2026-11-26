@@ -82,13 +82,20 @@ def store_result(c, tenant_id: UUID, report_id: UUID, res) -> None:
 
     c.execute("DELETE FROM results WHERE report_id = %s", (report_id,))
     c.execute("DELETE FROM explanations WHERE report_id = %s", (report_id,))
+    # collected_on is saved below, after the rows, so the date comes from `res`, not the row
+    rep = c.execute(
+        "SELECT user_id, coalesce(%s::date, created_at::date) AS observed_on "
+        "FROM reports WHERE id = %s",
+        (res.report.collected_on, report_id),
+    ).fetchone()
     for r in res.report.results:
         c.execute(
-            "INSERT INTO results (tenant_id, report_id, test_id, test_name, value, unit, "
-            "ref_low, ref_high, printed_flag, flag, triage) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-            (tenant_id, report_id, r.test_id, r.test_name, r.value, r.unit, r.ref_low,
-             r.ref_high, r.printed_flag, r.flag.value, result_triage(r.flag)),
+            "INSERT INTO results (tenant_id, report_id, user_id, observed_on, test_id, test_name, "
+            "value, unit, ref_low, ref_high, printed_flag, flag, triage) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            (tenant_id, report_id, rep["user_id"], rep["observed_on"], r.test_id, r.test_name,
+             r.value, r.unit, r.ref_low, r.ref_high, r.printed_flag, r.flag.value,
+             result_triage(r.flag)),
         )
     for lang, e in res.explanations.items():
         c.execute(
