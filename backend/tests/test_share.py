@@ -289,3 +289,28 @@ def test_routes_need_a_patient_session(client, lab, login):
     login(lab[0], "9100000777")
     assert client.get("/api/share").status_code == 404
     assert _share(client, [uuid.uuid4()]).status_code == 404
+
+
+def test_404_is_not_cached(client, patient):
+    r = client.get("/api/share/nope/nope")
+    assert r.status_code == 404 and r.headers["cache-control"] == "no-store"
+
+
+def test_shared_view_drops_review_pending(client, patient, lp):
+    rid = _store(lp, glucose=90)
+    body = _view(_share(client, [rid]).json()["url"]).json()
+    assert body["reports"] and "review_pending" not in body["reports"][0]
+
+
+def test_access_log_never_holds_a_token():
+    import logging
+
+    from app.main import RedactShareTokens
+
+    rec = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, '%s - "%s %s HTTP/%s" %d',
+                            ("1.2.3.4", "GET", "/api/share/lab-alpha/SECRET", "1.1", 200), None)
+    assert RedactShareTokens().filter(rec) and "SECRET" not in rec.getMessage()
+    other = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, '%s - "%s %s HTTP/%s" %d',
+                              ("1.2.3.4", "GET", "/api/share", "1.1", 200), None)
+    RedactShareTokens().filter(other)
+    assert "/api/share" in other.getMessage()

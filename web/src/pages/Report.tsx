@@ -309,7 +309,7 @@ export function Report({ id, nav = false }: Props) {
         {finished && report.triage && (
           <>
             <ReportBody report={report} />
-            <Share reportId={report.id} />
+            {nav && <Share reportId={report.id} />}
             <Chat reportId={report.id} />
           </>
         )}

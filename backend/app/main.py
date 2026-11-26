@@ -29,6 +29,21 @@ _log.setLevel(logging.INFO)
 tracing.install_defaults()
 
 
+class RedactShareTokens(logging.Filter):
+    """A share token in an access log would open a patient's reports to anyone reading logs."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if isinstance(args, tuple) and len(args) > 2 and isinstance(args[2], str):
+            parts = args[2].split("/")
+            if parts[1:3] == ["api", "share"] and len(parts) > 4:
+                record.args = (*args[:2], "/".join(parts[:4]) + "/[token]", *args[3:])
+        return True
+
+
+logging.getLogger("uvicorn.access").addFilter(RedactShareTokens())
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     db.init_pool(settings.database_url)

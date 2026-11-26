@@ -14,6 +14,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app import db, reports, visibility
@@ -27,7 +28,7 @@ router = APIRouter(prefix="/api/share")
 
 NO_STORE = {"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"}
 # what a doctor does not need from the patient's own view: pipeline internals (no file, no chat)
-PRIVATE = ("has_file", "steps", "failure_message")
+PRIVATE = ("has_file", "steps", "failure_message", "review_pending")
 
 
 def _patient(ctx: Ctx) -> TenantCtx:
@@ -119,9 +120,16 @@ def revoke(link_id: UUID, ctx: Patient) -> Response:
 
 
 @router.get("/{slug}/{token}")
-def view(slug: str, token: str, response: Response) -> dict:
+def view(slug: str, token: str, response: Response) -> dict:  # a JSONResponse passes through
     """Public: no session. Unknown slug or token, a wrong slug, expired and revoked are one 404."""
     response.headers.update(NO_STORE)
+    try:
+        return _view(slug, token)
+    except ApiError as e:  # the error handler would drop the headers: a cached 404 outlives a fix
+        return JSONResponse({"error": e.error}, e.status, headers=NO_STORE)
+
+
+def _view(slug: str, token: str) -> dict:
     ctx = TenantCtx(_tenant_by_slug(slug))  # no user: the audit row has no actor
     with db.tenant_tx(ctx) as c:
         link = c.execute(
