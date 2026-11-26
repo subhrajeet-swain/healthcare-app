@@ -151,8 +151,8 @@ def run(graph, thread: str) -> PipelineResult:
     if "triage" in state.values and "decision" not in state.values and not state.next:
         # finished `triage` under the phase-1 graph (no review node): `review` must still run
         graph.update_state(config, None, as_node="triage")
-        state = graph.get_state(config)
-    if state.next != PARKED and not ("triage" in state.values and not state.next):
+        graph.invoke(None, config)  # runs `review`: decision None, or a real interrupt
+    elif state.next != PARKED and not ("triage" in state.values and not state.next):
         graph.invoke(None if state.next else {}, config)
     # else finished or parked earlier (the save failed): never re-extract
     return _result(graph.get_state(config))

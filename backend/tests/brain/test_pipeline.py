@@ -294,15 +294,17 @@ def test_resume_twice_reuses_the_first_decision():
     assert again.decision["action"] == "escalate" and again.final_status == "ready"
 
 
-def test_old_checkpoint_finished_at_triage_still_goes_to_review():
+@pytest.mark.parametrize("extracted, parks", [(CRITICAL, True), (MISMATCH, True),
+                                               (NORMAL, False), (LOW, False)])
+def test_old_checkpoint_finished_at_triage_still_goes_to_review(extracted, parks):
     # A thread checkpointed by the phase-1 graph (triage -> END) has no `decision` and no
-    # next node. A red report must never come back `ready` from it.
+    # next node. `review` must really run on it: red/warnings park, green/amber finish.
     from langgraph.graph import END, START, StateGraph
 
     from app.brain.pipeline import State
 
     saver = InMemorySaver()
-    g, extract, explain = _graph(CRITICAL, saver)
+    g, extract, explain = _graph(extracted, saver)
     run(g, "src")
     values = {k: v for k, v in g.get_state({"configurable": {"thread_id": "src"}}).values.items()
               if k != "decision"}
@@ -312,6 +314,10 @@ def test_old_checkpoint_finished_at_triage_still_goes_to_review():
     old.add_edge("triage", END)
     old.compile(checkpointer=saver).invoke({}, {"configurable": {"thread_id": "old"}})
     res = run(g, "old")
-    assert res.pending and res.final_status == "needs_review"
     assert (len(extract.calls), len(explain.calls)) == (1, 1)  # never re-extracted
+    if not parks:
+        assert (res.pending, res.final_status, res.decision) == (False, "ready", None)
+        return
+    assert res.pending and res.final_status == "needs_review"
+    assert g.get_state({"configurable": {"thread_id": "old"}}).tasks[0].interrupts  # a real one
     assert resume(g, "old", {"action": "approve", "option": None, "by": "d"}).final_status == "ready"
