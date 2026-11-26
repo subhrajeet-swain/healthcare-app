@@ -14,7 +14,7 @@ from fastapi import APIRouter, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from psycopg.types.json import Jsonb
 
-from app import db, files
+from app import db, files, review
 from app.audit import audit
 from app.auth import Ctx
 from app.config import settings
@@ -79,6 +79,7 @@ def set_status(
 def store_result(c, tenant_id: UUID, report_id: UUID, res) -> None:
     """Write a finished pipeline run (results, explanations, decisions, final status)."""
     from app.brain.triage import result_triage
+    from app.brain.units import convert
 
     c.execute("DELETE FROM results WHERE report_id = %s", (report_id,))
     c.execute("DELETE FROM explanations WHERE report_id = %s", (report_id,))
@@ -89,13 +90,17 @@ def store_result(c, tenant_id: UUID, report_id: UUID, res) -> None:
         (res.report.collected_on, report_id),
     ).fetchone()
     for r in res.report.results:
+        # the printed value stays the authority; the canonical claim sits beside it
+        conv = convert(r)
+        canon = conv or (None, None, None, None)
         c.execute(
             "INSERT INTO results (tenant_id, report_id, user_id, observed_on, test_id, test_name, "
-            "value, unit, ref_low, ref_high, printed_flag, flag, triage) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "value, unit, ref_low, ref_high, printed_flag, flag, triage, "
+            "value_c, ref_low_c, ref_high_c, unit_c, excluded_reason) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (tenant_id, report_id, rep["user_id"], rep["observed_on"], r.test_id, r.test_name,
              r.value, r.unit, r.ref_low, r.ref_high, r.printed_flag, r.flag.value,
-             result_triage(r.flag)),
+             result_triage(r.flag), *canon, None if conv else "unit_not_comparable"),
         )
     for lang, e in res.explanations.items():
         c.execute(
@@ -110,6 +115,10 @@ def store_result(c, tenant_id: UUID, report_id: UUID, res) -> None:
         (res.triage, res.next_step.value, res.urgent, res.report.collected_on,
          Jsonb(res.warnings), report_id),
     )
+    for trend_id in review.refresh_trends(c, tenant_id, rep["user_id"]):
+        review.open_review(
+            c, tenant_id, kind="trend", reason="trend", user_id=rep["user_id"], trend_id=trend_id
+        )
     set_status(c, tenant_id, report_id, res.final_status)
 
 

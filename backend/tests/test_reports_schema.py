@@ -150,4 +150,4 @@ def test_store_result_sets_user_and_observed_on(lab, collected):
         rows = c.execute(
             "SELECT user_id, observed_on, value_c FROM results WHERE report_id = %s", (rid,)
         ).fetchall()
-    assert rows == [{"user_id": uid, "observed_on": collected or created, "value_c": None}]
+    assert rows == [{"user_id": uid, "observed_on": collected or created, "value_c": 11.2}]
