@@ -292,3 +292,26 @@ def test_resume_twice_reuses_the_first_decision():
     resume(g, "r7", {"action": "escalate", "option": None, "by": None})
     again = resume(g, "r7", {"action": "approve", "option": None, "by": "doc"})  # a retried job
     assert again.decision["action"] == "escalate" and again.final_status == "ready"
+
+
+def test_old_checkpoint_finished_at_triage_still_goes_to_review():
+    # A thread checkpointed by the phase-1 graph (triage -> END) has no `decision` and no
+    # next node. A red report must never come back `ready` from it.
+    from langgraph.graph import END, START, StateGraph
+
+    from app.brain.pipeline import State
+
+    saver = InMemorySaver()
+    g, extract, explain = _graph(CRITICAL, saver)
+    run(g, "src")
+    values = {k: v for k, v in g.get_state({"configurable": {"thread_id": "src"}}).values.items()
+              if k != "decision"}
+    old = StateGraph(State)
+    old.add_node("triage", lambda s: values)
+    old.add_edge(START, "triage")
+    old.add_edge("triage", END)
+    old.compile(checkpointer=saver).invoke({}, {"configurable": {"thread_id": "old"}})
+    res = run(g, "old")
+    assert res.pending and res.final_status == "needs_review"
+    assert (len(extract.calls), len(explain.calls)) == (1, 1)  # never re-extracted
+    assert resume(g, "old", {"action": "approve", "option": None, "by": "d"}).final_status == "ready"

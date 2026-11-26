@@ -127,8 +127,11 @@ def test_job_for_deleted_report_is_dropped(client, patient):
     _, tid, _ = patient
     rid = _upload(client)
     assert client.delete("/api/me").status_code == 204
-    assert worker.run_once(_models()) is True
-    assert _job(rid)["status"] == "done"
+    while worker.run_once(_models()):  # the upload's job and delete_me's purge job
+        pass
+    with _wconn() as c:
+        jobs = c.execute("SELECT status FROM jobs WHERE payload->>'report_id' = %s", (rid,))
+        assert [j["status"] for j in jobs] == ["done", "done"]
     assert not (settings.storage_dir / str(tid) / rid).exists()
     from app import db
 

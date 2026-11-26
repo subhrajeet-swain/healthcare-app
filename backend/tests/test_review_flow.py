@@ -277,3 +277,18 @@ def test_trend_items_queue_no_jobs(client, patient):
         iid = review.open_review(c, tid, kind="trend", reason="trend", user_id=uid,
                                  trend_id=trend)
     assert _jobs("review.timeout", iid) == [] and _jobs("alert.email", iid) == []
+
+
+def test_delete_me_purges_a_report_whose_pipeline_is_running(client, patient):
+    # The running job may commit a parked result before the delete; only a purge job queued
+    # by delete_me can still reach that thread.
+    rid = _upload(client)
+    with _wconn() as c:
+        c.execute("UPDATE jobs SET status = 'running', locked_at = now() "
+                  "WHERE payload->>'report_id' = %s", (rid,))
+    assert client.delete("/api/me").status_code == 204
+    with _wconn() as c:
+        queued = c.execute("SELECT 1 FROM jobs WHERE kind = 'report.pipeline' "
+                           "AND status = 'queued' "
+                           "AND payload->>'report_id' = %s", (rid,)).fetchall()
+    assert len(queued) == 1

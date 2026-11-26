@@ -148,6 +148,10 @@ def run(graph, thread: str) -> PipelineResult:
     """Run to the end or to `review`, resuming from the last finished node after a crash."""
     config = {"configurable": {"thread_id": thread}}
     state = graph.get_state(config)
+    if "triage" in state.values and "decision" not in state.values and not state.next:
+        # finished `triage` under the phase-1 graph (no review node): `review` must still run
+        graph.update_state(config, None, as_node="triage")
+        state = graph.get_state(config)
     if state.next != PARKED and not ("triage" in state.values and not state.next):
         graph.invoke(None if state.next else {}, config)
     # else finished or parked earlier (the save failed): never re-extract

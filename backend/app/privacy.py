@@ -128,13 +128,12 @@ def delete_me(ctx: Ctx, response: Response) -> None:
         # Graph threads live where only the worker can reach. A pipeline job for a deleted
         # report ends in its ReportGone path, which deletes the thread: that covers threads
         # parked for a doctor's review too (their resume and timeout jobs then find nothing).
-        # A report whose pipeline job is still queued or running already has one.
+        # Always one per report: a job already in flight may park its thread before this
+        # delete lands, and a second job for a deleted report is a no-op.
         c.execute(
             "INSERT INTO jobs (tenant_id, kind, payload) "
             "SELECT tenant_id, 'report.pipeline', jsonb_build_object('report_id', id::text) "
-            "FROM reports r WHERE user_id = %s AND NOT EXISTS (SELECT 1 FROM jobs j "
-            "WHERE j.kind = 'report.pipeline' AND j.status IN ('queued', 'running') "
-            "AND j.payload->>'report_id' = r.id::text)",
+            "FROM reports WHERE user_id = %s",
             (ctx.user_id,),
         )
         u = c.execute(
