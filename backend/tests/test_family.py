@@ -54,7 +54,8 @@ def test_child_profile_usable_at_once(client, manager):
     cid = child["member_id"]
     me = client.get("/api/me", headers=_as(cid)).json()
     assert me["id"] == cid and me["name"] == "Mira"
-    assert me["phone_masked"] is None and me["consent"] == {"core": True, "whatsapp": False}
+    assert me["phone_masked"] is None and me["consent"] == {
+        "core": True, "whatsapp": False, "telegram": False}
     # the manager uploads for the child: the report is the child's, uploaded by the manager
     r = client.post("/api/reports", files=PDF, headers=_as(cid))
     assert r.status_code == 201

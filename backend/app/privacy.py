@@ -15,7 +15,7 @@ from app.crypto import cipher_for
 
 router = APIRouter(prefix="/api")
 
-Purpose = Literal["core", "whatsapp"]
+Purpose = Literal["core", "whatsapp", "telegram"]
 
 
 class ConsentIn(BaseModel):
@@ -43,7 +43,7 @@ def me(ctx: Ctx) -> dict:
         "role": u["role"],
         "phone_masked": phone[:3] + "******" + phone[-4:] if phone else None,
         "name": cipher.decrypt(u["name_enc"]) if u["name_enc"] else None,
-        "consent": {"core": "core" in consents, "whatsapp": "whatsapp" in consents},
+        "consent": {p: p in consents for p in ("core", "whatsapp", "telegram")},
     }
 
 

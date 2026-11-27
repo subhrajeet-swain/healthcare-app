@@ -19,24 +19,37 @@ def test_me_masks_phone_and_audits_read(client, lab, login, db_urls):
     me = client.get("/api/me").json()
     assert me["phone_masked"] == "+91******3210"
     assert me["role"] == "patient" and me["name"] is None
-    assert me["consent"] == {"core": False, "whatsapp": False}
+    assert me["consent"] == {
+        "core": False, "whatsapp": False, "telegram": False}
     assert "read" in _audit_actions(db_urls, tid)
 
 
 def test_consent_grant_and_withdraw_reflected_in_me(client, lab, login):
     login(lab[0])
     assert client.post("/api/consents", json=CONSENT).status_code == 201
-    assert client.get("/api/me").json()["consent"] == {"core": True, "whatsapp": False}
+    assert client.get("/api/me").json()["consent"] == {
+        "core": True, "whatsapp": False, "telegram": False}
     assert client.delete("/api/consents/core").status_code == 204
-    assert client.get("/api/me").json()["consent"] == {"core": False, "whatsapp": False}
+    assert client.get("/api/me").json()["consent"] == {
+        "core": False, "whatsapp": False, "telegram": False}
 
 
 def test_whatsapp_consent_grant_and_withdraw(client, patient):
     wa = {"purpose": "whatsapp", "version": "wa-2026-11-v1"}
     assert client.post("/api/consents", json=wa).status_code == 201
-    assert client.get("/api/me").json()["consent"] == {"core": True, "whatsapp": True}
+    assert client.get("/api/me").json()["consent"] == {
+        "core": True, "whatsapp": True, "telegram": False}
     assert client.delete("/api/consents/whatsapp").status_code == 204
     assert client.get("/api/me").json()["consent"]["whatsapp"] is False
+
+
+def test_telegram_consent_grant_and_withdraw(client, patient):
+    tg = {"purpose": "telegram", "version": "tg-2026-11-v1"}
+    assert client.post("/api/consents", json=tg).status_code == 201
+    assert client.get("/api/me").json()["consent"] == {
+        "core": True, "whatsapp": False, "telegram": True}
+    assert client.delete("/api/consents/telegram").status_code == 204
+    assert client.get("/api/me").json()["consent"]["telegram"] is False
 
 
 def test_whatsapp_grant_does_not_requeue_consent_jobs(client, patient, db_urls):
@@ -103,7 +116,8 @@ def test_relogin_after_delete_is_fresh_account(client, lab, login):
     login(slug)
     me = client.get("/api/me").json()
     assert me["id"] != old_id
-    assert me["consent"] == {"core": False, "whatsapp": False}
+    assert me["consent"] == {
+        "core": False, "whatsapp": False, "telegram": False}
 
 
 def test_second_delete_with_old_cookie_is_401(client, lab, login):

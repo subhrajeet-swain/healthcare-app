@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from app import db
 from app.audit import audit
 from app.auth import Own, _code_hash, _mask
+from app.config import settings
 from app.crypto import cipher_for
 from app.errors import ApiError, not_found
 from app.privacy import _active_purposes
@@ -27,7 +28,7 @@ CODE_TTL = "10 minutes"
 CODE_MAX_PER_10_MIN = 3
 CODE_TRIES = 5  # redraws when a code matches another live one in the tenant
 
-Channel = Literal["whatsapp"]  # + "telegram" with its adapter
+Channel = Literal["whatsapp", "telegram"]
 
 
 def _patient(ctx: Own) -> TenantCtx:
@@ -52,9 +53,19 @@ def _lab_number(c, ctx: TenantCtx) -> str | None:
     return row["wa_display_phone"] if row["wa_phone_number_id"] else None
 
 
+def tg_available(c, tid) -> bool:
+    """Telegram serves one lab, and only with a bot token and username (ruling T11)."""
+    slug = c.execute("SELECT slug FROM tenants WHERE id = %s", (tid,)).fetchone()["slug"]
+    return bool(
+        settings.telegram_bot_token and settings.telegram_bot_username
+        and settings.telegram_lab and slug == settings.telegram_lab
+    )
+
+
 def link_status(channel: Channel, ctx: TenantCtx) -> dict:
     with db.tenant_tx(ctx) as c:
-        number = _lab_number(c, ctx)
+        number = _lab_number(c, ctx) if channel == "whatsapp" else None
+        available = tg_available(c, ctx.tenant_id) if channel == "telegram" else number is not None
         link = c.execute(
             "SELECT address_enc FROM channel_links WHERE user_id = %s AND channel = %s",
             (ctx.user_id, channel),
@@ -62,8 +73,10 @@ def link_status(channel: Channel, ctx: TenantCtx) -> dict:
         masked = _mask(cipher_for(c, ctx.tenant_id).decrypt(link["address_enc"])) if link else None
         opted_in = channel in _active_purposes(c, ctx)
         audit(c, ctx, "read", "channel_link", ctx.user_id)
+    if channel == "telegram":
+        return {"available": available, "linked": link is not None, "opted_in": opted_in}
     return {
-        "available": number is not None,
+        "available": available,
         "lab_number": number,
         "linked": link is not None,
         "number_masked": masked,
@@ -71,10 +84,26 @@ def link_status(channel: Channel, ctx: TenantCtx) -> dict:
     }
 
 
+def _six_digits(c, channel: Channel) -> str:
+    for _ in range(CODE_TRIES):
+        code = f"{secrets.randbelow(10**6):06d}"
+        taken = c.execute(
+            "SELECT 1 FROM link_codes "
+            "WHERE channel = %s AND code_hash = %s AND used_at IS NULL AND expires_at > now()",
+            (channel, _code_hash(code)),
+        ).fetchone()
+        if not taken:
+            return code
+    raise ApiError(503, "try_again")
+
+
 def link_code(channel: Channel, body: LinkCodeIn, ctx: TenantCtx) -> dict:
     with db.tenant_tx(ctx) as c:
-        number = _lab_number(c, ctx)
-        if number is None:
+        if channel == "telegram":
+            number = None
+            if not tg_available(c, ctx.tenant_id):
+                raise ApiError(409, "telegram_unavailable")
+        elif (number := _lab_number(c, ctx)) is None:
             raise ApiError(409, f"{channel}_unavailable")
         recent = c.execute(
             "SELECT count(*) AS n FROM link_codes "
@@ -92,23 +121,17 @@ def link_code(channel: Channel, body: LinkCodeIn, ctx: TenantCtx) -> dict:
         # Whoever sends a code is linked to the account it was issued to, so no two live codes
         # of a tenant may match. ponytail: check then insert, so two requests in the same instant
         # could still draw one code; a lock per tenant if codes ever carry that risk.
-        for _ in range(CODE_TRIES):
-            code = f"{secrets.randbelow(10**6):06d}"
-            taken = c.execute(
-                "SELECT 1 FROM link_codes "
-                "WHERE channel = %s AND code_hash = %s AND used_at IS NULL AND expires_at > now()",
-                (channel, _code_hash(code)),
-            ).fetchone()
-            if not taken:
-                break
-        else:
-            raise ApiError(503, "try_again")
+        # Telegram: 256 random bits, so no redraw (ruling T11)
+        code = secrets.token_urlsafe(32) if channel == "telegram" else _six_digits(c, channel)
         expires_in = c.execute(
             "INSERT INTO link_codes (tenant_id, user_id, channel, code_hash, lang, expires_at) "
             f"VALUES (%s, %s, %s, %s, %s, now() + interval '{CODE_TTL}') "
             "RETURNING extract(epoch FROM expires_at - now())::int AS s",
             (ctx.tenant_id, ctx.user_id, channel, _code_hash(code), body.language),
         ).fetchone()["s"]
+    if channel == "telegram":
+        url = f"https://t.me/{settings.telegram_bot_username}?start={code}"
+        return {"url": url, "expires_in": expires_in}
     return {"code": code, "lab_number": number, "expires_in": expires_in}
 
 

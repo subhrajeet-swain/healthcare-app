@@ -30,7 +30,7 @@ from uuid import UUID
 
 from psycopg.types.json import Jsonb
 
-from app import chat_api, db, files, whatsapp
+from app import chat_api, db, files, telegram, whatsapp
 from app.audit import audit
 from app.auth import _code_hash
 from app.config import settings
@@ -39,13 +39,13 @@ from app.errors import ApiError
 from app.privacy import _active_purposes
 from app.reports import attach_file, create_report, report_detail
 from app.tenancy import TenantCtx
-from app.whatsapp import COPY, TEMPLATES, Inbound, Outbound
+from app.whatsapp import TEMPLATES, Inbound, Outbound
 
 log = logging.getLogger("app.msg_jobs")
 
 Channel = Literal["whatsapp", "telegram"]
-ADAPTERS: dict[str, ModuleType] = {"whatsapp": whatsapp}
-CONSENT_VERSION = {"whatsapp": "wa-2026-11-v1"}
+ADAPTERS: dict[str, ModuleType] = {"whatsapp": whatsapp, "telegram": telegram}
+CONSENT_VERSION = {"whatsapp": "wa-2026-11-v1", "telegram": "tg-2026-11-v1"}
 UNLINKED_MAX_PER_HOUR = 10
 # converse's refusals, and the line each one gets on WhatsApp
 _REFUSED = {
@@ -95,9 +95,13 @@ def _outbox(
 
 def _account(c, tid: UUID, channel: Channel) -> str | None:
     """The lab's sending account on this channel, or None when it has none."""
-    return c.execute(  # whatsapp is the only channel for now
-        "SELECT wa_phone_number_id FROM tenants WHERE id = %s", (tid,)
-    ).fetchone()["wa_phone_number_id"]
+    row = c.execute(
+        "SELECT wa_phone_number_id, slug FROM tenants WHERE id = %s", (tid,)
+    ).fetchone()
+    if channel == "telegram":  # one bot, one lab
+        ours = settings.telegram_lab and row["slug"] == settings.telegram_lab
+        return "telegram" if ours else None
+    return row["wa_phone_number_id"]
 
 
 def inbound(job: dict, models: dict | None, saver) -> None:
@@ -149,6 +153,7 @@ def _deliver(tid: UUID, message_id: str, channel: Channel) -> None:
 
 def _decide(c, cipher: TenantCipher, tid: UUID, channel: Channel, fp: bytes, m: Inbound):
     """(replies, ctx, lang). Replies may instead be "media" or "question": work after commit."""
+    COPY = ADAPTERS[channel].COPY  # noqa: N806
     link = c.execute(
         "SELECT * FROM channel_links WHERE channel = %s AND address_fp = %s", (channel, fp)
     ).fetchone()
@@ -189,7 +194,7 @@ def _decide(c, cipher: TenantCipher, tid: UUID, channel: Channel, fp: bytes, m: 
     if m.kind == "media":
         return "media", ctx, lang
     if cmd == "report":
-        return _report(c, ctx, lang), ctx, lang
+        return _report(c, ctx, lang, channel), ctx, lang
     if m.kind == "text":
         return "question", ctx, lang
     return [COPY["bad_file"][lang]], ctx, lang  # audio, sticker, location: nothing we read
@@ -209,6 +214,7 @@ def _link(
     lang: str,
 ):
     """`LINK <code>`: the code's account gets this address; both lose any earlier link (W3)."""
+    COPY = ADAPTERS[channel].COPY  # noqa: N806
     rows = c.execute(
         "SELECT id, user_id, lang FROM link_codes "
         "WHERE channel = %s AND code_hash = %s AND used_at IS NULL AND expires_at > now() "
@@ -245,19 +251,22 @@ def _latest(c, ctx: TenantCtx):
     ).fetchone()
 
 
-def _report(c, ctx: TenantCtx, lang: str) -> list[str]:
+def _report(c, ctx: TenantCtx, lang: str, channel: Channel) -> list[str]:
+    adapter = ADAPTERS[channel]
     r = _latest(c, ctx)
     if r is None:
-        return [COPY["no_report"][lang]]
+        return [adapter.COPY["no_report"][lang]]
     detail = report_detail(c, r)
     audit(c, ctx, "read", "report", r["id"])
-    return [*whatsapp.split(whatsapp.report_paragraphs(detail, lang)), COPY["ask_more"][lang]]
+    paras = whatsapp.report_paragraphs(detail, lang)
+    return [*whatsapp.split(paras, adapter.CHUNK), adapter.COPY["ask_more"][lang]]
 
 
 def _media(
     tid: UUID, mid: str, channel: Channel, m: Inbound, ctx: TenantCtx, lang: str
 ) -> None:
     """Download and check outside any transaction, then a report for the pipeline."""
+    COPY = ADAPTERS[channel].COPY  # noqa: N806
     try:
         data = ADAPTERS[channel].fetch_media(m.media_id)
         mime = files.check_bytes(data)
@@ -279,6 +288,7 @@ def question(
 
     The report is the latest chat-ready one, as for REPORT.
     """
+    COPY = ADAPTERS[channel].COPY  # noqa: N806
     with _tx(ctx.tenant_id) as c:
         r = _latest(c, ctx)
     if r is None:
@@ -292,7 +302,7 @@ def question(
         if e.error not in _REFUSED:
             raise
         return [COPY[_REFUSED[e.error]][lang]]
-    return whatsapp.split([reply.text])
+    return whatsapp.split([reply.text], ADAPTERS[channel].CHUNK)
 
 
 def queue_notify(
@@ -345,7 +355,8 @@ def notify(job: dict, models: dict | None, saver) -> None:
         whatsapp.send(Outbound(account, to, template=template, lang=lang, lab=lab))
         return
     if event == "report_ready":  # red too: its urgent line comes first (ruling T1)
-        out = [*whatsapp.split(whatsapp.report_paragraphs(detail, lang)), COPY["ask_more"][lang]]
+        out = [*whatsapp.split(whatsapp.report_paragraphs(detail, lang)),
+               whatsapp.COPY["ask_more"][lang]]
     else:
         out = [TEMPLATES[event][lang].format(lab=lab)]
     for text in out:

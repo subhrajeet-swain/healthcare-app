@@ -48,7 +48,7 @@ def converse(
     question: str,
     lang: str,
     model: BaseChatModel | None,
-    channel: Literal["web", "whatsapp"],
+    channel: Literal["web", "whatsapp", "telegram"],
 ) -> ChatReply:
     """One chat turn, for every channel. `tx` opens a transaction in the caller's role."""
     with tx() as c:
