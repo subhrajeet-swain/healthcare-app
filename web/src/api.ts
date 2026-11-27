@@ -122,6 +122,7 @@ export type ReportDetail = ReportSummary & {
   explanations?: Partial<Record<Lang, { source: "model" | "template"; statements: Statement[] }>>;
   review_pending?: boolean; // a doctor still has to look at it; the report shows as it is
   doctor_note?: DoctorNote; // once a doctor edited or escalated
+  lab_phone?: string | null; // on a red report: the number behind "Call your lab"
 };
 /** A report as a doctor sees it through a share link: no file, no chat, no pipeline steps. */
 export type SharedReport = Omit<ReportDetail, "steps" | "has_file" | "failure_message">;
@@ -132,8 +133,9 @@ export type ChatMessage = {
   text: string;
   tier: string;
   created_at: string;
-  channel?: "web" | "whatsapp"; // absent on a message just sent from this page: it is web
+  channel?: "web" | Channel; // absent on a message just sent from this page: it is web
 };
+export type Channel = "whatsapp" | "telegram";
 /** The patient's WhatsApp link: `lab_number` is the number to message, null when the lab has none. */
 export type WaLink = {
   available: boolean;
@@ -142,6 +144,8 @@ export type WaLink = {
   number_masked: string | null;
   opted_in: boolean;
 };
+export type TgLink = { available: boolean; linked: boolean; opted_in: boolean };
+export type TgLinkCode = { url: string; expires_in: number };
 export type WaLinkCode = { code: string; lab_number: string; expires_in: number }; // expires_in: seconds
 export type StaffReport = {
   id: string;
@@ -232,9 +236,10 @@ export const api = {
     req<{ link_id: string }>("POST", "/api/family", { relation, name, phone }, true),
   acceptInvite: (linkId: string) => req<void>("POST", `/api/family/${linkId}/accept`, undefined, true),
   revokeLink: (linkId: string) => req<void>("DELETE", `/api/family/${linkId}`, undefined, true),
-  waLink: () => req<WaLink>("GET", "/api/whatsapp/link", undefined, true),
-  waLinkCode: (language: Lang) => req<WaLinkCode>("POST", "/api/whatsapp/link-code", { language }, true),
-  waUnlink: () => req<void>("DELETE", "/api/whatsapp/link", undefined, true),
+  channelLink: <T = WaLink>(channel: Channel) => req<T>("GET", `/api/channels/${channel}/link`, undefined, true),
+  channelLinkCode: <T = WaLinkCode>(channel: Channel, language: Lang) =>
+    req<T>("POST", `/api/channels/${channel}/link-code`, { language }, true),
+  channelUnlink: (channel: Channel) => req<void>("DELETE", `/api/channels/${channel}/link`, undefined, true),
   exportUrl: "/api/me/export",
   reports: () => req<ReportSummary[]>("GET", "/api/reports"),
   timeline: () => req<TimelineTest[]>("GET", "/api/timeline"),

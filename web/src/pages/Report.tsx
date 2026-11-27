@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { ApiError, type ReportDetail, type Result, type SharedReport, type Status, TERMINAL, api } from "../api";
 import { Band } from "../Band";
 import { Chat } from "../Chat";
+import { telHref } from "../channels";
 import { rangePosition } from "../range";
 import { go } from "../routes";
 import { Nav } from "../Nav";
@@ -121,12 +122,13 @@ type Body = SharedReport & { has_file?: boolean };
 /** First on a red report and on the home summary: act today. `phone`, when the lab has one, is a call button. */
 export function UrgentBanner({ phone }: { phone?: string | null }) {
   const { t } = useLang();
+  const href = telHref(phone);
   return (
     <div className="strip triage triage--red urgent-banner" role="note">
       <p className="next">{t("urgentBanner")}</p>
-      {phone && (
+      {href && (
         <div className="strip__body">
-          <a className="btn" href={`tel:${phone}`}>{phone}</a>
+          <a className="btn" href={href}>{t("callLab")}</a>
         </div>
       )}
     </div>
@@ -146,7 +148,7 @@ export function ReportBody({ report, shared = false }: { report: Body; shared?: 
 
   return (
     <>
-      {banner && <UrgentBanner />}
+      {banner && <UrgentBanner phone={report.lab_phone} />}
       <section className={`strip triage triage--${report.triage}`} aria-labelledby={`${uid}-triage`}>
         <div className="strip__head">
           <h2 className="strip__title" id={`${uid}-triage`}>

@@ -85,7 +85,7 @@ function PatientHome() {
   const next = fresh?.next_step;
   return (
     <>
-      {latest.triage === "red" && <UrgentBanner />}
+      {latest.triage === "red" && <UrgentBanner phone={fresh?.lab_phone} />}
       <section className="strip summary" aria-labelledby="summary-title">
         <h2 className="summary__number" id="summary-title">
           {latestRead

@@ -84,6 +84,12 @@ def run() -> dict[str, UUID]:
                     "WHERE id = %s AND wa_phone_number_id IS NULL",
                     (*DEV_WA[slug], tid),
                 )
+        if slug == "lab-alpha":
+            with db.owner_tx(settings.owner_database_url) as c:
+                c.execute(
+                    "UPDATE tenants SET phone = '+911140000000' WHERE id = %s AND phone IS NULL",
+                    (tid,),
+                )
         with db.owner_tx(settings.owner_database_url, tid) as c:
             cipher = crypto.cipher_for(c, tid)
             for role, phone, person in _people(tag, prefix):

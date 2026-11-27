@@ -214,6 +214,11 @@ def report_detail(c, report: dict) -> dict:
     }
     if note := doctor_note(now):
         detail["doctor_note"] = note
+    if now["triage"] == "red":  # for the banner's "Call your lab"; null if the lab has no number
+        detail["lab_phone"] = c.execute(
+            "SELECT phone FROM tenants "
+            "WHERE id = (SELECT tenant_id FROM reports WHERE id = %s)", (rid,)
+        ).fetchone()["phone"]
     return detail
 
 

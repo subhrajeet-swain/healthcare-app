@@ -14,7 +14,7 @@ export function WhatsApp() {
 
   const load = useCallback(async () => {
     try {
-      const s = await api.waLink();
+      const s = await api.channelLink("whatsapp");
       setStatus(s);
       if (s.linked) setCode(null);
     } catch (e) {
@@ -49,11 +49,11 @@ export function WhatsApp() {
   const getCode = () =>
     act(async () => {
       setCopied(false);
-      setCode(await api.waLinkCode(lang));
+      setCode(await api.channelLinkCode("whatsapp", lang));
     });
   const unlink = () =>
     act(async () => {
-      await api.waUnlink();
+      await api.channelUnlink("whatsapp");
       setCode(null);
       await load();
     });

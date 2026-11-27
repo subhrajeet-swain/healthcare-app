@@ -217,3 +217,13 @@ def test_lab_file_of_a_warnings_pending_report_is_served(client, patient):
     tid, rid, _ = _park(client, patient, MISMATCH)  # warnings only: needs_review
     _lab_source(tid, rid)
     assert client.get(f"/api/reports/{rid}/file").status_code == 200
+
+
+def test_red_detail_has_lab_phone(client, patient):  # ruling T3
+    tid, rid, _ = _park(client, patient)
+    with _own(tid) as c:
+        c.execute("UPDATE tenants SET phone = '+911140000000' WHERE id = %s", (tid,))
+    assert _detail(client, rid)["lab_phone"] == "+911140000000"
+    with _own(tid) as c:
+        c.execute("UPDATE reports SET triage = 'amber' WHERE id = %s", (rid,))
+    assert "lab_phone" not in _detail(client, rid)

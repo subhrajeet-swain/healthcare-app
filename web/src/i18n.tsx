@@ -260,6 +260,16 @@ export const STRINGS = {
   waLinked: { en: "Linked to {number}.", hi: "{number} से जुड़ा है।" },
   waOptedOut: { en: "Messages are paused. Send START on WhatsApp to turn them back on.", hi: "संदेश रुके हुए हैं। दोबारा चालू करने के लिए WhatsApp पर START भेजें।" },
   waUnlink: { en: "Unlink", hi: "अनलिंक करें" },
+  // telegram (Hindi machine-drafted)
+  tgTitle: { en: "Telegram", hi: "टेलीग्राम" },
+  tgLede: { en: "Connect Telegram to get a message when a report is ready, and to ask about it there.", hi: "टेलीग्राम जोड़ें, ताकि रिपोर्ट तैयार होने पर संदेश मिले और आप वहीं उसके बारे में पूछ सकें।" },
+  tgUnavailable: { en: "Your lab hasn't set up Telegram yet.", hi: "आपकी लैब ने अभी टेलीग्राम शुरू नहीं किया है।" },
+  tgConnect: { en: "Connect Telegram", hi: "टेलीग्राम जोड़ें" },
+  tgLinked: { en: "Connected.", hi: "जुड़ा हुआ है।" },
+  tgOptedOut: { en: "Messages are paused. Send /start on Telegram to turn them back on.", hi: "संदेश रुके हुए हैं। दोबारा चालू करने के लिए टेलीग्राम पर /start भेजें।" },
+  tgUnlink: { en: "Unlink", hi: "अनलिंक करें" },
+  viaTelegram: { en: "via Telegram", hi: "टेलीग्राम से" },
+  callLab: { en: "Call your lab", hi: "अपनी लैब को फ़ोन करें" },
   viaWhatsApp: { en: "via WhatsApp", hi: "WhatsApp से" },
 } satisfies Record<string, Pair>;
 
