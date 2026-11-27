@@ -1,6 +1,6 @@
 """Eval runner. Local by default; --langsmith also records the run as a LangSmith experiment.
 
-    python evals/run.py smoke|fixtures|chat|trends|held|whatsapp     offline, run in CI
+    python evals/run.py smoke|fixtures|chat|trends|red|whatsapp|telegram  offline, run in CI
     python evals/run.py reports                 live: 15 synthetic PDFs, needs GOOGLE_API_KEY
 
 fixtures: the explainer's 15 offline cases (811eb54 evals/cases.json) against app.brain.
@@ -11,6 +11,8 @@ held:     the 15 fixture specs through template_result; a red one's held patient
 whatsapp: the 15 fixture specs as WhatsApp text: a non-red one has the web explanation and closing
           line once, in chunks of at most 700; a red one raises and its fixed lines hold no value;
           every COPY/TEMPLATES text has no digit and no placeholder but {lab}.
+telegram: the same 15 specs in chunks of at most 4096, plus every telegram.COPY text (no digit,
+          no placeholder but {lab}).
 reports:  the 15 synthetic PDFs through the real pipeline; their specs are the answer key.
           Target (explainer README): 30/30 cases with fixtures, grounding 100% EN and HI,
           0 unsafe, 0 critical missed.
@@ -255,7 +257,7 @@ def run_red() -> list[tuple[str, bool, str]]:
 # --------------------------------------------------------------------------- whatsapp
 
 
-def _whatsapp_spec(spec_path: Path) -> tuple[str, bool, str]:
+def _whatsapp_spec(spec_path: Path, chunk: int = 700) -> tuple[str, bool, str]:
     """One fixture spec: the web detail's explanation and closing line, once, in chunks of at
     most CHUNK; a red one also starts with the urgent line, once (ruling T2)."""
     from app.brain.nextstep import closing_message
@@ -267,10 +269,10 @@ def _whatsapp_spec(spec_path: Path) -> tuple[str, bool, str]:
     bad = _urgent_first(detail) if res.triage == "red" else []
     for lang in ("en", "hi"):
         paras = report_paragraphs(detail, lang)
-        chunks = split(paras)
+        chunks = split(paras, chunk)
         statements = [s["text"] for s in detail["explanations"][lang]["statements"]]
         closing = closing_message(res.next_step, lang)
-        if (any(len(c) > 700 for c in chunks) or "\n\n".join(chunks) != "\n\n".join(paras)
+        if (any(len(c) > chunk for c in chunks) or "\n\n".join(chunks) != "\n\n".join(paras)
                 or any(s not in paras for s in statements)
                 or paras.count(closing) != (1 if closing else 0)
                 or len(paras) != len(statements)):  # the closing line is a statement already
@@ -289,6 +291,19 @@ def run_whatsapp() -> list[tuple[str, bool, str]]:
             digits = [t for t in texts if re.search(r"\d", t)]
             out.append((f"{name}.{key}", len(texts) == 2 and not holes and not digits,
                         f"placeholders={holes} digits={len(digits)}"))
+    return out
+
+
+def run_telegram() -> list[tuple[str, bool, str]]:
+    from app.telegram import CHUNK, COPY
+
+    out = [_whatsapp_spec(p, CHUNK) for p in sorted((DATA / "specs").glob("report_*.json"))]
+    for key, langs in COPY.items():
+        texts = list(langs.values())
+        holes = [m for t in texts for m in re.findall(r"\{[^}]*\}", t) if m != "{lab}"]
+        digits = [t for t in texts if re.search(r"\d", t)]
+        out.append((f"copy.{key}", len(texts) == 2 and not holes and not digits,
+                    f"placeholders={holes} digits={len(digits)}"))
     return out
 
 
@@ -350,6 +365,7 @@ SUITES: dict[str, Callable[[], list[tuple[str, bool, str]]]] = {
     "trends": run_trends,
     "red": run_red,
     "whatsapp": run_whatsapp,
+    "telegram": run_telegram,
     "reports": run_reports,
 }
 

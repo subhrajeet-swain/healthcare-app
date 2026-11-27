@@ -31,12 +31,12 @@ Status: not started. Depends on: phase 3 (branch `phase-3` @ c6c3bbe). Branch: `
 **Out of scope:** Telegram inline keyboards and payments, group chats (a message from a group is ignored), several bots per lab, the app-wide chatbot (phase 3.3), logging and monitoring (phase 3.2).
 
 **Done when**
-- [ ] A new red report shows its explanation and the urgent banner at once in the app, with no "Under review" screen.
-- [ ] The doctor queue still gets red reports, and a doctor's note appears on the released report.
-- [ ] A failed WhatsApp or Telegram send is retried and the reply arrives; a retried LINK or media message does not link twice or create two reports.
+- [x] A new red report shows its explanation and the urgent banner at once in the app, with no "Under review" screen.
+- [x] The doctor queue still gets red reports, and a doctor's note appears on the released report.
+- [x] A failed WhatsApp or Telegram send is retried and the reply arrives; a retried LINK or media message does not link twice or create two reports.
 - [ ] "Connect Telegram" in the app links the chat in one tap; `/report`, a question and a PDF work from Telegram.
-- [ ] A conversation continues across web, WhatsApp and Telegram in one history.
-- [ ] `/stop` stops all Telegram messages; red explanations on Telegram start with the urgent line.
+- [x] A conversation continues across web, WhatsApp and Telegram in one history.
+- [x] `/stop` stops all Telegram messages; red explanations on Telegram start with the urgent line.
 - [ ] Live check with a real bot: link, `/report`, a question and a PDF upload from a phone.
 
 ## 2. Stack and costs
