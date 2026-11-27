@@ -350,14 +350,17 @@ def notify(job: dict, models: dict | None, saver) -> None:
     if not account:
         log.warning("%s notify dropped: the lab has no account now", channel)
         return
-    if not link["open"]:  # outside the window: a template, never a value (W8)
+    adapter = ADAPTERS[channel]
+    if channel == "whatsapp" and not link["open"]:  # a template, never a value (W8)
         template = "report_ready_red" if red else event
         whatsapp.send(Outbound(account, to, template=template, lang=lang, lab=lab))
         return
     if event == "report_ready":  # red too: its urgent line comes first (ruling T1)
-        out = [*whatsapp.split(whatsapp.report_paragraphs(detail, lang)),
-               whatsapp.COPY["ask_more"][lang]]
+        out = [*whatsapp.split(whatsapp.report_paragraphs(detail, lang), adapter.CHUNK),
+               adapter.COPY["ask_more"][lang]]
+    elif channel == "telegram":  # no window, no templates: always free text (T16)
+        out = [adapter.COPY[event][lang].format(lab=lab)]
     else:
         out = [TEMPLATES[event][lang].format(lab=lab)]
     for text in out:
-        ADAPTERS[channel].send_text(account, to, text)
+        adapter.send_text(account, to, text)
