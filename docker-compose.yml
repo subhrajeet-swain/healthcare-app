@@ -66,6 +66,21 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # Long-polls Telegram getUpdates and stores messages for the worker. One replica only.
+  telegram:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    command: python -m app.telegram_poll
+    environment:
+      DATABASE_URL: postgresql://hc_app:app_dev@db:5432/healthcare
+      OWNER_DATABASE_URL: ""
+      GRAPH_DATABASE_URL: ""
+      ADMIN_DATABASE_URL: ""
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
   web:
     image: node:22-alpine
     restart: unless-stopped
