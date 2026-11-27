@@ -27,7 +27,11 @@ TIMEOUT = 40
 
 
 class TelegramError(Exception):
-    """A Bot API call failed. The message names the method and status, never the URL."""
+    """A Bot API call failed. The message names the method and status, never the URL.
+
+    `description` is Telegram's own reason for a refused call (no token in it)."""
+
+    description = ""
 
 
 # Hindi lines are machine-drafted; a native speaker must review them before real users.
@@ -74,6 +78,13 @@ COPY: dict[str, dict[str, str]] = {
         "en": "Thanks, we are reading your report. We will message you when it is ready.",
         "hi": "धन्यवाद, हम आपकी रिपोर्ट पढ़ रहे हैं। तैयार होने पर हम आपको संदेश भेजेंगे।",
     },
+    # the live status message, one line per step (`status_text`)
+    "status_received": {"en": "Report received", "hi": "रिपोर्ट मिल गई"},
+    "status_reading": {"en": "Reading your values…", "hi": "आपके परिणाम पढ़े जा रहे हैं…"},
+    "status_read": {"en": "Values read", "hi": "परिणाम पढ़ लिए गए"},
+    "status_writing": {"en": "Writing your explanation…", "hi": "आपकी व्याख्या लिखी जा रही है…"},
+    "status_ready": {"en": "Explanation ready", "hi": "व्याख्या तैयार है"},
+    "status_attention": {"en": "Needs attention today", "hi": "आज ही ध्यान देने की ज़रूरत है"},
     "bad_file": {
         "en": "We could not read that file. "
         "Please send a clear PDF, JPEG or PNG of your lab report.",
@@ -151,6 +162,52 @@ def send_text(account: str, to: str, text: str) -> None:
     tg_call("sendMessage", {"chat_id": to, "text": text})
 
 
+# how far each status got: 0 reading, 1 writing, 2 done (any other status renders as 0)
+_STAGE = {"received": 0, "extracting": 0, "explaining": 1, "ready": 2, "needs_review": 2}
+
+
+def status_text(
+    status: str, steps: list[str], triage: str | None, failure: str | None, lang: str
+) -> str:
+    """The status message: reached lines only, the current one ⏳, a failure ❌ in its place."""
+    def t(key: str) -> str:
+        return COPY[key][lang]
+
+    failed = status == "failed"
+    if failed:  # the step it failed at: the last one before `failed`
+        status = next((s for s in reversed(steps) if s != "failed"), "received")
+    stage = _STAGE.get(status, 0)
+    lines = [f"📄 {t('status_received')}"]
+    lines.append(f"✅ {t('status_read')}" if stage else f"⏳ {t('status_reading')}")
+    if stage:
+        lines.append(f"✅ {t('status_ready')}" if stage == 2 else f"⏳ {t('status_writing')}")
+    if failed:
+        lines[-1] = f"❌ {failure or ''}".rstrip()
+    elif stage == 2 and triage == "red":
+        lines.insert(0, f"⚠️ {t('status_attention')}")
+    return "\n".join(lines)
+
+
+def send_status(to: str, text: str) -> int | None:
+    """Send a new status message; its id (None with no token: only logged)."""
+    if not settings.telegram_bot_token:
+        send_text("telegram", to, text)
+        return None
+    return int(tg_call("sendMessage", {"chat_id": to, "text": text})["message_id"])
+
+
+def edit_status(to: str, message_id: int, text: str) -> int | None:
+    """Edit the status message in place; if that fails, a new one. The id that now holds it."""
+    try:
+        tg_call("editMessageText", {"chat_id": to, "message_id": message_id, "text": text})
+        return message_id
+    except TelegramError as e:
+        if "message is not modified" in e.description:
+            return message_id  # a duplicate or out-of-order job: already this text
+        log.info("telegram status edit failed (%s); sending a new message", e)
+    return send_status(to, text)
+
+
 _BAD_PATH = re.compile(r"\.\.|//|:")
 
 
@@ -176,12 +233,21 @@ def tg_call(method: str, params: dict) -> dict:
         r = httpx.post(url, json=params, timeout=TIMEOUT)
         r.raise_for_status()
         data = r.json()
+    except httpx.HTTPStatusError as e:
+        err = TelegramError(f"{method} failed: {_status(e)}")
+        try:
+            err.description = str(e.response.json().get("description") or "")
+        except (ValueError, AttributeError):
+            pass
+        raise err from None
     except httpx.HTTPError as e:
         raise TelegramError(f"{method} failed: {_status(e)}") from None
     except ValueError:
         raise TelegramError(f"{method} failed: bad json") from None
     if not data.get("ok"):
-        raise TelegramError(f"{method} failed: {data.get('error_code')}")
+        err = TelegramError(f"{method} failed: {data.get('error_code')}")
+        err.description = str(data.get("description") or "")
+        raise err
     return data["result"]
 
 

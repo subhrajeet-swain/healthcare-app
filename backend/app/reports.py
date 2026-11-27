@@ -69,6 +69,17 @@ def set_status(
         "INSERT INTO report_steps (tenant_id, report_id, status) VALUES (%s, %s, %s)",
         (tenant_id, report_id, status),
     )
+    queue_status(c, tenant_id, report_id)
+
+
+def queue_status(c, tenant_id: UUID, report_id: UUID) -> None:
+    """A `msg.status` job (ids only) when the report came in through Telegram; else nothing."""
+    c.execute(
+        "INSERT INTO jobs (tenant_id, kind, payload) SELECT %s, 'msg.status', "
+        "jsonb_build_object('report_id', id::text, 'channel', 'telegram') "
+        "FROM reports WHERE id = %s AND source = 'telegram'",
+        (tenant_id, report_id),
+    )
 
 
 def store_result(c, tenant_id: UUID, report_id: UUID, res) -> None:

@@ -37,7 +37,7 @@ from app.config import settings
 from app.crypto import TenantCipher, cipher_for
 from app.errors import ApiError
 from app.privacy import _active_purposes
-from app.reports import attach_file, create_report, report_detail
+from app.reports import attach_file, create_report, queue_status, report_detail
 from app.tenancy import TenantCtx
 from app.whatsapp import TEMPLATES, Inbound, Outbound
 
@@ -121,8 +121,9 @@ def inbound(job: dict, models: dict | None, saver) -> None:
             out, ctx, lang = _decide(c, cipher, tid, channel, bytes(row["sender_fp"]), m)
             if isinstance(out, list):
                 _outbox(c, cipher, mid, m.sender, out, ctx and ctx.user_id)
+    rid = None
     if out == "media":
-        _media(tid, mid, channel, m, ctx, lang)
+        rid = _media(tid, mid, channel, m, ctx, lang)
     elif out == "question":
         replies = question(ctx, m.text or "", lang, models, channel)
         # ponytail: converse commits its own turn first, so a crash before this write re-asks
@@ -130,6 +131,8 @@ def inbound(job: dict, models: dict | None, saver) -> None:
         with _tx(tid) as c:
             _outbox(c, cipher_for(c, tid), mid, m.sender, replies, ctx.user_id)
     _deliver(tid, mid, channel)
+    if rid and channel == "telegram":
+        kick_status(tid, rid)  # the first status message; its queued job is the backstop
 
 
 def _deliver(tid: UUID, message_id: str, channel: Channel) -> None:
@@ -264,8 +267,10 @@ def _report(c, ctx: TenantCtx, lang: str, channel: Channel) -> list[str]:
 
 def _media(
     tid: UUID, mid: str, channel: Channel, m: Inbound, ctx: TenantCtx, lang: str
-) -> None:
-    """Download and check outside any transaction, then a report for the pipeline."""
+) -> UUID | None:
+    """Download and check outside any transaction, then a report for the pipeline.
+
+    Telegram gets the live status message (`push_status`) in place of `reading`."""
     COPY = ADAPTERS[channel].COPY  # noqa: N806
     try:
         data = ADAPTERS[channel].fetch_media(m.media_id)
@@ -273,11 +278,14 @@ def _media(
     except ApiError:
         with _tx(tid) as c:
             _outbox(c, cipher_for(c, tid), mid, m.sender, [COPY["bad_file"][lang]], ctx.user_id)
-        return
+        return None
     with _tx(tid) as c:
         rid = create_report(c, ctx, ctx.user_id, channel, "received")
         attach_file(c, ctx, rid, data, mime)
-        _outbox(c, cipher_for(c, tid), mid, m.sender, [COPY["reading"][lang]], ctx.user_id)
+        queue_status(c, tid, rid)
+        out = [] if channel == "telegram" else [COPY["reading"][lang]]
+        _outbox(c, cipher_for(c, tid), mid, m.sender, out, ctx.user_id)
+    return rid
 
 
 def question(
@@ -364,3 +372,56 @@ def notify(job: dict, models: dict | None, saver) -> None:
         out = [TEMPLATES[event][lang].format(lab=lab)]
     for text in out:
         adapter.send_text(account, to, text)
+
+
+def status(job: dict, models: dict | None, saver) -> None:
+    """`msg.status`: bring the report's Telegram status message up to its current status."""
+    push_status(job["tenant_id"], UUID(job["payload"]["report_id"]))
+
+
+def push_status(tid: UUID, rid: UUID) -> None:
+    """Send or edit the status message from the CURRENT status, so duplicate and out-of-order
+    jobs converge. Link, consent and opt-in are checked as in `notify`: if any fails, nothing.
+
+    ponytail: one worker runs jobs in order, so two first sends cannot race; with several
+    workers, lock the report row around the send (or accept a rare second message)."""
+    with _tx(tid) as c:
+        r = c.execute(
+            "SELECT id, user_id, status, triage, failure_message, status_message_id "
+            "FROM reports WHERE id = %s AND source = 'telegram'", (rid,),
+        ).fetchone()
+        if r is None:
+            return  # deleted, or not a Telegram report
+        link = c.execute(
+            "SELECT * FROM channel_links WHERE user_id = %s AND channel = 'telegram'",
+            (r["user_id"],),
+        ).fetchone()
+        if link is None:
+            return
+        ctx = TenantCtx(tid, link["user_id"], "patient")
+        if "telegram" not in _active_purposes(c, ctx) or not _account(c, tid, "telegram"):
+            return  # stopped, or the lab has no bot now
+        steps = [s["status"] for s in c.execute(
+            "SELECT status FROM report_steps WHERE report_id = %s ORDER BY id", (rid,)
+        ).fetchall()]
+        audit(c, ctx, "read", "report", rid)
+        to = cipher_for(c, tid).decrypt(link["address_enc"])
+    text = telegram.status_text(
+        r["status"], steps, r["triage"], r["failure_message"], link["lang"]
+    )
+    old = r["status_message_id"]
+    new = telegram.edit_status(to, old, text) if old else telegram.send_status(to, text)
+    if new and new != old:
+        with _tx(tid) as c:
+            c.execute("UPDATE reports SET status_message_id = %s WHERE id = %s", (new, rid))
+
+
+def kick_status(tid: UUID, rid: UUID) -> None:
+    """`push_status` now, best effort: a Telegram failure never fails the caller's job; the
+    queued `msg.status` job retries it.
+
+    ponytail: inline, so a Telegram outage adds up to its timeout per step to the pipeline."""
+    try:
+        push_status(tid, rid)
+    except Exception as e:  # noqa: BLE001 - see docstring
+        log.warning("report %s: status message not sent now (%s)", rid, type(e).__name__)

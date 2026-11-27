@@ -48,18 +48,25 @@ class TgFake(list):
 @pytest.fixture
 def tg_sent(monkeypatch):
     fake = TgFake()
-    fake.get_file, fake.downloads = [], []
+    fake.get_file, fake.downloads, fake.edits, fake.edit_err = [], [], [], None
+    ids = itertools.count(1)
 
     def tg_call(method, params):
         if method == "getFile":
             fake.get_file.append(params["file_id"])
             return fake.file
+        if method == "editMessageText":
+            if fake.edit_err:
+                err, fake.edit_err = fake.edit_err, None
+                raise err
+            fake.edits.append(params)
+            return {}
         assert method == "sendMessage"
         if fake.down:
             fake.down = False
             raise TelegramError("sendMessage failed: 502")
         fake.append(params)
-        return {}
+        return {"message_id": next(ids)}
 
     def tg_get_bytes(path):
         fake.downloads.append(path)
@@ -237,7 +244,7 @@ def test_tg_document_makes_report(client, patient, tg_lab, tg_sent):
     (r,) = _reports(tid)
     assert (r["source"], r["user_id"], r["file_mime"]) == ("telegram", uid, "application/pdf")
     assert len(_pipeline_jobs(r["id"])) == 1
-    assert tg_texts(tg_sent) == [COPY["reading"]["en"]]
+    assert tg_texts(tg_sent) == [telegram.status_text("received", [], None, None, "en")]
 
 
 def test_tg_photo_uses_largest(client, patient, tg_lab, tg_sent):

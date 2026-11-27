@@ -56,7 +56,9 @@ def test_command_words():
 
 def test_copy_keys_and_no_numbers():
     assert set(whatsapp.COPY) <= set(COPY)
-    assert set(COPY) - set(whatsapp.COPY) == {"review_complete", "trend_alert"}
+    assert set(COPY) - set(whatsapp.COPY) == {
+        "review_complete", "trend_alert", "status_received", "status_reading", "status_read",
+        "status_writing", "status_ready", "status_attention"}
     for name, langs in COPY.items():
         assert set(langs) == {"en", "hi"}, name
         for text in langs.values():

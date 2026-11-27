@@ -117,6 +117,7 @@ def _set_status(tid: UUID, rid: UUID, status: str, message: str | None = None) -
         if c.execute("SELECT 1 FROM reports WHERE id = %s", (rid,)).fetchone() is None:
             raise ReportGone
         reports.set_status(c, tid, rid, status, message)
+    msg_jobs.kick_status(tid, rid)  # live, mid-pipeline; the queued job is the backstop
 
 
 def _save(tid: UUID, rid: UUID, res: PipelineResult) -> None:
@@ -133,6 +134,7 @@ def _save(tid: UUID, rid: UUID, res: PipelineResult) -> None:
                 c, tid, kind="report", reason="red" if res.triage == "red" else "warnings",
                 user_id=report["user_id"], report_id=rid, thread_id=thread_id(tid, rid),
             )
+    msg_jobs.kick_status(tid, rid)
     if res.pending:
         raise Parked
 
@@ -249,6 +251,7 @@ HANDLERS: dict[str, Callable[[dict, dict | None, Any], None]] = {
     "alert.email": _alert,
     "msg.inbound": msg_jobs.inbound,
     "msg.notify": msg_jobs.notify,
+    "msg.status": msg_jobs.status,
     "wa.inbound": msg_jobs.inbound,  # queued before the rename (a payload with no channel)
     "wa.notify": msg_jobs.notify,
 }
