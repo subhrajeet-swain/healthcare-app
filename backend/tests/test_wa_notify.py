@@ -194,3 +194,27 @@ def test_notify_job_keeps_parked_thread(client, patient, wa_lab, sent):  # noqa:
     assert _status(tid, rid) == "ready" and not _thread_exists(tid, rid)
     assert len(_notify_jobs(tid, "review_complete")) == 1
     assert texts(sent) == [TEMPLATES["review_complete"]["en"].format(lab=LAB)]
+
+
+def test_notify_near_window_end_uses_template(client, patient, wa_lab, sent):  # noqa: F811
+    """A queue delay must not push a free-text send past Meta's 24 h window: 1 h margin."""
+    _, tid, _ = patient
+    _linked(client, wa_lab, sent)
+    with _owner(tid) as c:
+        c.execute("UPDATE channel_links SET last_inbound_at = now() - interval '23 hours 30 minutes'")
+    _upload(client)
+    assert worker.run_once(_models()) is True
+    _drain()
+    _template(sent, "report_ready")
+
+
+def test_notify_without_core_consent_sends_nothing(client, patient, wa_lab, sent):  # noqa: F811
+    """Withdrawn core consent: no report values go out on any channel."""
+    _, tid, _ = patient
+    _linked(client, wa_lab, sent)
+    _upload(client)
+    assert worker.run_once(_models()) is True
+    with _owner(tid) as c:
+        c.execute("UPDATE consents SET withdrawn_at = now() WHERE purpose = 'core'")
+    _drain()
+    assert _notify_jobs(tid)[0]["status"] == "done" and sent == []

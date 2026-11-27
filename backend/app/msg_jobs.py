@@ -350,15 +350,17 @@ def notify(job: dict, models: dict | None, saver) -> None:
     event, channel = p["event"], p.get("channel", "whatsapp")
     with _tx(tid) as c:
         link = c.execute(
-            "SELECT *, last_inbound_at > now() - interval '24 hours' AS open "
+            # 23 h, not Meta's 24: a queue delay must not push free text past the window.
+            # ponytail: a backlog over 1 h still loses it; then fall back to a template on 131047.
+            "SELECT *, last_inbound_at > now() - interval '23 hours' AS open "
             "FROM channel_links WHERE user_id = %s AND channel = %s",
             (p["user_id"], channel),
         ).fetchone()
         if link is None:
             return
         ctx, lang = TenantCtx(tid, link["user_id"], "patient"), link["lang"]
-        if channel not in _active_purposes(c, ctx):
-            return  # opted out (W6)
+        if not {channel, "core"} <= _active_purposes(c, ctx):
+            return  # opted out (W6), or core consent withdrawn: no values go out
         detail = None
         if p.get("report_id"):
             r = c.execute("SELECT id FROM reports WHERE id = %s", (p["report_id"],)).fetchone()
@@ -414,7 +416,7 @@ def push_status(tid: UUID, rid: UUID) -> None:
         if link is None:
             return
         ctx = TenantCtx(tid, link["user_id"], "patient")
-        if "telegram" not in _active_purposes(c, ctx) or not _account(c, tid, "telegram"):
+        if not {"telegram", "core"} <= _active_purposes(c, ctx) or not _account(c, tid, "telegram"):
             return  # stopped, or the lab has no bot now
         steps = [s["status"] for s in c.execute(
             "SELECT status FROM report_steps WHERE report_id = %s ORDER BY id", (rid,)
