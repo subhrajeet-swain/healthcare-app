@@ -8,6 +8,8 @@ import { type Role, go } from "../routes";
 import { Nav } from "../Nav";
 import { stateCounts, summarize } from "../summary";
 import { Upload } from "../Upload";
+import { Queue } from "./Doctor";
+import { UrgentBanner } from "./Report";
 import { Staff } from "./Staff";
 import { NEXT, STATUS, TRIAGE, shortDate } from "../words";
 
@@ -79,10 +81,11 @@ function PatientHome() {
   const latestRead = (latest.status === "ready" || latest.status === "needs_review") && s.latestTests > 0;
   const latestHref = `/reports/${latest.id}`;
   const fresh = detail?.id === latest.id ? detail : null;
-  const counts = fresh ? stateCounts(fresh.results) : [];
+  const counts = stateCounts(fresh?.results ?? []);
   const next = fresh?.next_step;
   return (
     <>
+      {latest.triage === "red" && <UrgentBanner phone={fresh?.lab_phone} />}
       <section className="strip summary" aria-labelledby="summary-title">
         <h2 className="summary__number" id="summary-title">
           {latestRead
@@ -173,6 +176,8 @@ export function Dashboard({ me, onSignOut, onDeleted }: Props) {
           <PatientHome />
         ) : me.role === "lab_staff" || me.role === "lab_admin" ? (
           <Staff />
+        ) : me.role === "doctor" ? (
+          <Queue />
         ) : (
           <section className="strip" aria-label="Status">
             <div className="strip__body strip__body--first">

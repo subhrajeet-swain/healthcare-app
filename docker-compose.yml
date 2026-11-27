@@ -66,6 +66,23 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # Long-polls Telegram getUpdates and stores messages for the worker. One replica only.
+  telegram:
+    build: ./backend
+    restart: unless-stopped
+    command: python -m app.telegram_poll
+    environment:  # only what the poller needs, not the whole .env (security review, Low)
+      ENV: ${ENV}
+      DATABASE_URL: postgresql://hc_app:app_dev@db:5432/healthcare
+      MASTER_KEY: ${MASTER_KEY}  # cipher_for: encrypt the stored update
+      OTP_PEPPER: ${OTP_PEPPER}  # required by Settings at import
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_LAB: ${TELEGRAM_LAB:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
   web:
     image: node:22-alpine
     restart: unless-stopped

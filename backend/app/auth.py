@@ -155,21 +155,54 @@ def _session(request: Request) -> tuple[UUID, str]:
         raise unauthenticated() from None
 
 
+def _profile(request: Request) -> str | None:
+    # a query param too: EventSource and a plain file link cannot send headers
+    return request.headers.get("x-profile") or request.query_params.get("profile")
+
+
 def current_ctx(request: Request) -> TenantCtx:
-    """Any cookie problem (missing, malformed, wrong tenant, expired) is the same 401."""
+    """Any cookie problem (missing, malformed, wrong tenant, expired) is the same 401.
+
+    With a profile (X-Profile or ?profile=) a patient acts for a family member: checked
+    against an active link on every request, no caching, so a revoke counts at once. Any
+    profile that is not theirs (malformed, unknown, pending, revoked, staff) is 404."""
     tid, token = _session(request)
+    profile = _profile(request)
     with db.tenant_tx(TenantCtx(tid)) as c:
         row = c.execute(
             "SELECT u.id, u.role FROM sessions s JOIN users u ON u.id = s.user_id "
             "WHERE s.token_hash = %s AND s.expires_at > now()",
             (_sha256(token),),
         ).fetchone()
-    if row is None:
-        raise unauthenticated()
-    return TenantCtx(tid, row["id"], row["role"])
+        if row is None:
+            raise unauthenticated()
+        if profile is None:
+            return TenantCtx(tid, row["id"], row["role"])
+        try:
+            member = UUID(profile)
+        except ValueError:
+            raise not_found() from None
+        linked = row["role"] == "patient" and c.execute(
+            "SELECT 1 FROM family_links WHERE manager_id = %s AND member_id = %s "
+            "AND status = 'active'",
+            (row["id"], member),
+        ).fetchone()
+    if not linked:
+        raise not_found()
+    return TenantCtx(tid, member, "patient", actor_id=row["id"])
 
 
 Ctx = Annotated[TenantCtx, Depends(current_ctx)]
+
+
+def own_only(ctx: Ctx) -> TenantCtx:
+    """For routes that stay personal (account, consent, family): no acting for a member."""
+    if ctx.actor_id is not None:
+        raise not_found()
+    return ctx
+
+
+Own = Annotated[TenantCtx, Depends(own_only)]
 
 
 @router.post("/logout", status_code=204)

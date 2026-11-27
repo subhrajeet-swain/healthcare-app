@@ -1,4 +1,5 @@
-import type { ReportSummary, Result, Triage } from "./api";
+import type { ReportSummary, Result, SharedReport, Statement, Triage } from "./api";
+import type { Lang } from "./i18n";
 
 export type Summary = {
   latest: ReportSummary | undefined;
@@ -29,4 +30,20 @@ export function stateCounts(results: Pick<Result, "triage">[]): [Triage, number]
   return (["green", "amber", "red"] as const)
     .map((s): [Triage, number] => [s, results.filter((r) => r.triage === s).length])
     .filter(([, n]) => n > 0);
+}
+
+/** The explanation a report page prints. The closing advice is the NEXT tag above it, so it is not
+ * printed twice. With the red banner showing, the urgent line the pipeline stores first (a system
+ * statement on an urgent report) is left out too: the banner already says it. */
+export function explanationLines(
+  report: Pick<SharedReport, "explanations" | "next_step" | "urgent">,
+  lang: Lang,
+  banner: boolean,
+): Statement[] {
+  const all = (report.explanations?.[lang] ?? report.explanations?.en)?.statements ?? [];
+  return all.filter(
+    (s, i) =>
+      !(banner && i === 0 && report.urgent && s.source === "system") &&
+      !(report.next_step !== "no_action" && s.source === "system" && i === all.length - 1 && i > 0),
+  );
 }

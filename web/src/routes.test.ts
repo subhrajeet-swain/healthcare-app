@@ -34,10 +34,37 @@ describe("report route", () => {
   });
 });
 
+describe("review route", () => {
+  it("reads the review item id", () => {
+    expect(parseRoute("/reviews/3f2a-9c")).toEqual({ name: "review", id: "3f2a-9c" });
+    expect(parseRoute("/reviews/3f2a/")).toEqual({ name: "review", id: "3f2a" });
+  });
+  it("rejects ids with odd characters", () => {
+    expect(parseRoute("/reviews/../x")).toEqual({ name: "home" });
+  });
+});
+
 describe("nav routes", () => {
   it("reads chat and profile", () => {
     expect(parseRoute("/chat")).toEqual({ name: "chat" });
     expect(parseRoute("/profile/")).toEqual({ name: "profile" });
+  });
+  it("reads the timeline", () => {
+    expect(parseRoute("/timeline")).toEqual({ name: "timeline" });
+    expect(parseRoute("/timeline/")).toEqual({ name: "timeline" });
+    expect(parseRoute("/timeline/x")).toEqual({ name: "home" });
+  });
+});
+
+describe("share route", () => {
+  it("reads the lab slug and the token", () => {
+    expect(parseRoute("/s/lab-alpha/Ab-9_xYz")).toEqual({ name: "shared", slug: "lab-alpha", token: "Ab-9_xYz" });
+    expect(parseRoute("/s/lab-alpha/Ab-9_xYz/")).toEqual({ name: "shared", slug: "lab-alpha", token: "Ab-9_xYz" });
+  });
+  it("rejects a missing token or odd characters", () => {
+    expect(parseRoute("/s/lab-alpha")).toEqual({ name: "home" });
+    expect(parseRoute("/s/lab-alpha/../x")).toEqual({ name: "home" });
+    expect(parseRoute("/s/Lab/abc")).toEqual({ name: "home" });
   });
 });
 

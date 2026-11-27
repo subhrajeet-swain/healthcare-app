@@ -37,6 +37,10 @@ jobs:
           uv run python ../evals/run.py smoke
           uv run python ../evals/run.py fixtures
           uv run python ../evals/run.py chat
+          uv run python ../evals/run.py trends
+          uv run python ../evals/run.py red
+          uv run python ../evals/run.py whatsapp
+          uv run python ../evals/run.py telegram
 
   web:
     runs-on: ubuntu-latest

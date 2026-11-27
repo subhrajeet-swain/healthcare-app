@@ -53,8 +53,8 @@ def create_order(body: OrderIn, ctx: Ctx) -> dict:
         cipher = cipher_for(c, ctx.tenant_id)
         fp = cipher.fingerprint(phone)
         user = c.execute("SELECT id, role FROM users WHERE phone_fp = %s", (fp,)).fetchone()
+        name = body.name.strip() if body.name and body.name.strip() else None
         if user is None:
-            name = body.name.strip() if body.name and body.name.strip() else None
             uid = c.execute(
                 "INSERT INTO users (tenant_id, role, phone_fp, phone_enc, name_enc) "
                 "VALUES (%s, 'patient', %s, %s, %s) RETURNING id",
@@ -66,6 +66,9 @@ def create_order(body: OrderIn, ctx: Ctx) -> dict:
             raise ApiError(409, "not_a_patient")
         else:
             uid = user["id"]
+            if name:  # a family invite creates nameless users; the lab's name fills the gap only
+                c.execute("UPDATE users SET name_enc = %s WHERE id = %s AND name_enc IS NULL",
+                          (cipher.encrypt(name), uid))
         rid = reports.create_report(c, ctx, uid, "lab", "sample_collected")
     return {"id": str(rid)}
 
@@ -104,14 +107,14 @@ def list_reports(ctx: Ctx) -> list[dict]:
         audit(c, ctx, "list", "report", ctx.tenant_id)
     out = []
     for r in rows:
-        phone = cipher.decrypt(r["phone_enc"])
+        phone = cipher.decrypt(r["phone_enc"]) if r["phone_enc"] else None  # a child has none
         out.append({
             "id": str(r["id"]),
             "status": r["status"],
             "triage": r["triage"],
             "source": r["source"],
             "created_at": r["created_at"],
-            "phone_masked": phone[:3] + "******" + phone[-4:],
+            "phone_masked": phone[:3] + "******" + phone[-4:] if phone else None,
             "name": cipher.decrypt(r["name_enc"]) if r["name_enc"] else None,
         })
     return out

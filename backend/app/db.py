@@ -2,6 +2,7 @@
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from typing import Any
 from uuid import UUID
 
 import psycopg
@@ -45,6 +46,14 @@ def tenant_tx(ctx: TenantCtx) -> Iterator[psycopg.Connection]:
     with pool().connection() as conn:  # commits on success, rolls back on exception
         _set_tenant(conn, ctx.tenant_id)
         yield conn
+
+
+def tenant_setting(c, key: str, default: Any) -> Any:
+    """`key` from the tenant's latest settings version, as text; `default` when it is not set."""
+    row = c.execute(
+        "SELECT settings ->> %s AS v FROM tenant_settings ORDER BY version DESC LIMIT 1", (key,)
+    ).fetchone()
+    return default if row is None or row["v"] is None else row["v"]
 
 
 @contextmanager

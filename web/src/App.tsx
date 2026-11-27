@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, type Me, api, messageFor } from "./api";
+import { ApiError, type Me, api, messageFor, setProfile } from "./api";
 import { Band } from "./Band";
+import { ProfileProvider } from "./Family";
 import { Consent } from "./pages/Consent";
 import { Dashboard } from "./pages/Dashboard";
+import { Review } from "./pages/Doctor";
 import { ChatPage } from "./pages/ChatPage";
 import { Login } from "./pages/Login";
 import { Profile } from "./pages/Profile";
 import { Report } from "./pages/Report";
+import { Shared } from "./pages/Shared";
+import { Timeline } from "./pages/Timeline";
 import { useLang } from "./i18n";
 import { go, parseRoute } from "./routes";
 
@@ -57,9 +61,11 @@ export default function App() {
   }, []);
 
   const loadMe = useCallback(async () => {
+    if (parseRoute(location.pathname).name === "shared") return; // a doctor's link: no session to load
     setLoadError(null);
     try {
       const m = await api.me();
+      if (m.role !== "patient") setProfile(null); // only patients act for family
       setMe(m);
       // keep deep links (/reports/:id); only leave the login and consent screens
       const here = parseRoute(location.pathname).name;
@@ -76,6 +82,7 @@ export default function App() {
   }, [loadMe]);
 
   const signedOut = useCallback(() => {
+    setProfile(null);
     setMe(null);
     const slug = lastSlug();
     go(slug ? `/${slug}/login` : "/");
@@ -92,6 +99,7 @@ export default function App() {
     rememberSlug(route.slug);
     return <Login slug={route.slug} onSignedIn={loadMe} />;
   }
+  if (route.name === "shared") return <Shared slug={route.slug} token={route.token} />;
   if (loadError) {
     return (
       <div className="shell">
@@ -140,8 +148,18 @@ export default function App() {
     return <Consent onAgreed={loadMe} onSignOut={signOut} />;
   }
   const patient = me.role === "patient";
-  if (route.name === "report") return <Report id={route.id} nav={patient} />;
-  if (patient && route.name === "chat") return <ChatPage />;
-  if (patient && route.name === "profile") return <Profile me={me} onSignOut={signOut} onDeleted={signedOut} />;
-  return <Dashboard me={me} onSignOut={signOut} onDeleted={signedOut} />;
+  if (route.name === "review" && me.role === "doctor") return <Review key={route.id} id={route.id} />;
+  const page =
+    route.name === "report" ? (
+      <Report id={route.id} nav={patient} />
+    ) : patient && route.name === "chat" ? (
+      <ChatPage />
+    ) : patient && route.name === "timeline" ? (
+      <Timeline />
+    ) : patient && route.name === "profile" ? (
+      <Profile me={me} onSignOut={signOut} onDeleted={signedOut} />
+    ) : (
+      <Dashboard me={me} onSignOut={signOut} onDeleted={signedOut} />
+    );
+  return patient ? <ProfileProvider>{page}</ProfileProvider> : page;
 }

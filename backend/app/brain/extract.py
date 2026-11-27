@@ -15,33 +15,19 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import ValidationError
 from pypdf import PdfReader
 
+from .catalogue import TESTS, lookup
 from .models import ExtractedReport
 
 # A PDF with at least this much text is read from its text layer (redactable, and any
 # model can read it); otherwise it is a scan and goes to the model's vision.
 TEXT_LAYER_MIN_CHARS = 200
 
-VOCABULARY = """
-cbc.hemoglobin        Hemoglobin              g/dL
-cbc.rbc               RBC Count               million/uL
-cbc.wbc               WBC Count               /uL
-cbc.platelets         Platelet Count          /uL
-cbc.hematocrit        Hematocrit              %
-cbc.mcv               MCV                     fL
-lipid.total_cholesterol  Total Cholesterol    mg/dL
-lipid.ldl             LDL Cholesterol         mg/dL
-lipid.hdl             HDL Cholesterol         mg/dL
-lipid.triglycerides   Triglycerides           mg/dL
-hba1c.hba1c           HbA1c                   %
-thyroid.tsh           TSH                     uIU/mL
-thyroid.t3            Total T3                ng/dL
-thyroid.t4            Total T4                ug/dL
-lft.bilirubin_total   Total Bilirubin         mg/dL
-lft.alt               ALT (SGPT)              U/L
-lft.ast               AST (SGOT)              U/L
-lft.alp               Alkaline Phosphatase    U/L
-lft.albumin           Albumin                 g/dL
-""".strip()
+
+def _col(text: str, width: int) -> str:
+    return text.ljust(max(width, len(text) + 2))
+
+
+VOCABULARY = "\n".join(_col(_col(tid, 22) + d["name"], 46) + d["unit"] for tid, d in TESTS.items())
 
 INSTRUCTION = f"""You read diagnostics lab reports and return exactly what is printed.
 
@@ -205,29 +191,27 @@ def extract(
 
 # Display names come from our vocabulary, never from the page: a test name is untrusted
 # text that a template or the results table would otherwise print verbatim.
-CANONICAL: dict[str, str] = {
-    parts[0]: parts[1]
-    for line in VOCABULARY.splitlines()
-    if len(parts := re.split(r"\s{2,}", line.strip())) >= 2
-}
+CANONICAL: dict[str, str] = {tid: d["name"] for tid, d in TESTS.items()}
 MAX_NAME = 60
 
 
 def canonicalise(report: ExtractedReport) -> tuple[ExtractedReport, list[str]]:
     """Keep only vocabulary tests, once each, under our own names. Returns warnings.
 
-    A row outside the vocabulary has no threshold, no stable id and an untrusted name, so it
-    is dropped and the report goes to review. Nothing left means nothing to explain.
+    A row whose id is unknown is looked up by its printed name in the catalogue's synonyms. One
+    that still matches nothing has no threshold, no stable id and an untrusted name, so it is
+    dropped and the report goes to review. Nothing left means nothing to explain.
     """
     results, warnings, seen = [], [], set()
     for r in report.results:
-        if r.test_id not in CANONICAL:
+        tid = r.test_id if r.test_id in CANONICAL else lookup(r.test_name)
+        if tid is None:
             warnings.append(f"{r.test_id[:40]}: not a known test, left out")
-        elif r.test_id in seen:
-            warnings.append(f"{r.test_id}: printed more than once, first value kept")
+        elif tid in seen:
+            warnings.append(f"{tid}: printed more than once, first value kept")
         else:
-            seen.add(r.test_id)
-            results.append(r.model_copy(update={"test_name": CANONICAL[r.test_id]}))
+            seen.add(tid)
+            results.append(r.model_copy(update={"test_id": tid, "test_name": CANONICAL[tid]}))
     if not results:
         raise ExtractionFailed("no known tests", message=ExtractionFailed.NOT_A_REPORT)
     return report.model_copy(update={"results": results}), warnings

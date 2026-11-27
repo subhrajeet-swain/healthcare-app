@@ -29,10 +29,11 @@ def _ready_report(client, tid, status="ready"):
     rid = rid.json()["id"]
     with db.owner_tx(settings.owner_database_url, tid) as c:
         c.execute(
-            "INSERT INTO results (tenant_id, report_id, test_id, test_name, value, unit, "
-            "ref_low, ref_high, flag, triage) VALUES "
-            "(%s, %s, 'cbc.hemoglobin', 'Hemoglobin', 11.2, 'g/dL', 13, 17, 'low', 'amber')",
-            (tid, rid),
+            "INSERT INTO results (tenant_id, report_id, user_id, observed_on, test_id, test_name, "
+            "value, unit, ref_low, ref_high, flag, triage) VALUES "
+            "(%s, %s, (SELECT user_id FROM reports WHERE id = %s), '2026-11-01', "
+            "'cbc.hemoglobin', 'Hemoglobin', 11.2, 'g/dL', 13, 17, 'low', 'amber')",
+            (tid, rid, rid),
         )
         c.execute("UPDATE reports SET triage = 'amber', next_step = 'follow_up_package' "
                   "WHERE id = %s", (rid,))
@@ -62,6 +63,13 @@ def test_chat_tier0_and_tier2_roundtrip(client, patient, model):
     assert [(h["role"], h["tier"]) for h in hist] == [
         ("user", "tier0"), ("assistant", "tier0"), ("user", "tier2"), ("assistant", "tier2")]
     assert hist[0]["text"] == "Do I have cancer?"
+
+
+def test_web_history_has_channel(client, patient, model):
+    _, tid, _ = patient
+    rid = _ready_report(client, tid)
+    _ask(client, rid, "Do I have cancer?")
+    assert [h["channel"] for h in client.get(f"/api/reports/{rid}/chat").json()] == ["web"] * 2
 
 
 def test_needs_review_report_can_chat(client, patient, model):

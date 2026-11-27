@@ -44,6 +44,12 @@ export function fmt(n: number): string {
   return NUM.format(n);
 }
 
+export function shortDateTime(iso: string, lang: Lang = "en"): string {
+  return new Date(iso).toLocaleString(lang === "hi" ? "hi-IN" : "en-IN", {
+    day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
+  });
+}
+
 export function shortDate(iso: string | null, lang: Lang = "en"): string {
   if (!iso) return "";
   return new Date(iso).toLocaleDateString(lang === "hi" ? "hi-IN" : "en-IN", { day: "numeric", month: "short", year: "numeric" });

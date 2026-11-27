@@ -80,6 +80,17 @@ def test_order_for_existing_phone_reuses_patient(client, staff):
     assert (n, m) == (1, 1)
 
 
+def test_order_names_a_nameless_patient_but_never_renames(client, staff):
+    _, tid = staff
+    uid = make_user(tid, PATIENT_PHONE, "patient")  # e.g. created by a family invite
+    _order(client)
+    _order(client, name="Someone Else")
+    with _owner(tid) as c:
+        cipher = crypto.cipher_for(c, tid)
+        row = c.execute("SELECT name_enc FROM users WHERE id = %s", (uid,)).fetchone()
+    assert cipher.decrypt(row["name_enc"]) == "Asha Rao"
+
+
 def test_order_for_staff_phone_is_409(client, staff):
     r = _order(client, phone=STAFF_PHONE)
     assert r.status_code == 409 and r.json() == {"error": "not_a_patient"}

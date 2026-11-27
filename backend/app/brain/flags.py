@@ -46,9 +46,12 @@ _UNIT_ALIASES = {
 }
 
 
-def _norm_unit(unit: str) -> str:
+def norm_unit(unit: str) -> str:
     u = unit.strip().lower().replace("µ", "u").replace("μ", "u").replace(" ", "")
     return _UNIT_ALIASES.get(u, u)
+
+
+_norm_unit = norm_unit  # the old private name; tests import it
 
 
 def unit_mismatch(test: ExtractedTest) -> str | None:
@@ -61,7 +64,7 @@ def unit_mismatch(test: ExtractedTest) -> str | None:
     crit = _CRITICAL.get(test.test_id)
     if crit is None:
         return None
-    if _norm_unit(crit["unit"]) == _norm_unit(test.unit):
+    if norm_unit(crit["unit"]) == norm_unit(test.unit):
         return None
     return (
         f"{test.test_id}: report says {test.unit!r} but threshold is in {crit['unit']!r} — "

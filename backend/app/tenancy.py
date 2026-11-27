@@ -12,3 +12,5 @@ class TenantCtx:
     tenant_id: UUID
     user_id: UUID | None = None
     role: Role | None = None
+    # Set when the signed-in user (actor_id) acts for a family member (user_id), via X-Profile.
+    actor_id: UUID | None = None

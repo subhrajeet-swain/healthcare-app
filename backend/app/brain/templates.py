@@ -59,3 +59,28 @@ def apply_red_rule(e: Explanation, report: LabReport) -> Explanation:
     if any(r.flag is Flag.CRITICAL for r in report.results):
         return template_explanation(report, e.language.value)
     return e
+
+
+# What a doctor may tell the patient: one fixed line per option, so no free text ever needs
+# the gate (Q8). `call_lab` is also the line an escalation carries (Q7).
+NOTE_OPTIONS = ["repeat_test", "see_doctor_soon", "no_action_needed", "call_lab"]
+CALL_LAB = {
+    "en": "Please call your lab today.",
+    "hi": "कृपया आज ही अपनी लैब को फ़ोन करें।",
+}
+# Hindi lines are machine-drafted; a native speaker must review them before real users.
+NOTE_TEXT = {
+    "repeat_test": {
+        "en": "The lab's doctor suggests repeating this test.",
+        "hi": "लैब के डॉक्टर इस जांच को दोबारा कराने की सलाह देते हैं।",
+    },
+    "see_doctor_soon": {
+        "en": "The lab's doctor suggests you see a doctor soon.",
+        "hi": "लैब के डॉक्टर सलाह देते हैं कि आप जल्द ही किसी डॉक्टर को दिखाएं।",
+    },
+    "no_action_needed": {
+        "en": "The lab's doctor has checked this report. No action is needed.",
+        "hi": "लैब के डॉक्टर ने इस रिपोर्ट को देख लिया है। किसी कार्रवाई की ज़रूरत नहीं है।",
+    },
+    "call_lab": CALL_LAB,
+}

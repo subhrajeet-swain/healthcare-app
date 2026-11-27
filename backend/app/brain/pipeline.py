@@ -1,8 +1,9 @@
 # _frame ported from heydoc-lab-explainer@811eb54 src/lab_explainer/pipeline.py
-"""The report pipeline as a LangGraph: extract, flag, decide, explain, verify, triage.
+"""The report pipeline as a LangGraph: extract, flag, decide, explain, verify, triage, review.
 
 Only `extract` and `explain` call a model. Everything that decides anything clinical is
-plain code. The Postgres checkpointer lets a crashed worker resume from the last finished
+plain code. A red report, or one with warnings, waits at `review` for a doctor
+(`interrupt()`); `resume` carries the decision in. The Postgres checkpointer lets a crashed worker resume from the last finished
 node. State holds no file bytes and no identifiers: the file is loaded through
 `PipelineDeps.load_file`, and extraction drops age and sex.
 """
@@ -15,6 +16,7 @@ from typing import Any, Literal, TypedDict
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langgraph.graph import END, START, StateGraph
+from langgraph.types import Command, interrupt
 
 from .explain import explain
 from .extract import canonicalise, extract
@@ -37,6 +39,12 @@ class PipelineDeps:
     explain_model: BaseChatModel | None = None
 
 
+class Decision(TypedDict):
+    action: Literal["approve", "edit", "escalate"]
+    option: str | None  # one of NOTE_OPTIONS when action is "edit"
+    by: str | None  # the doctor's user id; None for a timeout
+
+
 @dataclass
 class PipelineResult:
     report: LabReport
@@ -47,6 +55,8 @@ class PipelineResult:
     triage: Triage
     warnings: list[str]
     final_status: Literal["ready", "needs_review"]
+    pending: bool = False  # parked at `review`, waiting for a doctor
+    decision: Decision | None = None
 
 
 class State(TypedDict, total=False):
@@ -59,6 +69,7 @@ class State(TypedDict, total=False):
     source: str
     explanations: dict[str, dict]
     triage: str
+    decision: Decision | None
 
 
 def thread_id(tenant_id: Any, report_id: Any) -> str:
@@ -111,31 +122,56 @@ def build_graph(deps: PipelineDeps, checkpointer):
     def triage_node(state: State) -> State:
         return {"triage": report_triage(_report(state))}
 
+    def review_node(state: State) -> State:
+        # Red waits for a doctor (P3); a report code cannot fully trust waits for a human (P4).
+        if state["triage"] != "red" and not state["warnings"]:
+            return {"decision": None}
+        return {"decision": interrupt({"triage": state["triage"]})}
+
     g = StateGraph(State)
     for name, fn in [("extract", extract_node), ("flag", flag_node), ("decide", decide_node),
-                     ("explain", explain_node), ("verify", verify_node), ("triage", triage_node)]:
+                     ("explain", explain_node), ("verify", verify_node), ("triage", triage_node),
+                     ("review", review_node)]:
         g.add_node(name, fn)
     g.add_edge(START, "extract")
     for a, b in [("extract", "flag"), ("flag", "decide"), ("decide", "explain"),
-                 ("explain", "verify"), ("verify", "triage")]:
+                 ("explain", "verify"), ("verify", "triage"), ("triage", "review")]:
         g.add_edge(a, b)
-    g.add_edge("triage", END)
+    g.add_edge("review", END)
     return g.compile(checkpointer=checkpointer)
 
 
+PARKED = ("review",)
+
+
 def run(graph, thread: str) -> PipelineResult:
-    """Run to the end, resuming from the last finished node if this thread was interrupted."""
+    """Run to the end or to `review`, resuming from the last finished node after a crash."""
     config = {"configurable": {"thread_id": thread}}
     state = graph.get_state(config)
-    if "triage" in state.values and not state.next:
-        s = state.values  # finished earlier (the save failed): never re-extract
-    else:
-        s = graph.invoke(None if state.next else {}, config)
+    if "triage" in state.values and "decision" not in state.values and not state.next:
+        # finished `triage` under the phase-1 graph (no review node): `review` must still run
+        graph.update_state(config, None, as_node="triage")
+        graph.invoke(None, config)  # runs `review`: decision None, or a real interrupt
+    elif state.next != PARKED and not ("triage" in state.values and not state.next):
+        graph.invoke(None if state.next else {}, config)
+    # else finished or parked earlier (the save failed): never re-extract
+    return _result(graph.get_state(config))
+
+
+def resume(graph, thread: str, decision: Decision) -> PipelineResult:
+    """Carry a doctor's (or the timeout's) decision into a thread parked at `review`."""
+    config = {"configurable": {"thread_id": thread}}
+    if graph.get_state(config).next == PARKED:  # else resumed earlier (the save failed)
+        graph.invoke(Command(resume=decision), config)
+    return _result(graph.get_state(config))
+
+
+def _result(state) -> PipelineResult:
+    s = state.values
     report = LabReport(**s["report"])
     triage: Triage = s["triage"]
     explanations = {k: Explanation(**v) for k, v in s["explanations"].items()}
-    # Red waits for a doctor (P3); a report code cannot fully trust waits for a human (P4).
-    final = "needs_review" if triage == "red" or s["warnings"] else "ready"
+    pending = state.next == PARKED
     return PipelineResult(
         report=report,
         explanations=explanations,
@@ -144,7 +180,9 @@ def run(graph, thread: str) -> PipelineResult:
         urgent=s["urgent"],
         triage=triage,
         warnings=s["warnings"],
-        final_status=final,
+        final_status="needs_review" if pending else "ready",
+        pending=pending,
+        decision=s.get("decision"),
     )
 
 

@@ -1,0 +1,126 @@
+[
+  {"id": "hba1c-rising-out-of-range", "test_id": "hba1c.hba1c", "expect": ["rising", "out_of_range"], "points": [
+    {"value": 6.1, "unit": "%", "ref_low": 4.0, "ref_high": 5.6},
+    {"value": 6.5, "unit": "%", "ref_low": 4.0, "ref_high": 5.6},
+    {"value": 7.0, "unit": "%", "ref_low": 4.0, "ref_high": 5.6}]},
+  {"id": "two-points-is-not-a-trend", "test_id": "hba1c.hba1c", "expect": null, "points": [
+    {"value": 6.1, "unit": "%", "ref_low": 4.0, "ref_high": 5.6},
+    {"value": 7.0, "unit": "%", "ref_low": 4.0, "ref_high": 5.6}]},
+  {"id": "zig-zag", "test_id": "hba1c.hba1c", "expect": null, "points": [
+    {"value": 6.1, "unit": "%", "ref_low": 4.0, "ref_high": 5.6},
+    {"value": 6.8, "unit": "%", "ref_low": 4.0, "ref_high": 5.6},
+    {"value": 6.5, "unit": "%", "ref_low": 4.0, "ref_high": 5.6}]},
+  {"id": "rising-inside-range-far-from-edge", "test_id": "glucose.fasting", "expect": null, "points": [
+    {"value": 80, "unit": "mg/dL", "ref_low": 70, "ref_high": 100},
+    {"value": 85, "unit": "mg/dL", "ref_low": 70, "ref_high": 100},
+    {"value": 90, "unit": "mg/dL", "ref_low": 70, "ref_high": 100}]},
+  {"id": "rising-toward-the-middle-is-recovery", "test_id": "cbc.hemoglobin", "expect": null, "points": [
+    {"value": 10, "unit": "g/dL", "ref_low": 13, "ref_high": 17},
+    {"value": 11.5, "unit": "g/dL", "ref_low": 13, "ref_high": 17},
+    {"value": 12.8, "unit": "g/dL", "ref_low": 13, "ref_high": 17}]},
+  {"id": "falling-hb-toward-critical-7", "test_id": "cbc.hemoglobin", "expect": ["falling", "critical"], "points": [
+    {"value": 11, "unit": "g/dL", "ref_low": 13, "ref_high": 17},
+    {"value": 10, "unit": "g/dL", "ref_low": 13, "ref_high": 17},
+    {"value": 9.5, "unit": "g/dL", "ref_low": 13, "ref_high": 17}]},
+  {"id": "change-under-10-percent-of-range-width", "test_id": "glucose.fasting", "expect": null, "points": [
+    {"value": 96, "unit": "mg/dL", "ref_low": 70, "ref_high": 100},
+    {"value": 97, "unit": "mg/dL", "ref_low": 70, "ref_high": 100},
+    {"value": 98, "unit": "mg/dL", "ref_low": 70, "ref_high": 100}]},
+  {"id": "labs-with-different-ranges-compare-on-position", "test_id": "lft.alt", "expect": ["rising", "out_of_range"], "points": [
+    {"value": 30, "unit": "U/L", "ref_low": 0, "ref_high": 40},
+    {"value": 38, "unit": "U/L", "ref_low": 0, "ref_high": 45},
+    {"value": 52, "unit": "U/L", "ref_low": 0, "ref_high": 50}]},
+  {"id": "only-the-last-three-count", "test_id": "hba1c.hba1c", "expect": ["rising", "out_of_range"], "points": [
+    {"value": 7.5, "unit": "%", "ref_low": 4.0, "ref_high": 5.6},
+    {"value": 6.1, "unit": "%", "ref_low": 4.0, "ref_high": 5.6},
+    {"value": 6.5, "unit": "%", "ref_low": 4.0, "ref_high": 5.6},
+    {"value": 7.0, "unit": "%", "ref_low": 4.0, "ref_high": 5.6}]},
+  {"id": "no-range-at-all", "test_id": "inflammation.esr", "expect": null, "points": [
+    {"value": 10, "unit": "mm/hr"},
+    {"value": 20, "unit": "mm/hr"},
+    {"value": 30, "unit": "mm/hr"}]},
+
+  {"id": "critical-beats-out-of-range-alt", "test_id": "lft.alt", "expect": ["rising", "critical"], "points": [
+    {"value": 200, "unit": "U/L", "ref_low": 0, "ref_high": 40},
+    {"value": 300, "unit": "U/L", "ref_low": 0, "ref_high": 40},
+    {"value": 400, "unit": "U/L", "ref_low": 0, "ref_high": 40}]},
+  {"id": "out-of-range-not-yet-halfway-to-critical-alt", "test_id": "lft.alt", "expect": ["rising", "out_of_range"], "points": [
+    {"value": 60, "unit": "U/L", "ref_low": 0, "ref_high": 40},
+    {"value": 90, "unit": "U/L", "ref_low": 0, "ref_high": 40},
+    {"value": 120, "unit": "U/L", "ref_low": 0, "ref_high": 40}]},
+  {"id": "newborn-hb-adult-critical-sits-inside-printed-range", "test_id": "cbc.hemoglobin", "expect": null, "points": [
+    {"value": 16, "unit": "g/dL", "ref_low": 14, "ref_high": 24},
+    {"value": 19, "unit": "g/dL", "ref_low": 14, "ref_high": 24},
+    {"value": 22.5, "unit": "g/dL", "ref_low": 14, "ref_high": 24}]},
+  {"id": "same-raw-value-while-printed-high-drops", "test_id": "hba1c.hba1c", "expect": null, "points": [
+    {"value": 6.0, "unit": "%", "ref_low": 4.0, "ref_high": 5.6},
+    {"value": 6.0, "unit": "%", "ref_low": 4.0, "ref_high": 5.5},
+    {"value": 6.0, "unit": "%", "ref_low": 4.0, "ref_high": 5.4}]},
+
+  {"id": "one-sided-low-bound-falling-below-it", "test_id": "lipid.hdl", "expect": ["falling", "out_of_range"], "points": [
+    {"value": 45, "unit": "mg/dL", "ref_low": 40},
+    {"value": 38, "unit": "mg/dL", "ref_low": 40},
+    {"value": 33, "unit": "mg/dL", "ref_low": 40}]},
+  {"id": "one-sided-low-bound-falling-toward-critical-low", "test_id": "lipid.hdl", "expect": ["falling", "critical"], "points": [
+    {"value": 38, "unit": "mg/dL", "ref_low": 40},
+    {"value": 33, "unit": "mg/dL", "ref_low": 40},
+    {"value": 28, "unit": "mg/dL", "ref_low": 40}]},
+  {"id": "one-sided-low-bound-rising-toward-the-open-side-never-alerts", "test_id": "lipid.hdl", "expect": null, "points": [
+    {"value": 50, "unit": "mg/dL", "ref_low": 40},
+    {"value": 55, "unit": "mg/dL", "ref_low": 40},
+    {"value": 59, "unit": "mg/dL", "ref_low": 40}]},
+  {"id": "one-sided-high-bound-rising-past-it", "test_id": "inflammation.crp", "expect": ["rising", "out_of_range"], "points": [
+    {"value": 3, "unit": "mg/L", "ref_high": 5},
+    {"value": 4, "unit": "mg/L", "ref_high": 5},
+    {"value": 4.8, "unit": "mg/L", "ref_high": 5}]},
+  {"id": "one-sided-high-bound-falling-toward-the-open-side-never-alerts", "test_id": "inflammation.crp", "expect": null, "points": [
+    {"value": 4.8, "unit": "mg/L", "ref_high": 5},
+    {"value": 4, "unit": "mg/L", "ref_high": 5},
+    {"value": 3, "unit": "mg/L", "ref_high": 5}]},
+  {"id": "one-sided-low-bound-albumin-falling-toward-critical-low", "test_id": "lft.albumin", "expect": ["falling", "critical"], "points": [
+    {"value": 3.4, "unit": "g/dL", "ref_low": 3.5},
+    {"value": 3.0, "unit": "g/dL", "ref_low": 3.5},
+    {"value": 2.6, "unit": "g/dL", "ref_low": 3.5}]},
+
+  {"id": "mixed-glucose-mg-dl-and-mmol-l-rising", "test_id": "glucose.fasting", "expect": ["rising", "out_of_range"], "points": [
+    {"value": 88, "unit": "mg/dL", "ref_low": 70, "ref_high": 100},
+    {"value": 5.0, "unit": "mmol/L", "ref_low": 3.9, "ref_high": 5.6},
+    {"value": 5.5, "unit": "mmol/L", "ref_low": 3.9, "ref_high": 5.6}]},
+  {"id": "mixed-glucose-all-mmol-l-zig-zag", "test_id": "glucose.fasting", "expect": null, "points": [
+    {"value": 5.0, "unit": "mmol/L", "ref_low": 3.9, "ref_high": 5.6},
+    {"value": 5.5, "unit": "mmol/L", "ref_low": 3.9, "ref_high": 5.6},
+    {"value": 5.2, "unit": "mmol/L", "ref_low": 3.9, "ref_high": 5.6}]},
+  {"id": "hba1c-ifcc-mmol-mol-converts-affinely", "test_id": "hba1c.hba1c", "expect": ["rising", "out_of_range"], "points": [
+    {"value": 48, "unit": "mmol/mol", "ref_low": 20, "ref_high": 38},
+    {"value": 6.8, "unit": "%", "ref_low": 4.0, "ref_high": 5.6},
+    {"value": 7.0, "unit": "%", "ref_low": 4.0, "ref_high": 5.6}]},
+  {"id": "hb-in-g-l-falling-toward-critical", "test_id": "cbc.hemoglobin", "expect": ["falling", "critical"], "points": [
+    {"value": 110, "unit": "g/L", "ref_low": 130, "ref_high": 170},
+    {"value": 100, "unit": "g/L", "ref_low": 130, "ref_high": 170},
+    {"value": 95, "unit": "g/L", "ref_low": 130, "ref_high": 170}]},
+  {"id": "creatinine-umol-l-rising", "test_id": "kft.creatinine", "expect": ["rising", "out_of_range"], "points": [
+    {"value": 100, "unit": "umol/L", "ref_low": 62, "ref_high": 115},
+    {"value": 110, "unit": "umol/L", "ref_low": 62, "ref_high": 115},
+    {"value": 120, "unit": "umol/L", "ref_low": 62, "ref_high": 115}]},
+  {"id": "vitamin-d-nmol-l-falling", "test_id": "vitamins.d", "expect": ["falling", "out_of_range"], "points": [
+    {"value": 100, "unit": "nmol/L", "ref_low": 75, "ref_high": 250},
+    {"value": 80, "unit": "nmol/L", "ref_low": 75, "ref_high": 250},
+    {"value": 65, "unit": "nmol/L", "ref_low": 75, "ref_high": 250}]},
+  {"id": "ldl-mmol-l-rising-toward-critical", "test_id": "lipid.ldl", "expect": ["rising", "critical"], "points": [
+    {"value": 3.0, "unit": "mmol/L", "ref_low": 0, "ref_high": 2.6},
+    {"value": 3.4, "unit": "mmol/L", "ref_low": 0, "ref_high": 2.6},
+    {"value": 3.9, "unit": "mmol/L", "ref_low": 0, "ref_high": 2.6}]},
+  {"id": "triglycerides-mmol-l-use-their-own-factor", "test_id": "lipid.triglycerides", "expect": ["rising", "out_of_range"], "points": [
+    {"value": 120, "unit": "mg/dL", "ref_low": 0, "ref_high": 150},
+    {"value": 1.5, "unit": "mmol/L", "ref_low": 0, "ref_high": 1.7},
+    {"value": 1.65, "unit": "mmol/L", "ref_low": 0, "ref_high": 1.7}]},
+  {"id": "unconvertible-unit-is-excluded-leaving-two-points", "test_id": "glucose.fasting", "expect": null, "points": [
+    {"value": 88, "unit": "mg/dL", "ref_low": 70, "ref_high": 100},
+    {"value": 92, "unit": "mg/L", "ref_low": 70, "ref_high": 100},
+    {"value": 98, "unit": "mg/dL", "ref_low": 70, "ref_high": 100}]},
+  {"id": "unconvertible-unit-is-excluded-the-rest-still-trend", "test_id": "hba1c.hba1c", "expect": ["rising", "out_of_range"], "points": [
+    {"value": 6.1, "unit": "%", "ref_low": 4.0, "ref_high": 5.6},
+    {"value": 6.5, "unit": "%", "ref_low": 4.0, "ref_high": 5.6},
+    {"value": 99, "unit": "index", "ref_low": 0, "ref_high": 50},
+    {"value": 7.0, "unit": "%", "ref_low": 4.0, "ref_high": 5.6}]}
+]

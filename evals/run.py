@@ -1,10 +1,19 @@
 """Eval runner. Local by default; --langsmith also records the run as a LangSmith experiment.
 
-    python evals/run.py smoke|fixtures|chat     offline, run in CI
+    python evals/run.py smoke|fixtures|chat|trends|red|whatsapp|telegram  offline, run in CI
     python evals/run.py reports                 live: 15 synthetic PDFs, needs GOOGLE_API_KEY
 
 fixtures: the explainer's 15 offline cases (811eb54 evals/cases.json) against app.brain.
 chat:     the chat brain on adversarial questions and scripted adversarial model output.
+trends:   convert + detect_trends on datasets/trend_cases.json (mixed units, one-sided ranges).
+held:     the 15 fixture specs through template_result; a red one's held patient view must carry
+          no critical flag, no red triage and no result value.
+whatsapp: the 15 fixture specs as WhatsApp text: a non-red one has the web explanation and closing
+          line once, in chunks of at most 700; a red one raises and its fixed lines hold no value;
+          every COPY/TEMPLATES text has no digit and no placeholder but {lab}
+          ({account} too in `linked`: the masked phone, digits from the value).
+telegram: the same 15 specs in chunks of at most 4096, plus every telegram.COPY text (no digit,
+          no placeholder but {lab}).
 reports:  the 15 synthetic PDFs through the real pipeline; their specs are the answer key.
           Target (explainer README): 30/30 cases with fixtures, grounding 100% EN and HI,
           0 unsafe, 0 critical missed.
@@ -14,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -160,6 +170,150 @@ def run_chat() -> list[tuple[str, bool, str]]:
     return out
 
 
+# --------------------------------------------------------------------------- trends
+
+
+def run_trends() -> list[tuple[str, bool, str]]:
+    from datetime import date, timedelta
+
+    from app.brain.models import Flag, TestResult
+    from app.brain.trends import Point, detect_trends
+    from app.brain.units import convert
+
+    out = []
+    for c in json.loads((DATASETS / "trend_cases.json").read_text("utf-8")):
+        points = []
+        for i, p in enumerate(c["points"]):
+            r = TestResult(test_id=c["test_id"], test_name=c["test_id"], flag=Flag.NORMAL, **p)
+            if conv := convert(r):  # an unconvertible point is left out, as store_result does
+                points.append(Point(f"r{i}", date(2025, 1, 1) + timedelta(days=30 * i),
+                                    conv.value, conv.ref_low, conv.ref_high))
+        got = [(t.direction, t.toward) for t in detect_trends({c["test_id"]: points})]
+        want = [tuple(c["expect"])] if c["expect"] else []
+        out.append((c["id"], got == want, f"got {got} want {want}"))
+    return out
+
+
+# --------------------------------------------------------------------------- held
+
+
+def _patient_detail(spec_id: str, res) -> dict:
+    """The keys `reports.report_detail` returns, filled from a finished run (no DB)."""
+    from app.brain.triage import result_triage
+
+    return {
+        "id": spec_id,
+        "status": res.final_status,
+        "source": "patient",
+        "triage": res.triage,
+        "next_step": res.next_step.value,
+        "urgent": res.urgent,
+        "collected_on": str(res.report.collected_on),
+        "steps": [{"status": "processing", "at": "t0"}, {"status": res.final_status, "at": "t1"}],
+        "results": [r.model_dump(mode="json") | {"triage": result_triage(r.flag)}
+                    for r in res.report.results],
+        "explanations": {
+            lang: {"source": res.explanation_source,
+                   "statements": [s.model_dump(mode="json") for s in e.statements]}
+            for lang, e in res.explanations.items()
+        },
+        "review_pending": True,
+    }
+
+
+def _urgent_first(detail: dict) -> list[str]:
+    """The languages in which the WhatsApp text does not start with the urgent line exactly once."""
+    from app.brain.nextstep import urgent_message
+    from app.whatsapp import report_paragraphs
+
+    bad = []
+    for lang in ("en", "hi"):
+        paras = report_paragraphs(detail, lang)
+        if paras[:1] != [urgent_message(lang)] or paras.count(urgent_message(lang)) != 1:
+            bad.append(lang)
+    return bad
+
+
+def run_red() -> list[tuple[str, bool, str]]:
+    """Ruling T1: every report shows its values; a red one says the urgent line first, once."""
+    from app.brain.nextstep import URGENT_EN, URGENT_HI
+    from app.brain.pipeline import template_result
+    from app.whatsapp import report_paragraphs
+
+    out = []
+    for spec_path in sorted((DATA / "specs").glob("report_*.json")):
+        res = template_result(_report_from_spec(json.loads(spec_path.read_text("utf-8"))))
+        detail = _patient_detail(spec_path.stem, res)
+        shown = len(detail["results"]) == len(res.report.results) > 0
+        if res.triage == "red":
+            bad = _urgent_first(detail)
+            out.append((spec_path.stem, shown and not bad, f"red: urgent first fails {bad}"))
+            continue
+        said = [p for lang in ("en", "hi") for p in report_paragraphs(detail, lang)]
+        urgent = any(u in said for u in (URGENT_EN, URGENT_HI))
+        out.append((spec_path.stem, shown and not urgent, f"{res.triage}: urgent={urgent}"))
+    return out
+
+
+# --------------------------------------------------------------------------- whatsapp
+
+
+def _whatsapp_spec(spec_path: Path, chunk: int = 700) -> tuple[str, bool, str]:
+    """One fixture spec: the web detail's explanation and closing line, once, in chunks of at
+    most CHUNK; a red one also starts with the urgent line, once (ruling T2)."""
+    from app.brain.nextstep import closing_message
+    from app.brain.pipeline import template_result
+    from app.whatsapp import report_paragraphs, split
+
+    res = template_result(_report_from_spec(json.loads(spec_path.read_text("utf-8"))))
+    detail = _patient_detail(spec_path.stem, res)
+    bad = _urgent_first(detail) if res.triage == "red" else []
+    for lang in ("en", "hi"):
+        paras = report_paragraphs(detail, lang)
+        chunks = split(paras, chunk)
+        statements = [s["text"] for s in detail["explanations"][lang]["statements"]]
+        closing = closing_message(res.next_step, lang)
+        if (any(len(c) > chunk for c in chunks) or "\n\n".join(chunks) != "\n\n".join(paras)
+                or any(s not in paras for s in statements)
+                or paras.count(closing) != (1 if closing else 0)
+                or len(paras) != len(statements)):  # the closing line is a statement already
+            bad.append(lang)
+    return spec_path.stem, not bad, f"{res.triage}: {'fails ' + ','.join(bad) if bad else 'ok'}"
+
+
+# `linked` names the account (security review): its masked phone is the one other hole
+_ALLOWED = {"linked": {"{lab}", "{account}"}}
+
+
+def run_whatsapp() -> list[tuple[str, bool, str]]:
+    from app.whatsapp import COPY, TEMPLATES
+
+    out = [_whatsapp_spec(p) for p in sorted((DATA / "specs").glob("report_*.json"))]
+    for table, name in ((COPY, "copy"), (TEMPLATES, "template")):
+        for key, langs in table.items():
+            texts = list(langs.values())
+            holes = [m for t in texts for m in re.findall(r"\{[^}]*\}", t)
+                     if m not in _ALLOWED.get(key, {"{lab}"})]
+            digits = [t for t in texts if re.search(r"\d", t)]
+            out.append((f"{name}.{key}", len(texts) == 2 and not holes and not digits,
+                        f"placeholders={holes} digits={len(digits)}"))
+    return out
+
+
+def run_telegram() -> list[tuple[str, bool, str]]:
+    from app.telegram import CHUNK, COPY
+
+    out = [_whatsapp_spec(p, CHUNK) for p in sorted((DATA / "specs").glob("report_*.json"))]
+    for key, langs in COPY.items():
+        texts = list(langs.values())
+        holes = [m for t in texts for m in re.findall(r"\{[^}]*\}", t)
+                 if m not in _ALLOWED.get(key, {"{lab}"})]
+        digits = [t for t in texts if re.search(r"\d", t)]
+        out.append((f"copy.{key}", len(texts) == 2 and not holes and not digits,
+                    f"placeholders={holes} digits={len(digits)}"))
+    return out
+
+
 # --------------------------------------------------------------------------- reports (live)
 
 
@@ -215,6 +369,10 @@ SUITES: dict[str, Callable[[], list[tuple[str, bool, str]]]] = {
     "smoke": run_smoke,
     "fixtures": run_fixtures,
     "chat": run_chat,
+    "trends": run_trends,
+    "red": run_red,
+    "whatsapp": run_whatsapp,
+    "telegram": run_telegram,
     "reports": run_reports,
 }
 

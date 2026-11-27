@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
-import { ApiError, type ReportDetail, type Result, type Status, TERMINAL, api } from "../api";
+import { useCallback, useEffect, useId, useState } from "react";
+import { ApiError, type ReportDetail, type Result, type SharedReport, type Status, TERMINAL, api } from "../api";
 import { Band } from "../Band";
 import { Chat } from "../Chat";
+import { telHref } from "../channels";
 import { rangePosition } from "../range";
 import { go } from "../routes";
 import { Nav } from "../Nav";
+import { Share } from "../Share";
 import { StatusSteps } from "../StatusSteps";
 import { isStalled } from "../steps";
+import { explanationLines } from "../summary";
 import { type T, useLang } from "../i18n";
 import { FLAG, NEXT, TRIAGE, fmt, shortDate } from "../words";
 
@@ -89,7 +92,7 @@ function rangeText(r: Result, t: T): string {
   return t("notPrinted");
 }
 
-function ResultRow({ r }: { r: Result }) {
+export function ResultRow({ r }: { r: Result }) {
   const { lang, t } = useLang();
   const pos = rangePosition(r.value, r.ref_low, r.ref_high);
   return (
@@ -111,6 +114,101 @@ function ResultRow({ r }: { r: Result }) {
       )}
       <p className="result__range">{t("normalRange", { range: rangeText(r, t) })}</p>
     </li>
+  );
+}
+
+type Body = SharedReport & { has_file?: boolean };
+
+/** First on a red report and on the home summary: act today. `phone`, when the lab has one, is a call button. */
+export function UrgentBanner({ phone }: { phone?: string | null }) {
+  const { t } = useLang();
+  const href = telHref(phone);
+  return (
+    <div className="strip triage triage--red urgent-banner" role="note">
+      <p className="next">{t("urgentBanner")}</p>
+      {href && (
+        <div className="strip__body">
+          <a className="btn" href={href}>{t("callLab")}</a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** What a finished, visible report says: the verdict, a doctor's note, the results, the explanation.
+ * `shared`: a doctor reads it through a link, so the patient-facing "a doctor is checking" line is left out. */
+export function ReportBody({ report, shared = false }: { report: Body; shared?: boolean }) {
+  const { lang, t } = useLang();
+  const banner = report.triage === "red" && !shared;
+  const lines = explanationLines(report, lang, banner);
+  const RANK = { red: 0, amber: 1, green: 2 } as const;
+  const results = [...(report.results ?? [])].sort((a, b) => RANK[a.triage] - RANK[b.triage]);
+  const uid = useId(); // several reports on one page (a share link) need their own heading ids
+  if (!report.triage) return null;
+
+  return (
+    <>
+      {banner && <UrgentBanner phone={report.lab_phone} />}
+      <section className={`strip triage triage--${report.triage}`} aria-labelledby={`${uid}-triage`}>
+        <div className="strip__head">
+          <h2 className="strip__title" id={`${uid}-triage`}>
+            {TRIAGE[report.triage][lang]}
+          </h2>
+        </div>
+        {report.next_step && <p className="next">{NEXT[report.next_step][lang]}</p>}
+        {!shared && (report.review_pending || (report.status === "needs_review" && !report.doctor_note)) && (
+          <div className="strip__body">
+            <p>{t(report.review_pending ? "reviewPending" : "doctorTold")}</p>
+          </div>
+        )}
+      </section>
+
+      {report.doctor_note && (
+        <section className="strip" aria-labelledby={`${uid}-note`}>
+          <div className="strip__head">
+            <h2 className="strip__title" id={`${uid}-note`}>
+              {t("doctorNote")}
+            </h2>
+          </div>
+          <p className="next" lang={lang}>
+            {report.doctor_note.text[lang]}
+          </p>
+        </section>
+      )}
+
+      <section className="tiles" aria-labelledby={`${uid}-results`}>
+        <div className="strip__head">
+          <h2 className="strip__title" id={`${uid}-results`}>
+            {t("results")}
+          </h2>
+          {report.has_file && (
+            <a className="btn btn--quiet btn--small" href={api.fileUrl(report.id)} target="_blank" rel="noopener">
+              {t("viewOriginal")}
+            </a>
+          )}
+        </div>
+        <ul className="results">
+          {results.map((r) => (
+            <ResultRow key={r.test_id} r={r} />
+          ))}
+        </ul>
+      </section>
+
+      <section className="strip" aria-labelledby={`${uid}-explain`}>
+        <div className="strip__head">
+          <h2 className="strip__title" id={`${uid}-explain`}>
+            {t("whatItSays")}
+          </h2>
+        </div>
+        <ul className="perf-list" lang={lang}>
+          {lines.map((s, i) => (
+            <li key={i} className={i === 0 && report.urgent && !banner ? "perf-list__urgent" : undefined}>
+              {s.text}
+            </li>
+          ))}
+        </ul>
+      </section>
+    </>
   );
 }
 
@@ -163,13 +261,6 @@ export function Report({ id, nav = false }: Props) {
   }
 
   const finished = report.status === "ready" || report.status === "needs_review";
-  const explanation = report.explanations[lang] ?? report.explanations.en;
-  // the closing advice is the NEXT tag above; don't print it twice
-  const lines = (explanation?.statements ?? []).filter(
-    (s, i, all) => !(report.next_step !== "no_action" && s.source === "system" && i === all.length - 1 && i > 0),
-  );
-  const RANK = { red: 0, amber: 1, green: 2 } as const;
-  const results = [...report.results].sort((a, b) => RANK[a.triage] - RANK[b.triage]);
 
   return (
     <div className="shell">
@@ -215,53 +306,8 @@ export function Report({ id, nav = false }: Props) {
 
         {finished && report.triage && (
           <>
-            <section className={`strip triage triage--${report.triage}`} aria-labelledby="triage-title">
-              <div className="strip__head">
-                <h2 className="strip__title" id="triage-title">
-                  {TRIAGE[report.triage][lang]}
-                </h2>
-              </div>
-              {report.next_step && <p className="next">{NEXT[report.next_step][lang]}</p>}
-              {report.status === "needs_review" && (
-                <div className="strip__body">
-                  <p>{t("doctorTold")}</p>
-                </div>
-              )}
-            </section>
-
-            <section className="tiles" aria-labelledby="results-title">
-              <div className="strip__head">
-                <h2 className="strip__title" id="results-title">
-                  {t("results")}
-                </h2>
-                {report.has_file && (
-                  <a className="btn btn--quiet btn--small" href={api.fileUrl(report.id)} target="_blank" rel="noopener">
-                    {t("viewOriginal")}
-                  </a>
-                )}
-              </div>
-              <ul className="results">
-                {results.map((r) => (
-                  <ResultRow key={r.test_id} r={r} />
-                ))}
-              </ul>
-            </section>
-
-            <section className="strip" aria-labelledby="explain-title">
-              <div className="strip__head">
-                <h2 className="strip__title" id="explain-title">
-                  {t("whatItSays")}
-                </h2>
-              </div>
-              <ul className="perf-list" lang={lang}>
-                {lines.map((s, i) => (
-                  <li key={i} className={i === 0 && report.urgent ? "perf-list__urgent" : undefined}>
-                    {s.text}
-                  </li>
-                ))}
-              </ul>
-            </section>
-
+            <ReportBody report={report} />
+            {nav && <Share reportId={report.id} />}
             <Chat reportId={report.id} />
           </>
         )}

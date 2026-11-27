@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 
 from app.brain.explain import ExplanationFailed, explain
-from app.brain.extract import ExtractionFailed, extract, pdf_text, redact
-from app.brain.models import Flag, LabReport, TestResult
+from app.brain.extract import ExtractionFailed, canonicalise, extract, pdf_text, redact
+from app.brain.models import ExtractedReport, Flag, LabReport, TestResult
 from tests.brain.fakes import ScriptedModel, pdf_with_text
 from tests.conftest import pdf_bytes
 
@@ -85,6 +85,40 @@ def test_garbage_is_unreadable():
     with pytest.raises(ExtractionFailed) as e:
         extract(pdf_bytes(), "application/pdf", KNOWN, ScriptedModel(replies=["no json here"]))
     assert e.value.message == ExtractionFailed.UNREADABLE
+
+
+def _extracted(*rows: tuple[str, str, float, str]) -> ExtractedReport:
+    return ExtractedReport(
+        results=[
+            {"test_id": tid, "test_name": name, "value": v, "unit": unit}
+            for tid, name, v, unit in rows
+        ]
+    )
+
+
+def test_canonicalise_rescues_by_name():
+    rep = _extracted(("hba1c", "Glycated Haemoglobin", 6.5, "%"))
+    out, warnings = canonicalise(rep)
+    assert out.results[0].test_id == "hba1c.hba1c" and warnings == []
+    assert out.results[0].test_name == "HbA1c"
+
+
+def test_canonicalise_rescue_counts_as_the_same_test_and_unknown_still_dropped():
+    rep = _extracted(
+        ("hba1c.hba1c", "HbA1c", 6.5, "%"),
+        ("x", "Glycated Haemoglobin", 7.0, "%"),
+        ("y", "Unknown Thing", 1.0, "u"),
+        ("z", "SGPT", 30.0, "U/L"),
+    )
+    out, warnings = canonicalise(rep)
+    assert [(r.test_id, r.value) for r in out.results] == [("hba1c.hba1c", 6.5), ("lft.alt", 30.0)]
+    assert len(warnings) == 2 and "printed more than once" in warnings[0]
+    assert "not a known test" in warnings[1]
+
+
+def test_canonicalise_nothing_known_is_not_a_report():
+    with pytest.raises(ExtractionFailed):
+        canonicalise(_extracted(("y", "Unknown Thing", 1.0, "u")))
 
 
 def _report():

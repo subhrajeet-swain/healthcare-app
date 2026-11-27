@@ -14,9 +14,10 @@ from fastapi import APIRouter, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from psycopg.types.json import Jsonb
 
-from app import db, files
+from app import db, files, review
 from app.audit import audit
 from app.auth import Ctx
+from app.brain.templates import NOTE_TEXT
 from app.config import settings
 from app.crypto import cipher_for
 from app.errors import ApiError, not_found
@@ -38,22 +39,16 @@ def require_consent(c, ctx: TenantCtx) -> None:
 
 
 def read_upload(upload: UploadFile) -> tuple[bytes, str]:
-    """Size, type by content, PDF sanity, scan. Raises ApiError; never trusts the client."""
+    """Read at most one byte over the limit, then `files.check_bytes`. Raises ApiError."""
     data = upload.file.read(files.MAX_BYTES + 1)
-    if len(data) > files.MAX_BYTES:
-        raise ApiError(413, "file_too_large")
-    mime = files.sniff(data)
-    if mime == "application/pdf":
-        files.check_pdf(data)
-    files.scan(data)
-    return data, mime
+    return data, files.check_bytes(data)
 
 
 def create_report(c, ctx: TenantCtx, user_id: UUID, source: str, status: str) -> UUID:
     rid = c.execute(
         "INSERT INTO reports (tenant_id, user_id, uploaded_by, source, status) "
         "VALUES (%s, %s, %s, %s, %s) RETURNING id",
-        (ctx.tenant_id, user_id, ctx.user_id, source, status),
+        (ctx.tenant_id, user_id, ctx.actor_id or ctx.user_id, source, status),
     ).fetchone()["id"]
     c.execute(
         "INSERT INTO report_steps (tenant_id, report_id, status) VALUES (%s, %s, %s)",
@@ -74,21 +69,44 @@ def set_status(
         "INSERT INTO report_steps (tenant_id, report_id, status) VALUES (%s, %s, %s)",
         (tenant_id, report_id, status),
     )
+    queue_status(c, tenant_id, report_id)
+
+
+def queue_status(c, tenant_id: UUID, report_id: UUID) -> None:
+    """A `msg.status` job (ids only) when the report came in through Telegram; else nothing."""
+    c.execute(
+        "INSERT INTO jobs (tenant_id, kind, payload) SELECT %s, 'msg.status', "
+        "jsonb_build_object('report_id', id::text, 'channel', 'telegram') "
+        "FROM reports WHERE id = %s AND source = 'telegram'",
+        (tenant_id, report_id),
+    )
 
 
 def store_result(c, tenant_id: UUID, report_id: UUID, res) -> None:
     """Write a finished pipeline run (results, explanations, decisions, final status)."""
     from app.brain.triage import result_triage
+    from app.brain.units import convert
 
     c.execute("DELETE FROM results WHERE report_id = %s", (report_id,))
     c.execute("DELETE FROM explanations WHERE report_id = %s", (report_id,))
+    # collected_on is saved below, after the rows, so the date comes from `res`, not the row
+    rep = c.execute(
+        "SELECT user_id, coalesce(%s::date, created_at::date) AS observed_on "
+        "FROM reports WHERE id = %s",
+        (res.report.collected_on, report_id),
+    ).fetchone()
     for r in res.report.results:
+        # the printed value stays the authority; the canonical claim sits beside it
+        conv = convert(r)
+        canon = conv or (None, None, None, None)
         c.execute(
-            "INSERT INTO results (tenant_id, report_id, test_id, test_name, value, unit, "
-            "ref_low, ref_high, printed_flag, flag, triage) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-            (tenant_id, report_id, r.test_id, r.test_name, r.value, r.unit, r.ref_low,
-             r.ref_high, r.printed_flag, r.flag.value, result_triage(r.flag)),
+            "INSERT INTO results (tenant_id, report_id, user_id, observed_on, test_id, test_name, "
+            "value, unit, ref_low, ref_high, printed_flag, flag, triage, "
+            "value_c, ref_low_c, ref_high_c, unit_c, excluded_reason) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            (tenant_id, report_id, rep["user_id"], rep["observed_on"], r.test_id, r.test_name,
+             r.value, r.unit, r.ref_low, r.ref_high, r.printed_flag, r.flag.value,
+             result_triage(r.flag), *canon, None if conv else "unit_not_comparable"),
         )
     for lang, e in res.explanations.items():
         c.execute(
@@ -103,6 +121,15 @@ def store_result(c, tenant_id: UUID, report_id: UUID, res) -> None:
         (res.triage, res.next_step.value, res.urgent, res.report.collected_on,
          Jsonb(res.warnings), report_id),
     )
+    from app import msg_jobs  # msg_jobs imports this module
+
+    new_trends = review.refresh_trends(c, tenant_id, rep["user_id"])
+    for trend_id in new_trends:
+        review.open_review(
+            c, tenant_id, kind="trend", reason="trend", user_id=rep["user_id"], trend_id=trend_id
+        )
+    if new_trends:  # one alert however many trends are new
+        msg_jobs.queue_notify(c, tenant_id, rep["user_id"], "trend_alert", report_id)
     set_status(c, tenant_id, report_id, res.final_status)
 
 
@@ -136,7 +163,35 @@ def visible_report(c, ctx: TenantCtx, report_id: UUID) -> dict:
     return row
 
 
+def latest_state(c, report_id: UUID) -> dict:
+    """The report row with its latest report review item (`item_status`, `note_option`)."""
+    row = c.execute(
+        "SELECT r.*, i.status AS item_status, i.note_option FROM reports r "
+        "LEFT JOIN LATERAL (SELECT status, note_option FROM review_items "
+        "  WHERE report_id = r.id AND kind = 'report' "
+        "  ORDER BY (status = 'pending') DESC, created_at DESC LIMIT 1) i ON true "
+        "WHERE r.id = %s",  # the open item, else the latest decided one
+        (report_id,),
+    ).fetchone()
+    if row is None:
+        raise not_found()  # deleted meanwhile
+    return row
+
+
+def doctor_note(state: dict) -> dict | None:
+    """The line a decided review adds to the report: the doctor's pick, or call-the-lab."""
+    if state["item_status"] not in ("edited", "escalated"):
+        return None
+    option = "call_lab" if state["item_status"] == "escalated" else state["note_option"]
+    return {"option": option, "text": NOTE_TEXT[option]} if option in NOTE_TEXT else None
+
+
 def report_detail(c, report: dict) -> dict:
+    """The report, the same for every role (ruling T1: nothing is held from the patient).
+
+    Only `report["id"]` is used: every field comes from `latest_state`, never from the row the
+    caller read earlier.
+    """
     rid = report["id"]
     steps = c.execute(
         "SELECT status, at FROM report_steps WHERE report_id = %s ORDER BY id", (rid,)
@@ -149,23 +204,33 @@ def report_detail(c, report: dict) -> dict:
     expl = c.execute(
         "SELECT language, source, statements FROM explanations WHERE report_id = %s", (rid,)
     ).fetchall()
-    return {
+    now = latest_state(c, rid)
+    detail = {
         "id": str(rid),
-        "status": report["status"],
-        "source": report["source"],
-        "triage": report["triage"],
-        "next_step": report["next_step"],
-        "urgent": report["urgent"],
-        "collected_on": report["collected_on"],
-        "failure_message": report["failure_message"],
-        "has_file": report["file_mime"] is not None,
-        "created_at": report["created_at"],
+        "status": now["status"],
+        "source": now["source"],
+        "triage": now["triage"],
+        "next_step": now["next_step"],
+        "urgent": now["urgent"],
+        "collected_on": now["collected_on"],
+        "failure_message": now["failure_message"],
+        "has_file": now["file_mime"] is not None,
+        "created_at": now["created_at"],
         "steps": steps,
         "results": results,
         "explanations": {
             e["language"]: {"source": e["source"], "statements": e["statements"]} for e in expl
         },
+        "review_pending": now["item_status"] == "pending",
     }
+    if note := doctor_note(now):
+        detail["doctor_note"] = note
+    if now["triage"] == "red":  # for the banner's "Call your lab"; null if the lab has no number
+        detail["lab_phone"] = c.execute(
+            "SELECT phone FROM tenants "
+            "WHERE id = (SELECT tenant_id FROM reports WHERE id = %s)", (rid,)
+        ).fetchone()["phone"]
+    return detail
 
 
 @router.post("", status_code=201)
@@ -186,7 +251,8 @@ def list_reports(ctx: Ctx) -> list[dict]:
             "(SELECT string_agg(test_name, ', ' ORDER BY test_name) FROM results "
             " WHERE report_id = r.id) AS tests "
             "FROM reports r WHERE r.user_id = %s "
-            "ORDER BY coalesce(r.collected_on, r.created_at::date) DESC, r.created_at DESC",
+            "ORDER BY coalesce(r.collected_on, r.created_at::date) DESC, r.created_at DESC, "
+            "r.id DESC",
             (ctx.user_id,),
         ).fetchall()
         audit(c, ctx, "list", "report", ctx.user_id)
@@ -215,11 +281,12 @@ def _sse(data: dict) -> str:
 
 def _snapshot(ctx: TenantCtx, report_id: UUID) -> dict:
     with db.tenant_tx(ctx) as c:
-        report = visible_report(c, ctx, report_id)
+        visible_report(c, ctx, report_id)
         steps = c.execute(
             "SELECT status, at FROM report_steps WHERE report_id = %s ORDER BY id", (report_id,)
         ).fetchall()
-    return {"status": report["status"], "steps": steps}
+        now = latest_state(c, report_id)
+        return {"status": now["status"], "steps": steps}
 
 
 def _stream(ctx: TenantCtx, report_id: UUID, first: dict) -> Iterator[str]:
@@ -254,7 +321,9 @@ def _stream_body(ctx: TenantCtx, report_id: UUID, first: dict) -> Iterator[str]:
             for n in conn.notifies(timeout=KEEPALIVE_S, stop_after=1):
                 got = True
                 rid, _, status = n.payload.partition(":")
-                if rid != str(report_id) or status == last:
+                if rid != str(report_id):
+                    continue
+                if status == last:
                     continue
                 last = status
                 yield _sse({"status": status})
@@ -285,6 +354,10 @@ def get_file(report_id: UUID, ctx: Ctx) -> Response:
         report = visible_report(c, ctx, report_id)
         if report["file_mime"] is None:
             raise not_found()
+        if ctx.role not in STAFF_ROLES and report["source"] == "lab":
+            # the lab's file shows the values: not before the pipeline has triaged them
+            if latest_state(c, report_id)["triage"] is None:
+                raise ApiError(409, "report_not_ready")
         data = files.load(cipher_for(c, ctx.tenant_id), ctx.tenant_id, report_id)
         audit(c, ctx, "read", "report_file", report_id)
     return Response(

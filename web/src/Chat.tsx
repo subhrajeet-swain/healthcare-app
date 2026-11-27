@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { type ChatMessage, api, messageFor } from "./api";
+import { viaKey } from "./channels";
 import { useLang } from "./i18n";
 
 const MAX = 500;
@@ -53,6 +54,7 @@ export function Chat({ reportId }: { reportId: string }) {
           {messages.map((m, i) => (
             <li key={i} className={`chat__msg chat__msg--${m.role}`}>
               <span className="chat__who">{t(m.role === "user" ? "you" : "assistant")}</span>
+              {viaKey(m.channel) && <span className="chat__via">{t(viaKey(m.channel)!)}</span>}
               <p>{m.text}</p>
             </li>
           ))}

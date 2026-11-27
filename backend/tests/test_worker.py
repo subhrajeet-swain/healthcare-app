@@ -127,8 +127,11 @@ def test_job_for_deleted_report_is_dropped(client, patient):
     _, tid, _ = patient
     rid = _upload(client)
     assert client.delete("/api/me").status_code == 204
-    assert worker.run_once(_models()) is True
-    assert _job(rid)["status"] == "done"
+    while worker.run_once(_models()):  # the upload's job and delete_me's purge job
+        pass
+    with _wconn() as c:
+        jobs = c.execute("SELECT status FROM jobs WHERE payload->>'report_id' = %s", (rid,))
+        assert [j["status"] for j in jobs] == ["done", "done"]
     assert not (settings.storage_dir / str(tid) / rid).exists()
     from app import db
 
@@ -160,6 +163,20 @@ def test_stale_job_out_of_attempts_is_failed_not_reclaimed(client, patient):  # 
     assert _job(rid)["status"] == "failed"
     d = client.get(f"/api/reports/{rid}").json()
     assert d["status"] == "failed" and d["failure_message"] == worker.GIVE_UP
+
+
+def test_dead_non_pipeline_job_with_report_id_leaves_the_report(client, patient):  # W10
+    _, tid, uid = patient
+    rid = _upload(client)
+    assert worker.run_once(_models()) is True
+    with _wconn() as c:
+        c.execute(
+            "INSERT INTO jobs (tenant_id, kind, payload, status, attempts, locked_at) "
+            "VALUES (%s, 'msg.notify', %s, 'running', %s, now() - interval '6 minutes')",
+            (tid, json.dumps({"user_id": str(uid), "event": "report_ready", "report_id": rid}),
+             worker.MAX_ATTEMPTS))
+    assert worker.run_once(_models()) is False
+    assert client.get(f"/api/reports/{rid}").json()["status"] == "ready"
 
 
 def test_model_clients_have_timeouts(monkeypatch):  # I2
