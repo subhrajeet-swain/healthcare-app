@@ -13,7 +13,7 @@ export const STRINGS = {
   problem: { en: "Problem", hi: "समस्या" },
   signedOut: { en: "You're signed out", hi: "आप साइन आउट हैं" },
   signIn: { en: "Sign in", hi: "साइन इन" },
-  openLink: { en: "Open the sign-in link your lab sent you by SMS or WhatsApp.", hi: "आपकी लैब ने SMS या WhatsApp पर जो साइन-इन लिंक भेजा है, उसे खोलें।" },
+  openLink: { en: "Open the sign-in link your lab gave you.", hi: "आपकी लैब ने जो साइन-इन लिंक दिया है, उसे खोलें।" },
   language: { en: "Language", hi: "भाषा" },
   greeting: { en: "Namaste", hi: "नमस्ते" },
 
