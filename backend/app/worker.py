@@ -23,7 +23,7 @@ from uuid import UUID
 import psycopg
 from psycopg.rows import dict_row
 
-from app import alerts, db, files, reports, review, tracing, wa_jobs
+from app import alerts, db, files, msg_jobs, reports, review, tracing
 from app.brain.extract import ExtractionFailed
 from app.brain.pipeline import (
     Decision,
@@ -127,7 +127,7 @@ def _save(tid: UUID, rid: UUID, res: PipelineResult) -> None:
         if report is None:
             raise ReportGone
         reports.store_result(c, tid, rid, res)
-        wa_jobs.queue_notify(c, tid, report["user_id"], "report_ready", rid)
+        msg_jobs.queue_notify(c, tid, report["user_id"], "report_ready", rid)
         if res.pending:
             review.open_review(
                 c, tid, kind="report", reason="red" if res.triage == "red" else "warnings",
@@ -226,7 +226,7 @@ def _review_job(job: dict, saver, timeout: bool) -> None:
             "by": str(item["decided_by"]) if item["decided_by"] else None,
         }
         reports.store_result(c, tid, item["report_id"], resume(graph, thread, decision))
-        wa_jobs.queue_notify(c, tid, item["user_id"], "review_complete", item["report_id"])
+        msg_jobs.queue_notify(c, tid, item["user_id"], "review_complete", item["report_id"])
         if action == "escalate":
             review.queue_job(c, tid, "alert.email", item["id"])
     saver.delete_thread(thread)  # after commit: a failed save keeps the thread for the retry
@@ -247,8 +247,10 @@ HANDLERS: dict[str, Callable[[dict, dict | None, Any], None]] = {
     "report.resume": lambda job, models, saver: _review_job(job, saver, timeout=False),
     "review.timeout": lambda job, models, saver: _review_job(job, saver, timeout=True),
     "alert.email": _alert,
-    "wa.inbound": wa_jobs.inbound,
-    "wa.notify": wa_jobs.notify,
+    "msg.inbound": msg_jobs.inbound,
+    "msg.notify": msg_jobs.notify,
+    "wa.inbound": msg_jobs.inbound,  # queued before the rename (a payload with no channel)
+    "wa.notify": msg_jobs.notify,
 }
 
 
@@ -269,7 +271,7 @@ def run_once(models: dict | None = None) -> bool:
         return True
     tid = job["tenant_id"]
     # report.pipeline's thread is cleaned up here; the review jobs delete their own. Only by
-    # kind (W10): a wa.notify carries a report_id too and must never touch a parked thread.
+    # kind (W10): a msg.notify carries a report_id too and must never touch a parked thread.
     rid = UUID(job["payload"]["report_id"]) if job["kind"] == "report.pipeline" else None
     thread = thread_id(tid, rid) if rid else None
     try:

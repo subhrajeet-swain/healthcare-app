@@ -1,4 +1,4 @@
-"""The `wa.inbound` worker job: LINK, STOP, START, REPORT, unlinked senders and media."""
+"""The `msg.inbound` worker job: LINK, STOP, START, REPORT, unlinked senders and media."""
 
 import json
 import uuid
@@ -8,7 +8,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app import auth, chat_api, db, wa_jobs, whatsapp, worker
+from app import auth, chat_api, db, msg_jobs, whatsapp, worker
 from app.brain.nextstep import URGENT_EN
 from app.brain.router import REPLIES
 from app.config import settings
@@ -65,7 +65,7 @@ def texts(bodies):
 
 
 def deliver(client, wa_lab, sender=NUMBER, text=None, media_id=None, models=None):
-    """Post one signed message from `sender` and run its `wa.inbound` job."""
+    """Post one signed message from `sender` and run its `msg.inbound` job."""
     _, pn = wa_lab
     msg = {"from": sender.lstrip("+"), "id": _mid()}
     if media_id:
@@ -83,7 +83,7 @@ def _owner(tid):
 
 def _links(tid):
     with _owner(tid) as c:
-        return c.execute("SELECT * FROM wa_links").fetchall()
+        return c.execute("SELECT * FROM channel_links").fetchall()
 
 
 def _code(client, language="en"):
@@ -118,7 +118,7 @@ def test_link_flow_links_and_opts_in(client, patient, wa_lab, sent):
             "SELECT version FROM consents WHERE user_id = %s AND purpose = 'whatsapp'", (uid,)
         ).fetchall()
         assert consent["version"] == "wa-2026-11-v1"
-        used = c.execute("SELECT used_at FROM wa_link_codes WHERE user_id = %s", (uid,)).fetchone()
+        used = c.execute("SELECT used_at FROM link_codes WHERE user_id = %s", (uid,)).fetchone()
         assert used["used_at"] is not None
 
 
@@ -126,7 +126,7 @@ def test_link_expired_or_used_code_rejected(client, patient, wa_lab, sent):
     _, tid, uid = patient
     code = _code(client)
     with _owner(tid) as c:
-        c.execute("UPDATE wa_link_codes SET expires_at = now() - interval '1 second'")
+        c.execute("UPDATE link_codes SET expires_at = now() - interval '1 second'")
     deliver(client, wa_lab, text=f"LINK {code}")
     assert texts(sent) == [COPY["bad_code"]["en"]] and _links(tid) == []
     sent.clear()
@@ -145,14 +145,14 @@ def test_link_code_collision_consumes_none(client, patient, wa_lab, sent, login)
         with _owner(tid) as c:  # what Task 4's check-then-insert could leave behind
             for u in (uid, other_id):
                 c.execute(
-                    "INSERT INTO wa_link_codes (tenant_id, user_id, code_hash, expires_at) "
-                    "VALUES (%s, %s, %s, now() + interval '10 minutes')",
+                    "INSERT INTO link_codes (tenant_id, user_id, channel, code_hash, expires_at) "
+                    "VALUES (%s, %s, 'whatsapp', %s, now() + interval '10 minutes')",
                     (tid, u, auth._code_hash("424242")),
                 )
         deliver(client, wa_lab, text="LINK 424242")
     assert texts(sent) == [COPY["bad_code"]["en"]] and _links(tid) == []
     with _owner(tid) as c:
-        rows = c.execute("SELECT used_at FROM wa_link_codes").fetchall()
+        rows = c.execute("SELECT used_at FROM link_codes").fetchall()
     assert [r["used_at"] for r in rows] == [None, None]
 
 
@@ -362,7 +362,7 @@ def test_refused_question_gets_its_copy(client, patient, wa_lab, sent, monkeypat
         raise ApiError(status, error)
 
     monkeypatch.setattr(chat_api, "converse", refuse)
-    assert wa_jobs.question(TenantCtx(tid, uid, "patient"), "hi", "en") == [COPY[key]["en"]]
+    assert msg_jobs.question(TenantCtx(tid, uid, "patient"), "hi", "en") == [COPY[key]["en"]]
 
 
 def _graph(monkeypatch, url=LOOKASIDE, data=None):
@@ -414,7 +414,7 @@ def test_body_cleared_after_handling(client, patient, wa_lab, sent, monkeypatch)
     _graph(monkeypatch)
     ids += [deliver(client, wa_lab, text="REPORT"), deliver(client, wa_lab, media_id="m")]
     with _owner(tid) as c:
-        rows = c.execute("SELECT message_id, body_enc FROM wa_inbound").fetchall()
+        rows = c.execute("SELECT message_id, body_enc FROM inbound_messages").fetchall()
     assert {r["message_id"] for r in rows} >= set(ids)
     assert all(r["body_enc"] is None for r in rows)
 
@@ -423,18 +423,19 @@ def _due(tid):
     """Make a queued inbound retry due now, and ahead of any other job (it backs off 30 s)."""
     with _owner(tid) as c:
         c.execute("UPDATE jobs SET run_after = now() - interval '1 hour' "
-                  "WHERE status = 'queued' AND kind = 'wa.inbound'")
+                  "WHERE status = 'queued' AND kind = 'msg.inbound'")
 
 
 def _inbound_job(tid, mid):
     with _owner(tid) as c:
-        return c.execute("SELECT status, attempts FROM jobs WHERE kind = 'wa.inbound' "
+        return c.execute("SELECT status, attempts FROM jobs WHERE kind = 'msg.inbound' "
                          "AND payload->>'message_id' = %s", (mid,)).fetchone()
 
 
 def _body(tid, mid):
     with _owner(tid) as c:
-        row = c.execute("SELECT body_enc FROM wa_inbound WHERE message_id = %s", (mid,)).fetchone()
+        row = c.execute(
+            "SELECT body_enc FROM inbound_messages WHERE message_id = %s", (mid,)).fetchone()
         return None if row["body_enc"] is None else json.loads(
             cipher_for(c, tid).decrypt(row["body_enc"]))
 
@@ -469,7 +470,7 @@ def test_retried_link_links_once(client, patient, wa_lab, flaky):
     with _owner(tid) as c:
         consents = c.execute("SELECT 1 FROM consents WHERE user_id = %s AND purpose = 'whatsapp' "
                              "AND withdrawn_at IS NULL", (uid,)).fetchall()
-        used = c.execute("SELECT used_at FROM wa_link_codes WHERE user_id = %s", (uid,)).fetchone()
+        used = c.execute("SELECT used_at FROM link_codes WHERE user_id = %s", (uid,)).fetchone()
     assert len(consents) == 1 and used["used_at"] is not None and _body(tid, mid) is None
 
 

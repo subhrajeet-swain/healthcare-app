@@ -51,7 +51,7 @@ def test_app_role_has_no_access_to_graph_schema(db_urls):
 
 
 PHASE2 = ["trends", "review_items", "family_links", "share_links"]
-PHASE3 = ["wa_links", "wa_link_codes", "wa_inbound"]
+PHASE3 = ["channel_links", "link_codes", "inbound_messages"]
 
 
 def _assert_forced_rls(db_urls, tables):
@@ -228,3 +228,45 @@ def test_chat_channel_defaults_web(lab):
             uid = _user(c, tid)
             args = (tid, _report(c, tid, uid), uid)
             c.execute(insert.format(col=", channel", val=", 'sms'"), args)
+
+
+def _link_row(c, tid, uid, channel, fp):
+    c.execute(
+        "INSERT INTO channel_links (tenant_id, user_id, channel, address_fp, address_enc) "
+        "VALUES (%s, %s, %s, %s, %s)",
+        (tid, uid, channel, fp, b"x"),
+    )
+
+
+def test_channel_unique_keys(lab):
+    tid = lab[1]
+    with db.owner_tx(settings.owner_database_url, tid) as c:
+        uid, other = _user(c, tid), _user(c, tid)
+        _link_row(c, tid, uid, "whatsapp", b"a")
+        _link_row(c, tid, uid, "telegram", b"a")  # the same address on two channels is fine
+    for user, fp in ((uid, b"b"), (other, b"a")):  # a second link; a taken address
+        with pytest.raises(psycopg.errors.UniqueViolation):
+            with db.owner_tx(settings.owner_database_url, tid) as c:
+                _link_row(c, tid, user, "whatsapp", fp)
+    with pytest.raises(psycopg.errors.CheckViolation):
+        with db.owner_tx(settings.owner_database_url, tid) as c:
+            _link_row(c, tid, other, "sms", b"c")
+
+
+def test_tenant_phone_and_telegram_values(lab):
+    tid = lab[1]
+    with db.owner_tx(settings.owner_database_url, tid) as c:
+        assert c.execute("SELECT phone FROM tenants WHERE id = %s", (tid,)).fetchone()[
+            "phone"
+        ] is None
+        uid = _user(c, tid)
+        c.execute(
+            "INSERT INTO reports (tenant_id, user_id, uploaded_by, source, status) "
+            "VALUES (%s, %s, %s, 'telegram', 'received')",
+            (tid, uid, uid),
+        )
+        row = c.execute(
+            "SELECT pg_get_constraintdef(oid) AS d FROM pg_constraint "
+            "WHERE conname = 'chat_messages_channel_check'"
+        ).fetchone()
+        assert "telegram" in row["d"]

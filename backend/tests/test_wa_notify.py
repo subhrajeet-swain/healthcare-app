@@ -1,4 +1,4 @@
-"""The `wa.notify` job: report ready, review complete and trend alerts, inside and outside the
+"""The `msg.notify` job: report ready, review complete and trend alerts, inside and outside the
 24 hour window. A red report is sent at once, urgent line first; a template never carries a value
 (ruling T1, W8, W9)."""
 
@@ -7,7 +7,7 @@ import re
 
 import pytest
 
-from app import db, wa_jobs, worker
+from app import db, msg_jobs, worker
 from app.brain.nextstep import URGENT_EN
 from app.config import settings
 from app.whatsapp import COPY, TEMPLATES
@@ -35,7 +35,7 @@ def _owner(tid):
 def _notify_jobs(tid, event=None):
     with _wconn() as c:
         return c.execute(
-            "SELECT * FROM jobs WHERE tenant_id = %s AND kind = 'wa.notify' "
+            "SELECT * FROM jobs WHERE tenant_id = %s AND kind = 'msg.notify' "
             "AND (%s::text IS NULL OR payload->>'event' = %s) ORDER BY created_at",
             (tid, event, event),
         ).fetchall()
@@ -43,7 +43,7 @@ def _notify_jobs(tid, event=None):
 
 def _out_of_window(tid):
     with _owner(tid) as c:
-        c.execute("UPDATE wa_links SET last_inbound_at = now() - interval '2 days'")
+        c.execute("UPDATE channel_links SET last_inbound_at = now() - interval '2 days'")
 
 
 def _bodies(sent):  # noqa: F811
@@ -76,7 +76,8 @@ def test_ready_in_window_sends_explanation(client, patient, wa_lab, sent):  # no
     rid = _upload(client)
     assert worker.run_once(_models()) is True
     (job,) = _notify_jobs(tid)
-    assert job["payload"] == {"user_id": str(uid), "event": "report_ready", "report_id": rid}
+    assert job["payload"] == {"user_id": str(uid), "event": "report_ready", "report_id": rid,
+                              "channel": "whatsapp"}
     assert worker.run_once(_models()) is True
     out = texts(sent)
     assert "Hemoglobin is 11.2." in out[0] and out[-1] == COPY["ask_more"]["en"]
@@ -98,7 +99,7 @@ def test_notify_parked_red_sends_now(client, patient, wa_lab, sent):  # noqa: F8
     _linked(client, wa_lab, sent)
     _upload(client)
     assert worker.run_once(_red_models(RED)) is True  # red: parked for a doctor
-    _drain()  # its alert.email and wa.notify, with no wait for the doctor
+    _drain()  # its alert.email and msg.notify, with no wait for the doctor
     assert len(_notify_jobs(tid, "report_ready")) == 1
     out = texts(sent)
     assert out[0].startswith(URGENT_EN) and out[-1] == COPY["ask_more"]["en"]
@@ -131,7 +132,7 @@ def test_notify_released_red_says_review_complete(client, patient, wa_lab, sent)
     _out_of_window(tid)
     for event in ("review_complete", "report_ready"):
         with worker._tx(tid) as c:
-            wa_jobs.queue_notify(c, tid, uid, event, rid)
+            msg_jobs.queue_notify(c, tid, uid, event, rid)
         _drain()
         _template(sent, "report_ready_red")
         sent.clear()
@@ -143,12 +144,12 @@ def test_notify_after_stop_sends_nothing(client, patient, wa_lab, sent):  # noqa
     _upload(client)
     assert worker.run_once(_models()) is True
     with _wconn() as c:  # the notify waits while STOP is handled
-        c.execute("UPDATE jobs SET run_after = now() + interval '1 hour' WHERE kind = 'wa.notify'")
+        c.execute("UPDATE jobs SET run_after = now() + interval '1 hour' WHERE kind = 'msg.notify'")
     deliver(client, wa_lab, text="STOP")
     assert texts(sent) == [COPY["stopped"]["en"]]
     sent.clear()
     with _wconn() as c:
-        c.execute("UPDATE jobs SET run_after = now() WHERE kind = 'wa.notify'")
+        c.execute("UPDATE jobs SET run_after = now() WHERE kind = 'msg.notify'")
     _drain()
     assert _notify_jobs(tid)[0]["status"] == "done" and sent == []
 
@@ -172,7 +173,7 @@ def test_trend_alert_once(client, patient, wa_lab, sent):  # noqa: F811
         assert c.execute("SELECT count(*) AS n FROM trends").fetchone()["n"] == 2
     (job,) = _notify_jobs(tid)
     assert job["payload"] == {"user_id": str(uid), "event": "trend_alert",
-                              "report_id": str(last)}
+                              "report_id": str(last), "channel": "whatsapp"}
     _drain()
     assert texts(sent) == [TEMPLATES["trend_alert"]["en"].format(lab=LAB)]
 
@@ -183,7 +184,7 @@ def test_notify_job_keeps_parked_thread(client, patient, wa_lab, sent):  # noqa:
     rid = _upload(client)
     assert worker.run_once(_red_models(MISMATCH)) is True  # warnings: parked
     assert len(_notify_jobs(tid)) == 1
-    assert worker.run_once(_models()) is True  # the wa.notify, which carries the report id
+    assert worker.run_once(_models()) is True  # the msg.notify, which carries the report id
     assert _notify_jobs(tid)[0]["status"] == "done"
     assert texts(sent)[-1] == COPY["ask_more"]["en"]  # warnings are not held from the patient
     sent.clear()

@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import logging
+import re
 from dataclasses import dataclass
 from typing import Literal
 
@@ -241,6 +242,21 @@ def send(o: Outbound) -> None:
     else:
         body |= {"type": "text", "text": {"body": o.text}}
     graph_post(f"/{o.phone_number_id}/messages", body)
+
+
+_LINK = re.compile(r"link\s*(\d{6})", re.IGNORECASE)
+
+
+def command(text: str) -> tuple[str, str | None] | None:
+    """`LINK <6 digits>`, `STOP`, `START` or `REPORT` (any case); None means a question."""
+    text = text.strip()
+    if m := _LINK.fullmatch(text):
+        return "link", m[1]
+    return (text.lower(), None) if text.upper() in ("STOP", "START", "REPORT") else None
+
+
+def send_text(account: str, to: str, text: str) -> None:
+    send(Outbound(account, to, text=text))
 
 
 def fetch_media(media_id: str) -> bytes:

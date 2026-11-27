@@ -5,6 +5,7 @@ from fastapi import FastAPI, Response
 
 from app import (
     auth,
+    channels_api,
     chat_api,
     db,
     doctor,
@@ -66,6 +67,7 @@ app.include_router(doctor.router)
 app.include_router(timeline.router)
 app.include_router(family.router)
 app.include_router(share.router)
+app.include_router(channels_api.router)
 app.include_router(wa_api.router)
 
 

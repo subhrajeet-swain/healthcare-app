@@ -50,8 +50,8 @@ def signed(client, payload, secret=SECRET):
 
 def _rows(tid):
     with db.owner_tx(settings.owner_database_url, tid) as c:
-        inbound = c.execute("SELECT * FROM wa_inbound").fetchall()
-        jobs = c.execute("SELECT kind, payload FROM jobs WHERE kind = 'wa.inbound'").fetchall()
+        inbound = c.execute("SELECT * FROM inbound_messages").fetchall()
+        jobs = c.execute("SELECT kind, payload FROM jobs WHERE kind = 'msg.inbound'").fetchall()
         cipher = cipher_for(c, tid)
     return inbound, jobs, cipher
 
@@ -107,7 +107,7 @@ def test_text_message_stored_encrypted_and_one_job(client, wa_lab):
     assert bytes(inbound[0]["sender_fp"]) == cipher.fingerprint(SENDER)
     stored = Inbound(mid, pn, SENDER, "text", text="hello")
     assert json.loads(cipher.decrypt(enc)) == dataclasses.asdict(stored)
-    assert [j["payload"] for j in jobs] == [{"message_id": mid}]
+    assert [j["payload"] for j in jobs] == [{"message_id": mid, "channel": "whatsapp"}]
 
 
 def test_duplicate_delivery_one_job(client, wa_lab):

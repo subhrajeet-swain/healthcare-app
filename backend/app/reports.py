@@ -110,7 +110,7 @@ def store_result(c, tenant_id: UUID, report_id: UUID, res) -> None:
         (res.triage, res.next_step.value, res.urgent, res.report.collected_on,
          Jsonb(res.warnings), report_id),
     )
-    from app import wa_jobs  # wa_jobs imports this module
+    from app import msg_jobs  # msg_jobs imports this module
 
     new_trends = review.refresh_trends(c, tenant_id, rep["user_id"])
     for trend_id in new_trends:
@@ -118,7 +118,7 @@ def store_result(c, tenant_id: UUID, report_id: UUID, res) -> None:
             c, tenant_id, kind="trend", reason="trend", user_id=rep["user_id"], trend_id=trend_id
         )
     if new_trends:  # one alert however many trends are new
-        wa_jobs.queue_notify(c, tenant_id, rep["user_id"], "trend_alert", report_id)
+        msg_jobs.queue_notify(c, tenant_id, rep["user_id"], "trend_alert", report_id)
     set_status(c, tenant_id, report_id, res.final_status)
 
 

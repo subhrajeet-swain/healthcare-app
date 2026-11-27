@@ -172,7 +172,7 @@ def test_dead_non_pipeline_job_with_report_id_leaves_the_report(client, patient)
     with _wconn() as c:
         c.execute(
             "INSERT INTO jobs (tenant_id, kind, payload, status, attempts, locked_at) "
-            "VALUES (%s, 'wa.notify', %s, 'running', %s, now() - interval '6 minutes')",
+            "VALUES (%s, 'msg.notify', %s, 'running', %s, now() - interval '6 minutes')",
             (tid, json.dumps({"user_id": str(uid), "event": "report_ready", "report_id": rid}),
              worker.MAX_ATTEMPTS))
     assert worker.run_once(_models()) is False

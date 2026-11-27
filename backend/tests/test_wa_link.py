@@ -23,16 +23,17 @@ def _owner(tid):
 def _codes(tid, uid):
     with _owner(tid) as c:
         return c.execute(
-            "SELECT * FROM wa_link_codes WHERE user_id = %s ORDER BY created_at", (uid,)
+            "SELECT * FROM link_codes WHERE user_id = %s ORDER BY created_at", (uid,)
         ).fetchall()
 
 
 def _link(tid, uid, number=NUMBER):
-    """What the worker does when `LINK <code>` arrives: a wa_links row for the user."""
+    """What the worker does when `LINK <code>` arrives: a channel_links row for the user."""
     with _owner(tid) as c:
         cipher = cipher_for(c, tid)
         c.execute(
-            "INSERT INTO wa_links (tenant_id, user_id, wa_fp, wa_enc) VALUES (%s, %s, %s, %s)",
+            "INSERT INTO channel_links (tenant_id, user_id, channel, address_fp, address_enc) "
+            "VALUES (%s, %s, 'whatsapp', %s, %s)",
             (tid, uid, cipher.fingerprint(number), cipher.encrypt(number)),
         )
 
@@ -62,7 +63,7 @@ def test_link_code_shape_and_hash_only(client, patient, wa_lab, db_urls):
     assert row["lang"] == "en" and row["used_at"] is None
     with _owner(tid) as c:
         secs = c.execute(
-            "SELECT extract(epoch FROM expires_at - created_at) AS s FROM wa_link_codes "
+            "SELECT extract(epoch FROM expires_at - created_at) AS s FROM link_codes "
             "WHERE id = %s",
             (row["id"],),
         ).fetchone()["s"]
@@ -120,7 +121,7 @@ def test_profile_is_404(client, patient, wa_lab):
 def test_code_unique_among_live_codes(monkeypatch, client, patient, wa_lab, login):
     slug, tid, _ = patient
     draws = itertools.chain([123456, 123456, 654321], itertools.repeat(1))
-    monkeypatch.setattr("app.wa_api.secrets.randbelow", lambda _n: next(draws))
+    monkeypatch.setattr("app.channels_api.secrets.randbelow", lambda _n: next(draws))
     assert client.post(CODE, json={"language": "en"}).json()["code"] == "123456"
     with TestClient(client.app) as other:
         assert login(slug, "9811111111", c=other).status_code == 200
@@ -141,13 +142,14 @@ def test_unlink_deletes_and_withdraws(client, patient, wa_lab, db_urls):
     }
     assert client.delete(LINK).status_code == 204
     with _owner(tid) as c:
-        assert c.execute("SELECT 1 FROM wa_links WHERE user_id = %s", (uid,)).fetchone() is None
+        assert c.execute(
+            "SELECT 1 FROM channel_links WHERE user_id = %s", (uid,)).fetchone() is None
         rows = c.execute(
             "SELECT purpose, withdrawn_at FROM consents WHERE user_id = %s", (uid,)
         ).fetchall()
         consents = {r["purpose"]: r["withdrawn_at"] for r in rows}
         rows = c.execute(
-            "SELECT action FROM audit_log WHERE entity IN ('wa_link', 'consent')"
+            "SELECT action FROM audit_log WHERE entity IN ('channel_link', 'consent')"
         ).fetchall()
         actions = {r["action"] for r in rows}
     assert consents["whatsapp"] is not None and consents["core"] is None
