@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     wa_verify_token: str = ""
     wa_access_token: str = ""
     wa_graph_url: str = "https://graph.facebook.com/v21.0"
+    # Telegram Bot API. Empty token: sends are only logged (see telegram.send_text).
+    telegram_bot_token: str = ""
+    telegram_bot_username: str = ""
+    telegram_lab: str = ""  # the one tenant slug Telegram serves
 
 
 settings = Settings()
