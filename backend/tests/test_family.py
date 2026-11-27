@@ -322,3 +322,20 @@ def test_pending_invites_are_capped(client, manager):
         assert _invite(client, phone=f"98880000{i:02d}").status_code == 201
     r = _invite(client, phone="9888000099")
     assert r.status_code == 429 and r.json() == {"error": "too_many_invites"}
+
+
+def test_revoke_kills_the_managers_share_links_for_the_member(client, manager, adult):
+    """A removed manager must not keep reading the member's reports through a share link."""
+    from tests.test_share import _share, _view
+    from tests.test_trends_store import _store
+
+    ac, aid = adult
+    link = _invite(client).json()["link_id"]
+    ac.post(f"/api/family/{link}/accept")
+    theirs = _store((manager[1], aid), glucose=90)
+    url = _share(client, [theirs], headers=_as(aid)).json()["url"]
+    own = _share(ac, [theirs]).json()["url"]  # the member's own link stays
+    assert _view(url).status_code == 200
+    assert ac.delete(f"/api/family/{link}").status_code == 204
+    assert _view(url).status_code == 404
+    assert _view(own).status_code == 200

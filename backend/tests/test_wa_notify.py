@@ -201,7 +201,8 @@ def test_notify_near_window_end_uses_template(client, patient, wa_lab, sent):  #
     _, tid, _ = patient
     _linked(client, wa_lab, sent)
     with _owner(tid) as c:
-        c.execute("UPDATE channel_links SET last_inbound_at = now() - interval '23 hours 30 minutes'")
+        c.execute("UPDATE channel_links "
+                  "SET last_inbound_at = now() - interval '23 hours 30 minutes'")
     _upload(client)
     assert worker.run_once(_models()) is True
     _drain()

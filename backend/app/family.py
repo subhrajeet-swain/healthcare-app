@@ -175,6 +175,12 @@ def revoke(link_id: UUID, ctx: Own) -> Response:
         if row is None:
             raise not_found()
         audit(c, ctx, "revoke", "family_link", link_id)
+        # the manager's share links for the member die with the link
+        c.execute(
+            "UPDATE share_links SET revoked_at = now() "
+            "WHERE user_id = %s AND created_by = %s AND revoked_at IS NULL",
+            (row["member_id"], row["manager_id"]),
+        )
         # lock the member first: two co-managers revoking at once must not both see the other
         # still active and leave the child orphaned
         c.execute("SELECT 1 FROM users WHERE id = %s FOR UPDATE", (row["member_id"],))
