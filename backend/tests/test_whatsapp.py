@@ -110,7 +110,8 @@ def test_templates_and_copy_carry_no_numbers():
             assert set(langs) == {"en", "hi"}, name
             for text in langs.values():
                 assert not re.search(r"\d", text), name
-                assert set(re.findall(r"{(\w+)}", text)) <= {"lab"}, name
+                assert set(re.findall(r"{(\w+)}", text)) <= (
+                {"lab", "account"} if name == "linked" else {"lab"}), name
 
 
 def test_copy_and_template_keys_and_red_lines():

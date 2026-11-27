@@ -92,3 +92,25 @@ def test_outbox_row_is_owned_by_a_linked_sender(client, patient, wa_lab, sent): 
                          (mid,)).fetchone() is None
         assert c.execute("SELECT 1 FROM inbound_messages WHERE message_id = %s",
                          (unlinked,)).fetchone() is not None
+
+
+def test_failed_question_row_is_owned_too(client, patient, wa_lab, sent, monkeypatch):  # noqa: F811 (I2)
+    from app import chat_api
+    from tests.test_wa_inbound import _ready
+
+    _, tid, uid = patient
+    _ready(client)
+    _linked(client, wa_lab, sent)
+
+    def down(*a, **kw):
+        raise RuntimeError("model down")
+
+    monkeypatch.setattr(chat_api, "converse", down)
+    mid = deliver(client, wa_lab, NUMBER, "why is it low?")
+    with _owner(tid) as c:
+        row = c.execute("SELECT user_id, body_enc FROM inbound_messages WHERE message_id = %s",
+                        (mid,)).fetchone()
+        assert row["user_id"] == uid and row["body_enc"] is not None  # the question, kept
+        c.execute("DELETE FROM users WHERE id = %s", (uid,))
+        assert c.execute("SELECT 1 FROM inbound_messages WHERE message_id = %s",
+                         (mid,)).fetchone() is None

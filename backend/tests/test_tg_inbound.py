@@ -8,7 +8,6 @@ from app import telegram, telegram_poll, worker
 from app.auth import _code_hash
 from app.config import settings
 from app.telegram import COPY, TelegramError
-from app.whatsapp import COPY as WA_COPY
 from tests.conftest import pdf_bytes
 from tests.test_chat_api import GOOD, _ask, model  # noqa: F401
 from tests.test_wa_inbound import (  # noqa: F401
@@ -19,6 +18,7 @@ from tests.test_wa_inbound import (  # noqa: F401
     _ready,
     _reports,
     deliver,
+    linked,
     sent,
     texts,
 )
@@ -54,6 +54,8 @@ def tg_sent(monkeypatch):
     def tg_call(method, params):
         if method == "getFile":
             fake.get_file.append(params["file_id"])
+            if isinstance(fake.file, Exception):
+                raise fake.file
             return fake.file
         if method == "editMessageText":
             if fake.edit_err:
@@ -114,7 +116,7 @@ def _links(tid, channel="telegram"):
 
 def _tg_linked(client, tid, fake):
     tg_deliver(client, tid, text=f"/start {_tg_code(client)}")
-    assert tg_texts(fake)[-1] == COPY["linked"]["en"]
+    assert tg_texts(fake)[-1].startswith(COPY["linked"]["en"].split("{")[0])
     fake.clear()
 
 
@@ -131,7 +133,8 @@ def test_tg_link_flow(client, patient, tg_lab, tg_sent):
     assert row["channel"] == "telegram" and bytes(row["code_hash"]) == bytes(_code_hash(code))
     assert code.encode() not in b"".join(str(v).encode() for v in row.values())
     tg_deliver(client, tid, text=f"/start {code}")
-    assert tg_texts(tg_sent) == [COPY["linked"]["en"]] and tg_sent[0]["chat_id"] == str(CHAT)
+    assert tg_texts(tg_sent) == [linked(tid, uid, channel="telegram")]
+    assert tg_sent[0]["chat_id"] == str(CHAT) and "Not you? Send /stop." in tg_texts(tg_sent)[0]
     (link,) = _links(tid)
     assert link["user_id"] == uid
     with _owner(tid) as c:
@@ -150,15 +153,15 @@ def test_code_only_redeems_on_its_channel(client, patient, tg_lab, wa_lab, tg_se
     assert tg_texts(tg_sent) == [COPY["bad_code"]["en"]] and _links(tid) == []
     tg_code = _tg_code(client)
     deliver(client, wa_lab, text=f"LINK {tg_code}")
-    assert WA_COPY["linked"]["en"] not in texts(sent) and _links(tid, "whatsapp") == []
+    assert "•" not in "".join(texts(sent)) and _links(tid, "whatsapp") == []
 
 
 def test_tg_code_leaves_whatsapp_code_live(client, patient, tg_lab, wa_lab, sent):  # noqa: F811
-    _, tid, _ = patient
+    _, tid, uid = patient
     wa_code = _code(client)
     _tg_code(client)
     deliver(client, wa_lab, text=f"LINK {wa_code}")
-    assert texts(sent) == [WA_COPY["linked"]["en"]] and len(_links(tid, "whatsapp")) == 1
+    assert texts(sent) == [linked(tid, uid)] and len(_links(tid, "whatsapp")) == 1
 
 
 def test_tg_unavailable_409(client, patient):
@@ -169,7 +172,7 @@ def test_tg_unavailable_409(client, patient):
 
 
 def test_tg_expired_or_used_code(client, patient, tg_lab, tg_sent):
-    _, tid, _ = patient
+    _, tid, uid = patient
     code = _tg_code(client)
     with _owner(tid) as c:
         c.execute("UPDATE link_codes SET expires_at = now() - interval '1 second'")
@@ -179,7 +182,7 @@ def test_tg_expired_or_used_code(client, patient, tg_lab, tg_sent):
     code = _tg_code(client)
     tg_deliver(client, tid, text=f"/start {code}")
     tg_deliver(client, tid, chat=77, text=f"/start {code}")
-    assert tg_texts(tg_sent) == [COPY["linked"]["en"], COPY["bad_code"]["en"]]
+    assert tg_texts(tg_sent) == [linked(tid, uid, channel="telegram"), COPY["bad_code"]["en"]]
     assert len(_links(tid)) == 1
 
 
@@ -244,7 +247,7 @@ def test_tg_document_makes_report(client, patient, tg_lab, tg_sent):
     (r,) = _reports(tid)
     assert (r["source"], r["user_id"], r["file_mime"]) == ("telegram", uid, "application/pdf")
     assert len(_pipeline_jobs(r["id"])) == 1
-    assert tg_texts(tg_sent) == [telegram.status_text("received", [], None, None, "en")]
+    assert tg_texts(tg_sent) == [telegram.status_text("received", [], None, "en")]
 
 
 def test_tg_photo_uses_largest(client, patient, tg_lab, tg_sent):
@@ -276,7 +279,7 @@ def test_tg_failed_send_retried(client, patient, tg_lab, tg_sent):  # Review Foc
     _due(tid)
     while worker.run_once(_models()):
         pass
-    assert tg_texts(tg_sent) == [COPY["linked"]["en"]] and len(_links(tid)) == 1
+    assert tg_texts(tg_sent) == [linked(tid, uid, channel="telegram")] and len(_links(tid)) == 1
     with _owner(tid) as c:
         n = c.execute("SELECT count(*) AS n FROM consents WHERE user_id = %s "
                       "AND purpose = 'telegram'", (uid,)).fetchone()["n"]
@@ -292,3 +295,43 @@ def test_tg_unlink_withdraws_only_telegram(client, patient, tg_lab, wa_lab, tg_s
     assert consent["telegram"] is False and consent["whatsapp"] is True
     assert _links(tid) == [] and len(_links(tid, "whatsapp")) == 1
 
+
+
+def _tg_err(method, status, description=""):
+    err = TelegramError(f"{method} failed: {status}")
+    err.description = description
+    return err
+
+
+def _job_status(mid):
+    with _wconn() as c:
+        (job,) = c.execute("SELECT status FROM jobs WHERE payload->>'message_id' = %s",
+                           (mid,)).fetchall()
+    return job["status"]
+
+
+def test_tg_refused_get_file_is_bad_file(client, patient, tg_lab, tg_sent):  # Minor b
+    _, tid, _ = patient
+    _tg_linked(client, tid, tg_sent)
+    tg_sent.file = _tg_err("getFile", 400, "Bad Request: file is too big")
+    mid = tg_deliver(client, tid, document="doc-1")
+    assert tg_texts(tg_sent) == [COPY["bad_file"]["en"]] and _reports(tid) == []
+    assert _job_status(mid) == "done"
+
+
+def test_tg_get_file_outage_retries(client, patient, tg_lab, tg_sent):
+    _, tid, _ = patient
+    _tg_linked(client, tid, tg_sent)
+    tg_sent.file = _tg_err("getFile", 502)
+    mid = tg_deliver(client, tid, document="doc-1", drain=False)
+    assert tg_sent == [] and _reports(tid) == []
+    assert _job_status(mid) == "queued"  # backed off for a retry, no bad_file reply
+
+
+def test_unlink_kills_live_codes(client, patient, tg_lab, tg_sent):  # Minor a
+    _, tid, _ = patient
+    _tg_linked(client, tid, tg_sent)
+    code = _tg_code(client)
+    assert client.delete("/api/channels/telegram/link").status_code == 204
+    tg_deliver(client, tid, chat=77, text=f"/start {code}")
+    assert tg_texts(tg_sent) == [COPY["bad_code"]["en"]] and _links(tid) == []

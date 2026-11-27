@@ -64,6 +64,12 @@ def texts(bodies):
     return [b["text"]["body"] for b in bodies]
 
 
+def linked(tid, uid, lang="en", channel="whatsapp"):
+    """The `linked` reply for this account, as the job words it."""
+    with _owner(tid) as c:
+        return msg_jobs.linked_text(c, tid, uid, channel, lang)
+
+
 def deliver(client, wa_lab, sender=NUMBER, text=None, media_id=None, models=None):
     """Post one signed message from `sender` and run its `msg.inbound` job."""
     _, pn = wa_lab
@@ -94,7 +100,7 @@ def _code(client, language="en"):
 
 def _linked(client, wa_lab, sent, sender=NUMBER):
     deliver(client, wa_lab, sender, f"LINK {_code(client)}")
-    assert texts(sent)[-1] == COPY["linked"]["en"]
+    assert texts(sent)[-1].startswith(COPY["linked"]["en"].split("{")[0])
     sent.clear()
 
 
@@ -108,7 +114,7 @@ def test_link_flow_links_and_opts_in(client, patient, wa_lab, sent):
     _, tid, uid = patient
     code = _code(client, "hi")
     deliver(client, wa_lab, text=f"  link {code} ")
-    assert texts(sent) == [COPY["linked"]["hi"]]
+    assert texts(sent) == [linked(tid, uid, "hi")]
     (link,) = _links(tid)
     assert link["user_id"] == uid and link["lang"] == "hi" and link["last_inbound_at"]
     status = client.get("/api/whatsapp/link").json()
@@ -133,7 +139,7 @@ def test_link_expired_or_used_code_rejected(client, patient, wa_lab, sent):
     code = _code(client)
     deliver(client, wa_lab, text=f"LINK {code}")
     deliver(client, wa_lab, OTHER, f"LINK {code}")  # used: a second number cannot take it
-    assert texts(sent) == [COPY["linked"]["en"], COPY["bad_code"]["en"]]
+    assert texts(sent) == [linked(tid, uid), COPY["bad_code"]["en"]]
     assert len(_links(tid)) == 1
 
 
@@ -163,7 +169,7 @@ def test_relink_moves_number(client, patient, wa_lab, sent, login):
         assert login(slug, "9811111111", c=other).status_code == 200
         other_id = uuid.UUID(other.get("/api/me").json()["id"])
         deliver(client, wa_lab, text=f"LINK {_code(other)}")
-        assert texts(sent) == [COPY["linked"]["en"]]
+        assert texts(sent) == [linked(tid, other_id)]
         assert [link["user_id"] for link in _links(tid)] == [other_id]
         assert client.get("/api/whatsapp/link").json()["linked"] is False
         sent.clear()
@@ -466,7 +472,7 @@ def test_retried_link_links_once(client, patient, wa_lab, flaky):
     assert flaky == [] and len(_links(tid)) == 1  # linked, reply not sent
     _due(tid)
     assert worker.run_once(_models()) is True
-    assert texts(flaky) == [COPY["linked"]["en"]] and len(_links(tid)) == 1
+    assert texts(flaky) == [linked(tid, uid)] and len(_links(tid)) == 1
     with _owner(tid) as c:
         consents = c.execute("SELECT 1 FROM consents WHERE user_id = %s AND purpose = 'whatsapp' "
                              "AND withdrawn_at IS NULL", (uid,)).fetchall()
@@ -526,3 +532,18 @@ def test_latest_matches_report_list_order(client, patient, wa_lab, sent):
     first = next(r["id"] for r in client.get("/api/reports").json()
                  if r["status"] in ("ready", "needs_review"))
     assert _read_report(tid) == first
+
+
+def test_linked_reply_names_the_account(client, patient, wa_lab, sent):  # security Medium
+    slug, tid, uid = patient
+    deliver(client, wa_lab, text=f"LINK {_code(client)}")
+    (text,) = texts(sent)
+    assert "+91 ••••• 3210" in text and slug in text and "Not you? Send STOP." in text
+    assert "98765" not in text and text == linked(tid, uid)
+    assert "+91 ••••• 3210" in linked(tid, uid, "hi") and slug in linked(tid, uid, "hi")
+
+
+def test_deliver_of_a_deleted_row_sends_nothing(client, wa_lab, sent):  # Minor d
+    tid, _ = wa_lab
+    msg_jobs._deliver(tid, "wamid.gone", "whatsapp")
+    assert sent == []

@@ -141,6 +141,11 @@ def unlink(channel: Channel, ctx: TenantCtx) -> None:
             "DELETE FROM channel_links WHERE user_id = %s AND channel = %s",
             (ctx.user_id, channel),
         )
+        c.execute(  # a code still live (a t.me URL in history) must not relink after this
+            "UPDATE link_codes SET used_at = now() "
+            "WHERE user_id = %s AND channel = %s AND used_at IS NULL",
+            (ctx.user_id, channel),
+        )
         c.execute(
             "UPDATE consents SET withdrawn_at = now() "
             "WHERE user_id = %s AND purpose = %s AND withdrawn_at IS NULL",

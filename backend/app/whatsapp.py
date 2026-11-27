@@ -31,13 +31,14 @@ TIMEOUT = 20
 
 
 # Hindi lines are machine-drafted; a native speaker must review them before real users.
-# Free-text replies, sent inside the 24 hour window. No numbers, no medical claims.
+# Free-text replies, sent inside the 24 hour window. No numbers, no medical claims; `linked`
+# alone has `{lab}` and `{account}` (the masked phone: digits only from the value).
 COPY: dict[str, dict[str, str]] = {
     "linked": {
-        "en": "Your WhatsApp number is now linked to your account. "
-        "Send REPORT to get your latest report, or STOP to stop messages.",
-        "hi": "आपका WhatsApp नंबर अब आपके खाते से जुड़ गया है। "
-        "अपनी ताज़ा रिपोर्ट पाने के लिए REPORT भेजें, या संदेश बंद करने के लिए STOP भेजें।",
+        "en": "Your WhatsApp number is now linked to the account {account} at {lab}. "
+        "Not you? Send STOP. Send REPORT to get your latest report.",
+        "hi": "आपका WhatsApp नंबर अब {lab} के खाते {account} से जुड़ गया है। "
+        "यह आप नहीं हैं? STOP भेजें। अपनी ताज़ा रिपोर्ट पाने के लिए REPORT भेजें।",
     },
     "link_from_app": {
         "en": "To link this number, open the app, choose WhatsApp, and send the code it shows "

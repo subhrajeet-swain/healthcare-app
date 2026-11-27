@@ -10,7 +10,8 @@ held:     the 15 fixture specs through template_result; a red one's held patient
           no critical flag, no red triage and no result value.
 whatsapp: the 15 fixture specs as WhatsApp text: a non-red one has the web explanation and closing
           line once, in chunks of at most 700; a red one raises and its fixed lines hold no value;
-          every COPY/TEMPLATES text has no digit and no placeholder but {lab}.
+          every COPY/TEMPLATES text has no digit and no placeholder but {lab}
+          ({account} too in `linked`: the masked phone, digits from the value).
 telegram: the same 15 specs in chunks of at most 4096, plus every telegram.COPY text (no digit,
           no placeholder but {lab}).
 reports:  the 15 synthetic PDFs through the real pipeline; their specs are the answer key.
@@ -280,6 +281,10 @@ def _whatsapp_spec(spec_path: Path, chunk: int = 700) -> tuple[str, bool, str]:
     return spec_path.stem, not bad, f"{res.triage}: {'fails ' + ','.join(bad) if bad else 'ok'}"
 
 
+# `linked` names the account (security review): its masked phone is the one other hole
+_ALLOWED = {"linked": {"{lab}", "{account}"}}
+
+
 def run_whatsapp() -> list[tuple[str, bool, str]]:
     from app.whatsapp import COPY, TEMPLATES
 
@@ -287,7 +292,8 @@ def run_whatsapp() -> list[tuple[str, bool, str]]:
     for table, name in ((COPY, "copy"), (TEMPLATES, "template")):
         for key, langs in table.items():
             texts = list(langs.values())
-            holes = [m for t in texts for m in re.findall(r"\{[^}]*\}", t) if m != "{lab}"]
+            holes = [m for t in texts for m in re.findall(r"\{[^}]*\}", t)
+                     if m not in _ALLOWED.get(key, {"{lab}"})]
             digits = [t for t in texts if re.search(r"\d", t)]
             out.append((f"{name}.{key}", len(texts) == 2 and not holes and not digits,
                         f"placeholders={holes} digits={len(digits)}"))
@@ -300,7 +306,8 @@ def run_telegram() -> list[tuple[str, bool, str]]:
     out = [_whatsapp_spec(p, CHUNK) for p in sorted((DATA / "specs").glob("report_*.json"))]
     for key, langs in COPY.items():
         texts = list(langs.values())
-        holes = [m for t in texts for m in re.findall(r"\{[^}]*\}", t) if m != "{lab}"]
+        holes = [m for t in texts for m in re.findall(r"\{[^}]*\}", t)
+                 if m not in _ALLOWED.get(key, {"{lab}"})]
         digits = [t for t in texts if re.search(r"\d", t)]
         out.append((f"copy.{key}", len(texts) == 2 and not holes and not digits,
                     f"placeholders={holes} digits={len(digits)}"))

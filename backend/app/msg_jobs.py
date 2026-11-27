@@ -121,6 +121,9 @@ def inbound(job: dict, models: dict | None, saver) -> None:
             out, ctx, lang = _decide(c, cipher, tid, channel, bytes(row["sender_fp"]), m)
             if isinstance(out, list):
                 _outbox(c, cipher, mid, m.sender, out, ctx and ctx.user_id)
+            elif ctx:  # a question or media: the user owns the raw body even if the model fails
+                c.execute("UPDATE inbound_messages SET user_id = %s WHERE message_id = %s",
+                          (ctx.user_id, mid))
     rid = None
     if out == "media":
         rid = _media(tid, mid, channel, m, ctx, lang)
@@ -141,6 +144,8 @@ def _deliver(tid: UUID, message_id: str, channel: Channel) -> None:
         row = c.execute(
             "SELECT body_enc FROM inbound_messages WHERE message_id = %s", (message_id,)
         ).fetchone()
+        if row is None or row["body_enc"] is None:
+            return  # the user was deleted mid-job: nothing to send
         box = json.loads(cipher_for(c, tid).decrypt(row["body_enc"]))
         account = _account(c, tid, channel)
     if account:
@@ -241,7 +246,17 @@ def _link(
     )
     audit(c, ctx, "wa_link", "channel_link", ctx.user_id)
     _grant(c, ctx, channel)
-    return COPY["linked"][row["lang"]]
+    return linked_text(c, tid, ctx.user_id, channel, row["lang"])
+
+
+def linked_text(c, tid: UUID, user_id: UUID, channel: Channel, lang: str) -> str:
+    """The `linked` reply names the account (masked phone, lab), so a patient who tapped someone
+    else's link code sees it is not theirs and can send STOP."""
+    u = c.execute("SELECT phone_enc FROM users WHERE id = %s", (user_id,)).fetchone()
+    phone = cipher_for(c, tid).decrypt(u["phone_enc"]) if u["phone_enc"] else ""  # E.164
+    lab = c.execute("SELECT name FROM tenants WHERE id = %s", (tid,)).fetchone()["name"]
+    account = f"{phone[:3]} ••••• {phone[-4:]}" if phone else "•••••"
+    return ADAPTERS[channel].COPY["linked"][lang].format(account=account, lab=lab)
 
 
 def _latest(c, ctx: TenantCtx):
@@ -387,7 +402,7 @@ def push_status(tid: UUID, rid: UUID) -> None:
     workers, lock the report row around the send (or accept a rare second message)."""
     with _tx(tid) as c:
         r = c.execute(
-            "SELECT id, user_id, status, triage, failure_message, status_message_id "
+            "SELECT id, user_id, status, triage, status_message_id "
             "FROM reports WHERE id = %s AND source = 'telegram'", (rid,),
         ).fetchone()
         if r is None:
@@ -406,9 +421,7 @@ def push_status(tid: UUID, rid: UUID) -> None:
         ).fetchall()]
         audit(c, ctx, "read", "report", rid)
         to = cipher_for(c, tid).decrypt(link["address_enc"])
-    text = telegram.status_text(
-        r["status"], steps, r["triage"], r["failure_message"], link["lang"]
-    )
+    text = telegram.status_text(r["status"], steps, r["triage"], link["lang"])
     old = r["status_message_id"]
     new = telegram.edit_status(to, old, text) if old else telegram.send_status(to, text)
     if new and new != old:

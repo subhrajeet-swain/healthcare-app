@@ -58,12 +58,13 @@ def test_copy_keys_and_no_numbers():
     assert set(whatsapp.COPY) <= set(COPY)
     assert set(COPY) - set(whatsapp.COPY) == {
         "review_complete", "trend_alert", "status_received", "status_reading", "status_read",
-        "status_writing", "status_ready", "status_attention"}
+        "status_writing", "status_ready", "status_attention", "status_failed"}
     for name, langs in COPY.items():
         assert set(langs) == {"en", "hi"}, name
         for text in langs.values():
             assert not re.search(r"\d", text), name
-            assert set(re.findall(r"{(\w+)}", text)) <= {"lab"}, name
+            assert set(re.findall(r"{(\w+)}", text)) <= (
+                {"lab", "account"} if name == "linked" else {"lab"}), name
             assert "WhatsApp" not in text and "LINK" not in text, name
     assert "/report" in COPY["linked"]["en"] and "/start" in COPY["stopped"]["en"]
 

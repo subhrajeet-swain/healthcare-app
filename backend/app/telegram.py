@@ -35,13 +35,14 @@ class TelegramError(Exception):
 
 
 # Hindi lines are machine-drafted; a native speaker must review them before real users.
-# No numbers, no medical claims; `{lab}` is the only placeholder.
+# No numbers, no medical claims; `{lab}` is the only placeholder, and `linked` also has
+# `{account}` (the masked phone: its digits come from the value, never the copy).
 COPY: dict[str, dict[str, str]] = {
     "linked": {
-        "en": "This Telegram chat is now linked to your account. "
-        "Send /report to get your latest report, or /stop to stop messages.",
-        "hi": "यह Telegram चैट अब आपके खाते से जुड़ गई है। "
-        "अपनी ताज़ा रिपोर्ट पाने के लिए /report भेजें, या संदेश बंद करने के लिए /stop भेजें।",
+        "en": "This Telegram chat is now linked to the account {account} at {lab}. "
+        "Not you? Send /stop. Send /report to get your latest report.",
+        "hi": "यह Telegram चैट अब {lab} के खाते {account} से जुड़ गई है। "
+        "यह आप नहीं हैं? /stop भेजें। अपनी ताज़ा रिपोर्ट पाने के लिए /report भेजें।",
     },
     "link_from_app": {
         "en": "To link this chat, open the app, choose Telegram, and tap the link it shows.",
@@ -85,6 +86,10 @@ COPY: dict[str, dict[str, str]] = {
     "status_writing": {"en": "Writing your explanation…", "hi": "आपकी व्याख्या लिखी जा रही है…"},
     "status_ready": {"en": "Explanation ready", "hi": "व्याख्या तैयार है"},
     "status_attention": {"en": "Needs attention today", "hi": "आज ही ध्यान देने की ज़रूरत है"},
+    "status_failed": {
+        "en": "We could not read this report. Please send a clear photo or PDF of it.",
+        "hi": "हम यह रिपोर्ट नहीं पढ़ सके। कृपया उसका साफ़ फ़ोटो या PDF भेजें।",
+    },
     "bad_file": {
         "en": "We could not read that file. "
         "Please send a clear PDF, JPEG or PNG of your lab report.",
@@ -166,9 +171,7 @@ def send_text(account: str, to: str, text: str) -> None:
 _STAGE = {"received": 0, "extracting": 0, "explaining": 1, "ready": 2, "needs_review": 2}
 
 
-def status_text(
-    status: str, steps: list[str], triage: str | None, failure: str | None, lang: str
-) -> str:
+def status_text(status: str, steps: list[str], triage: str | None, lang: str) -> str:
     """The status message: reached lines only, the current one ⏳, a failure ❌ in its place."""
     def t(key: str) -> str:
         return COPY[key][lang]
@@ -182,7 +185,7 @@ def status_text(
     if stage:
         lines.append(f"✅ {t('status_ready')}" if stage == 2 else f"⏳ {t('status_writing')}")
     if failed:
-        lines[-1] = f"❌ {failure or ''}".rstrip()
+        lines[-1] = f"❌ {t('status_failed')}"
     elif stage == 2 and triage == "red":
         lines.insert(0, f"⚠️ {t('status_attention')}")
     return "\n".join(lines)
@@ -196,15 +199,21 @@ def send_status(to: str, text: str) -> int | None:
     return int(tg_call("sendMessage", {"chat_id": to, "text": text})["message_id"])
 
 
+_GONE = ("message to edit not found", "message can't be edited")
+
+
 def edit_status(to: str, message_id: int, text: str) -> int | None:
-    """Edit the status message in place; if that fails, a new one. The id that now holds it."""
+    """Edit the status message in place; the id that now holds it. Only a message Telegram says
+    is gone or uneditable gets a new one; any other failure raises, so the job retries the edit."""
     try:
         tg_call("editMessageText", {"chat_id": to, "message_id": message_id, "text": text})
         return message_id
     except TelegramError as e:
         if "message is not modified" in e.description:
             return message_id  # a duplicate or out-of-order job: already this text
-        log.info("telegram status edit failed (%s); sending a new message", e)
+        if not any(g in e.description for g in _GONE):
+            raise
+        log.info("telegram status message gone (%s); sending a new one", e)
     return send_status(to, text)
 
 
@@ -213,7 +222,14 @@ _BAD_PATH = re.compile(r"\.\.|//|:")
 
 def fetch_media(file_id: str) -> bytes:
     """Download a file a chat sent. The caller then runs `files.check_bytes` on it (ruling T15)."""
-    meta = tg_call("getFile", {"file_id": file_id})
+    try:
+        meta = tg_call("getFile", {"file_id": file_id})
+    except TelegramError as e:
+        if not e.description:  # an outage: raise, so the job retries
+            raise
+        # Telegram refused it (over its 20 MB limit, a bad id): no retry fixes that
+        code = (413, "file_too_large") if "too big" in e.description else (415, "unsupported_file")
+        raise ApiError(*code) from None
     if int(meta.get("file_size") or 0) > files.MAX_BYTES:
         raise ApiError(413, "file_too_large")
     path = str(meta.get("file_path") or "")

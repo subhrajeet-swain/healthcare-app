@@ -70,13 +70,15 @@ services:
   telegram:
     build: ./backend
     restart: unless-stopped
-    env_file: .env
     command: python -m app.telegram_poll
-    environment:
+    environment:  # only what the poller needs, not the whole .env (security review, Low)
+      ENV: ${ENV}
       DATABASE_URL: postgresql://hc_app:app_dev@db:5432/healthcare
-      OWNER_DATABASE_URL: ""
-      GRAPH_DATABASE_URL: ""
-      ADMIN_DATABASE_URL: ""
+      MASTER_KEY: ${MASTER_KEY}  # cipher_for: encrypt the stored update
+      OTP_PEPPER: ${OTP_PEPPER}  # required by Settings at import
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_LAB: ${TELEGRAM_LAB:-}
     depends_on:
       migrate:
         condition: service_completed_successfully

@@ -1,9 +1,9 @@
 """The Telegram live status message: one bot message, edited in place as the report moves."""
 
+import pytest
 from psycopg.types.json import Jsonb
 
 from app import msg_jobs, telegram, worker
-from app.brain.extract import ExtractionFailed
 from app.telegram import COPY, TelegramError
 from tests.test_review_flow import RED
 from tests.test_review_flow import _models as _red_models
@@ -18,8 +18,8 @@ from tests.test_wa_inbound import _owner, _reports
 from tests.test_worker import _models, _upload, no_stray_jobs  # noqa: F401
 
 
-def _st(status, triage=None, failure=None, steps=()):
-    return telegram.status_text(status, list(steps), triage, failure, "en")
+def _st(status, triage=None, steps=(), lang="en"):
+    return telegram.status_text(status, list(steps), triage, lang)
 
 
 def _status_sends(fake):
@@ -45,10 +45,12 @@ def test_status_lines():
     assert _st("needs_review") == _st("ready")
     red = _st("needs_review", "red").splitlines()
     assert red[0] == f"⚠️ {COPY['status_attention']['en']}" and red[1:] == _st("ready").splitlines()
-    assert _st("failed", failure="Nope.", steps=["received", "extracting", "failed"]) \
-        .splitlines()[-1] == "❌ Nope."
-    late = _st("failed", failure="Nope.", steps=["received", "extracting", "explaining", "failed"])
-    assert late.splitlines()[-2:] == [f"✅ {COPY['status_read']['en']}", "❌ Nope."]
+    failed = f"❌ {COPY['status_failed']['en']}"
+    assert _st("failed", steps=["received", "extracting", "failed"]).splitlines()[-1] == failed
+    late = _st("failed", steps=["received", "extracting", "explaining", "failed"])
+    assert late.splitlines()[-2:] == [f"✅ {COPY['status_read']['en']}", failed]
+    hi = _st("failed", steps=["received", "failed"], lang="hi")
+    assert hi.splitlines()[-1] == f"❌ {COPY['status_failed']['hi']}"
     assert _st("whatever")  # any status a staff tool sets renders, never raises
 
 
@@ -80,7 +82,7 @@ def test_failed_extraction_shows_failure_message(client, patient, tg_lab, tg_sen
     _, tid, _ = patient
     _tg_linked(client, tid, tg_sent)
     tg_deliver(client, tid, document="doc-1", models=_models(extract_reply='{"results": []}'))
-    assert _edits(tg_sent)[-1].splitlines()[-1] == f"❌ {ExtractionFailed.NOT_A_REPORT}"
+    assert _edits(tg_sent)[-1].splitlines()[-1] == f"❌ {COPY['status_failed']['en']}"
 
 
 def test_stop_mid_pipeline_no_more_edits(client, patient, tg_lab, tg_sent):  # noqa: F811
@@ -100,22 +102,35 @@ def test_stop_mid_pipeline_no_more_edits(client, patient, tg_lab, tg_sent):  # n
     assert len(tg_sent.edits) == n_edits and len(tg_sent) == n_sent
 
 
-def test_not_modified_is_success_other_failure_resends(client, patient, tg_lab, tg_sent):  # noqa: F811
+def _edit_err(status, description=""):
+    err = TelegramError(f"editMessageText failed: {status}")
+    err.description = description
+    return err
+
+
+def test_edit_failures(client, patient, tg_lab, tg_sent):  # noqa: F811  (I1)
     _, tid, _ = patient
     _tg_linked(client, tid, tg_sent)
     tg_deliver(client, tid, document="doc-1", drain=False)
     (r,) = _reports(tid)
     mid = r["status_message_id"]
-    err = TelegramError("editMessageText failed: 400")
-    err.description = "Bad Request: message is not modified: specified new message content ..."
-    tg_sent.edit_err = err
+    tg_sent.edit_err = _edit_err(400, "Bad Request: message is not modified: specified new ...")
     msg_jobs.push_status(tid, r["id"])
     assert len(_status_sends(tg_sent)) == 1 and _reports(tid)[0]["status_message_id"] == mid
-    tg_sent.edit_err = TelegramError("editMessageText failed: 400")
-    msg_jobs.push_status(tid, r["id"])
-    sends = _status_sends(tg_sent)
-    assert len(sends) == 2 and sends[-1]["text"] == _st("received")
-    assert _reports(tid)[0]["status_message_id"] == mid + 1
+    for err in (_edit_err(502), _edit_err("ReadTimeout"), _edit_err(429, "Too Many Requests")):
+        tg_sent.edit_err = err
+        with pytest.raises(TelegramError):  # the msg.status job path: raise, so it retries
+            msg_jobs.status({"tenant_id": tid, "payload": {"report_id": str(r["id"])}}, None, None)
+        tg_sent.edit_err = err
+        msg_jobs.kick_status(tid, r["id"])  # the inline path: swallowed, the pipeline goes on
+    assert len(_status_sends(tg_sent)) == 1 and _reports(tid)[0]["status_message_id"] == mid
+    for n, gone in enumerate(("Bad Request: message to edit not found",
+                              "Bad Request: message can't be edited"), start=1):
+        tg_sent.edit_err = _edit_err(400, gone)
+        msg_jobs.push_status(tid, r["id"])
+        sends = _status_sends(tg_sent)
+        assert len(sends) == 1 + n and sends[-1]["text"] == _st("received")
+        assert _reports(tid)[0]["status_message_id"] == mid + n
 
 
 def test_duplicate_and_late_jobs_converge(client, patient, tg_lab, tg_sent):  # noqa: F811
